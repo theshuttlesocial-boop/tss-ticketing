@@ -148,7 +148,7 @@ function WaitlistModal({session,onClose}:{session:Session;onClose:()=>void}){
             <div style={{fontSize:13,color:T.muted,marginBottom:20}}>{session.title} · {fmtDateShort(session.date)}</div>
             {[['Full Name *','text',name,setName,'Your name'],['Email *','email',email,setEmail,'you@email.com'],['Phone *','tel',phone,setPhone,'+44 7700 000000']].map(([l,t,v,sv,ph])=>(
               <div key={l as string} style={{marginBottom:14}}>
-                <label style={{fontSize:12,color:T.muted,display:'block',marginBottom:5}}>{l}</label>
+                <label style={{fontSize:12,color:T.muted,display:'block',marginBottom:5}}>{l as string}</label>
                 <input type={t as string} value={v as string} onChange={e=>(sv as any)(e.target.value)} placeholder={ph as string} style={inp()}/>
               </div>
             ))}
@@ -215,7 +215,7 @@ function BookingModal({session,termsText,onClose}:{session:Session;termsText:str
 
             {[['Full Name *','text',name,setName,'Your name'],['Email *','email',email,setEmail,'you@email.com'],['Phone *','tel',phone,setPhone,'+44 7700 000000']].map(([l,t,v,sv,ph])=>(
               <div key={l as string} style={{marginBottom:14}}>
-                <label style={{fontSize:12,color:T.muted,display:'block',marginBottom:5}}>{l}</label>
+                <label style={{fontSize:12,color:T.muted,display:'block',marginBottom:5}}>{l as string}</label>
                 <input type={t as string} value={v as string} onChange={e=>(sv as any)(e.target.value)} placeholder={ph as string} style={inp()}
                   onFocus={e=>(e.target.style.borderColor=T.accent)} onBlur={e=>(e.target.style.borderColor=T.border)}/>
               </div>
