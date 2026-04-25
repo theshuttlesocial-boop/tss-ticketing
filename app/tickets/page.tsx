@@ -39,7 +39,7 @@ function SessionSchema({ session }: { session: Session }) {
       "name": session.venue,
       "address": { "@type": "PostalAddress", "addressLocality": "London", "addressCountry": "GB" }
     },
-    "organizer": { "@type": "Organization", "name": "The Shuttle Social", "url": "https://theshuttlesocial.co.uk" },
+    "organizer": { "@type": "Organization", "name": "The Shuttle Social", "url": "https://theshuttlesocial.com" },
     "eventStatus": "https://schema.org/EventScheduled",
     "eventAttendanceMode": "https://schema.org/OfflineEventAttendanceMode",
     "offers": { "@type": "Offer", "price": (session.price_pence/100).toFixed(2), "priceCurrency": "GBP",

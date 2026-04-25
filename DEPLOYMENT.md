@@ -6,8 +6,8 @@ Everything you need to go live. Takes ~45 minutes on first setup.
 
 ## What You'll Have When Done
 
-- **https://tickets.theshuttlesocial.co.uk** — the booking page you share
-- **https://tickets.theshuttlesocial.co.uk/admin** — your private dashboard
+- **https://tickets.theshuttlesocial.com** — the booking page you share
+- **https://tickets.theshuttlesocial.com/admin** — your private dashboard
 - Real Stripe payments (1.5% + 20p per ticket, paid by player or absorbed by you)
 - Zero double-charging — atomic seat locking at database level
 - Email confirmations to every booker (optional)
@@ -88,8 +88,8 @@ You already have Stripe from your current setup. You just need to:
 
 ## Step 4 — Custom Domain (Optional, ~£10/yr)
 
-1. Buy `theshuttlesocial.co.uk` from Namecheap / Google Domains
-2. In Vercel → Settings → Domains → Add `tickets.theshuttlesocial.co.uk`
+1. Buy `theshuttlesocial.com` from Namecheap / Google Domains
+2. In Vercel → Settings → Domains → Add `tickets.theshuttlesocial.com`
 3. Vercel gives you DNS records → add them in your domain registrar
 
 ---
@@ -98,7 +98,7 @@ You already have Stripe from your current setup. You just need to:
 
 1. Sign up at **resend.com** (free — 3,000 emails/month)
 2. Add your domain, copy API key → `RESEND_API_KEY`
-3. Set `EMAIL_FROM=bookings@theshuttlesocial.co.uk`
+3. Set `EMAIL_FROM=bookings@theshuttlesocial.com`
 
 ---
 
@@ -107,7 +107,7 @@ You already have Stripe from your current setup. You just need to:
 ### Creating a new session
 Either use the Admin dashboard, or call the API:
 ```bash
-curl -X POST https://tickets.theshuttlesocial.co.uk/api/sessions \
+curl -X POST https://tickets.theshuttlesocial.com/api/sessions \
   -H "Content-Type: application/json" \
   -H "x-admin-secret: YOUR_ADMIN_SECRET" \
   -d '{
@@ -124,14 +124,14 @@ curl -X POST https://tickets.theshuttlesocial.co.uk/api/sessions \
 
 ### Opening/closing a session
 ```bash
-curl -X PATCH https://tickets.theshuttlesocial.co.uk/api/admin \
+curl -X PATCH https://tickets.theshuttlesocial.com/api/admin \
   -H "Content-Type: application/json" \
   -H "x-admin-secret: YOUR_ADMIN_SECRET" \
   -d '{"session_id": "UUID-HERE", "status": "closed"}'
 ```
 
 ### Viewing all bookings
-Visit: `https://tickets.theshuttlesocial.co.uk/admin`
+Visit: `https://tickets.theshuttlesocial.com/admin`
 
 ---
 

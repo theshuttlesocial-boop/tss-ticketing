@@ -51,7 +51,7 @@ export async function sendBookingConfirmation({ to, name, bookingRef, sessionTit
     </div>` : ''
 
   await resend.emails.send({
-    from: process.env.EMAIL_FROM ?? 'bookings@theshuttlesocial.co.uk',
+    from: process.env.EMAIL_FROM ?? 'bookings@theshuttlesocial.com',
     to,
     subject: `✅ You're booked! ${sessionTitle} — Ref ${bookingRef}`,
     html: emailWrap(`
@@ -88,7 +88,7 @@ export async function sendWaitlistConfirmation({ to, name, position, sessionTitl
   if (!resend) return
   const fmtDate = (d: string) => new Date(d).toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'})
   await resend.emails.send({
-    from: process.env.EMAIL_FROM ?? 'bookings@theshuttlesocial.co.uk',
+    from: process.env.EMAIL_FROM ?? 'bookings@theshuttlesocial.com',
     to,
     subject: `🎯 You're #${position} on the waitlist — ${sessionTitle}`,
     html: emailWrap(`
