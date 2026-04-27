@@ -29,17 +29,22 @@ export async function GET(req: Request) {
   }
 
   if (type === 'analytics') {
-    const [bookingsRes, sessionsRes] = await Promise.all([
+    const [bookingsRes, sessionsRes, analyticsRes] = await Promise.all([
       supabaseAdmin.from('bookings').select('*').eq('stripe_status','succeeded'),
       supabaseAdmin.from('sessions').select('*').order('date'),
+      supabaseAdmin.from('session_analytics').select('session_id,event'),
     ])
     const bookings = bookingsRes.data ?? []
     const sessions = sessionsRes.data ?? []
+    const analyticsRows = analyticsRes.data ?? []
+
+    const clicksBySession: Record<string,number> = {}
+    analyticsRows.forEach(r => { clicksBySession[r.session_id] = (clicksBySession[r.session_id]??0)+1 })
 
     const revenueBySession = sessions.map(s => {
       const sb = bookings.filter(b => b.session_id === s.id)
-      return { session: s, bookings: sb, revenue: sb.reduce((a,b)=>a+b.total_pence,0), tickets: sb.reduce((a,b)=>a+b.quantity,0) }
-    }).filter(s => s.tickets > 0)
+      return { session: s, bookings: sb, revenue: sb.reduce((a,b)=>a+b.total_pence,0), tickets: sb.reduce((a,b)=>a+b.quantity,0), clicks: clicksBySession[s.id]??0 }
+    }).filter(s => s.tickets > 0 || s.clicks > 0)
 
     const revenueByMonth: Record<string,number> = {}
     bookings.forEach(b => {

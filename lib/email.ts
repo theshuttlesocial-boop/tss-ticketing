@@ -15,7 +15,7 @@ function emailWrap(content: string) {
   <div style="text-align:center;margin-bottom:28px;">
     <div style="display:inline-block;background:#142014;border-radius:50%;width:64px;height:64px;line-height:64px;font-size:32px;text-align:center;">🏸</div>
     <div style="color:${brandColor};font-weight:900;font-size:20px;margin-top:8px;letter-spacing:1px;">THE SHUTTLE SOCIAL</div>
-    <div style="color:${muted};font-size:11px;letter-spacing:2px;">BADMINTON FOR EVERYONE · LONDON</div>
+    <div style="color:${muted};font-size:11px;letter-spacing:2px;">BADMINTON FOR EVERYONE</div>
   </div>
   ${content}
   <div style="border-top:1px solid #1e3220;margin-top:28px;padding-top:16px;text-align:center;color:${muted};font-size:11px;">

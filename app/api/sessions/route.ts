@@ -41,13 +41,14 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
 
   const body = await req.json()
-  const { title, label, venue, region, date, time, capacity, price_pence, status, opens_at, description, is_recurring, recurring_day_of_week } = body
+  const { title, label, venue, region, date, time, capacity, price_pence, max_tickets_per_order, status, opens_at, description, is_recurring, recurring_day_of_week } = body
 
   if (!title || !venue || !date || !time) return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
 
   const { data, error } = await supabaseAdmin.from('sessions').insert({
     title, label: label ?? null, venue, region, date, time,
     capacity: capacity ?? 24, price_pence: price_pence ?? 800,
+    max_tickets_per_order: max_tickets_per_order ?? 4,
     status: status ?? 'draft', opens_at: opens_at ?? null,
     description: description ?? null,
     is_recurring: is_recurring ?? false,

@@ -18,7 +18,7 @@ interface Session {
   id:string; title:string; label?:string; venue:string; region:string
   date:string; time:string; capacity:number; price_pence:number
   status:string; booked:number; held:number; available:number
-  description?:string; waitlist_count:number; opens_at?:string; image_url?:string
+  description?:string; waitlist_count:number; opens_at?:string; image_url?:string; max_tickets_per_order?:number; maps_url?:string
 }
 
 const fmt = (p:number) => `£${(p/100).toFixed(2)}`
@@ -55,18 +55,18 @@ function ShareButtons({ session }: { session: Session }) {
   const text = encodeURIComponent(`🏸 ${session.title} — ${fmtDateLong(session.date)} at ${session.venue}. Book now: `)
 
   const links = [
-    { label:'W', color:'#25d366', href:`https://wa.me/?text=${text}${urlEnc}`, aria:'WhatsApp' },
-    { label:'IG', color:'#e1306c', href:`https://instagram.com/theshuttlesocial`, aria:'Instagram' },
-    { label:'TT', color:'#69c9d0', href:`https://tiktok.com/@theshuttlesocial`, aria:'TikTok' },
+    { src:'/whatsapp.png', href:`https://wa.me/?text=${text}${urlEnc}`, aria:'WhatsApp' },
+    { src:'/instagram.avif', href:`https://instagram.com/theshuttlesocial`, aria:'Instagram' },
+    { src:'/tiktok.png', href:`https://tiktok.com/@theshuttlesocial`, aria:'TikTok' },
   ]
 
   return (
     <div style={{display:'flex',gap:8,alignItems:'center',marginTop:9}}>
       <span style={{fontSize:11,color:T.muted}}>Share:</span>
       {links.map(l=>(
-        <a key={l.label} href={l.href} target="_blank" rel="noopener noreferrer" aria-label={l.aria}
-          style={{width:24,height:24,borderRadius:'50%',background:`${l.color}18`,border:`1px solid ${l.color}33`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:9,fontWeight:700,color:l.color,textDecoration:'none'}}>
-          {l.label}
+        <a key={l.aria} href={l.href} target="_blank" rel="noopener noreferrer" aria-label={l.aria}
+          style={{width:26,height:26,borderRadius:'50%',background:'rgba(255,255,255,0.06)',border:`1px solid ${T.border}`,display:'flex',alignItems:'center',justifyContent:'center',overflow:'hidden',textDecoration:'none'}}>
+          <img src={l.src} alt={l.aria} style={{width:16,height:16,objectFit:'contain'}}/>
         </a>
       ))}
     </div>
@@ -74,9 +74,10 @@ function ShareButtons({ session }: { session: Session }) {
 }
 
 // ── Map embed ─────────────────────────────────────────────────────────────────
-function VenueMap({ venue }: { venue: string }) {
+function VenueMap({ venue, maps_url }: { venue: string; maps_url?: string }) {
   const q = encodeURIComponent(`${venue}, London, UK`)
   const key = process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY
+  const openUrl = maps_url ?? `https://www.google.com/maps/search/?api=1&query=${q}`
   return (
     <div style={{marginTop:16,borderRadius:10,overflow:'hidden',border:`1px solid ${T.border}`}}>
       <iframe
@@ -85,7 +86,7 @@ function VenueMap({ venue }: { venue: string }) {
         src={`https://www.google.com/maps/embed/v1/place?key=${key}&q=${q}`}
         allowFullScreen loading="lazy" referrerPolicy="no-referrer-when-downgrade"
       />
-      <a href={`https://www.google.com/maps/search/?api=1&query=${q}`} target="_blank" rel="noopener noreferrer"
+      <a href={openUrl} target="_blank" rel="noopener noreferrer"
         style={{display:'block',padding:'8px 12px',background:T.card2,fontSize:12,color:T.accent,textDecoration:'none',borderTop:`1px solid ${T.border}`}}>
         📍 Open in Google Maps →
       </a>
@@ -171,7 +172,7 @@ function BookingModal({session,termsText,onClose}:{session:Session;termsText:str
   const [termsAccepted,setTermsAccepted]=useState(false); const [showTerms,setShowTerms]=useState(false)
   const [loading,setLoading]=useState(false); const [error,setError]=useState('')
   const [clientSecret,setCs]=useState(''); const [bookingRef,setRef]=useState(''); const [expiresAt,setExpires]=useState('')
-  const maxQty=Math.min(4,session.available)
+  const maxQty=Math.min(session.max_tickets_per_order??4,session.available)
   const total=session.price_pence*qty
 
   function updateQty(n:number){
@@ -211,7 +212,7 @@ function BookingModal({session,termsText,onClose}:{session:Session;termsText:str
 
         {step==='details'&&(
           <>
-            {session.description&&<div style={{marginBottom:16,padding:'12px 14px',background:T.accentDim,border:`1px solid ${T.accentBorder}`,borderRadius:8,fontSize:13,color:'#a0c890',lineHeight:1.6}}>{session.description}</div>}
+            {session.description&&<div style={{marginBottom:16,padding:'12px 14px',background:T.accentDim,border:`1px solid ${T.accentBorder}`,borderRadius:8,fontSize:13,color:'#a0c890',lineHeight:1.6,whiteSpace:'pre-wrap'}}>{session.description}</div>}
 
             {[['Full Name *','text',name,setName,'Your name'],['Email *','email',email,setEmail,'you@email.com'],['Phone *','tel',phone,setPhone,'+44 7700 000000']].map(([l,t,v,sv,ph])=>(
               <div key={l as string} style={{marginBottom:14}}>
@@ -339,7 +340,7 @@ function SessionCard({session,onSelect,onWaitlist}:{session:Session;onSelect:()=
 
             {session.description&&(
               <div style={{marginBottom:10}}>
-                <p style={{fontSize:12,color:'#7a9a7a',lineHeight:1.5,margin:0}}>
+                <p style={{fontSize:12,color:'#7a9a7a',lineHeight:1.5,margin:0,whiteSpace:'pre-wrap'}}>
                   {expanded||session.description.length<=120 ? session.description : session.description.slice(0,120)+'…'}
                 </p>
                 {session.description.length>120&&(
@@ -361,12 +362,13 @@ function SessionCard({session,onSelect,onWaitlist}:{session:Session;onSelect:()=
                 </span>
                 <span style={{color:T.accent,fontWeight:600}}>{fmt(session.price_pence)} / person</span>
               </div>
+              {session.max_tickets_per_order&&!soldOut&&<div style={{fontSize:11,color:T.muted,marginTop:3}}>Max {session.max_tickets_per_order} per order</div>}
             </div>
 
             {/* CTA buttons */}
             <div style={{display:'flex',gap:8}}>
               {!soldOut?(
-                <button onClick={onSelect} style={{flex:1,padding:'11px',background:T.accent,color:'#080f08',border:'none',borderRadius:9,fontWeight:700,fontSize:14,cursor:'pointer',fontFamily:'inherit'}}>
+                <button onClick={()=>{fetch('/api/analytics',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session_id:session.id,event:'book_now_click'})}).catch(()=>{});onSelect()}} style={{flex:1,padding:'11px',background:T.accent,color:'#080f08',border:'none',borderRadius:9,fontWeight:700,fontSize:14,cursor:'pointer',fontFamily:'inherit'}}>
                   Book Now →
                 </button>
               ):(
@@ -382,7 +384,7 @@ function SessionCard({session,onSelect,onWaitlist}:{session:Session;onSelect:()=
         </div>
 
         {/* Venue map — expandable */}
-        {expanded&&<VenueMap venue={session.venue}/>}
+        {expanded&&<VenueMap venue={session.venue} maps_url={session.maps_url}/>}
       </div>
     </article>
   )
@@ -433,19 +435,19 @@ export default function TicketsPage() {
             </div>
             <div>
               <div style={{fontWeight:900,fontSize:18,color:T.accent,lineHeight:1,letterSpacing:0.5}}>The Shuttle Social</div>
-              <div style={{fontSize:10,color:T.muted,letterSpacing:2,marginTop:1}}>BADMINTON FOR EVERYONE · LONDON</div>
+              <div style={{fontSize:10,color:T.muted,letterSpacing:2,marginTop:1}}>BADMINTON FOR EVERYONE</div>
             </div>
           </a>
 
-          {/* Social links — like Ticket Tailor header */}
+          {/* Social links */}
           <nav aria-label="Social media" style={{display:'flex',gap:10,alignItems:'center'}}>
             {[
-              {href:'https://instagram.com/theshuttlesocial',label:'Instagram',icon:'IG',color:'#e1306c'},
-              {href:'https://tiktok.com/@theshuttlesocial',label:'TikTok',icon:'TT',color:'#69c9d0'},
+              {href:'https://instagram.com/theshuttlesocial',label:'Instagram',src:'/instagram.avif'},
+              {href:'https://tiktok.com/@theshuttlesocial',label:'TikTok',src:'/tiktok.png'},
             ].map(s=>(
               <a key={s.label} href={s.href} target="_blank" rel="noopener noreferrer" aria-label={s.label}
-                style={{width:34,height:34,borderRadius:'50%',background:`${s.color}18`,border:`1px solid ${s.color}33`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,fontWeight:700,color:s.color,textDecoration:'none'}}>
-                {s.icon}
+                style={{width:34,height:34,borderRadius:'50%',background:'rgba(255,255,255,0.06)',border:`1px solid ${T.border}`,display:'flex',alignItems:'center',justifyContent:'center',overflow:'hidden',textDecoration:'none'}}>
+                <img src={s.src} alt={s.label} style={{width:22,height:22,objectFit:'contain'}}/>
               </a>
             ))}
           </nav>
@@ -500,9 +502,6 @@ export default function TicketsPage() {
           <div style={{maxWidth:640,margin:'0 auto',display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap' as const,gap:12}}>
             <div style={{fontSize:12,color:T.muted}}>
               The Shuttle Social · <a href="https://instagram.com/theshuttlesocial" target="_blank" rel="noopener" style={{color:T.accent,textDecoration:'none'}}>@theshuttlesocial</a> · <a href="https://tiktok.com/@theshuttlesocial" target="_blank" rel="noopener" style={{color:T.accent,textDecoration:'none'}}>TikTok</a>
-            </div>
-            <div style={{fontSize:12,color:T.muted,display:'flex',gap:16}}>
-              <span style={{color:T.accent}}>Built in-house · Zero platform fees</span>
             </div>
           </div>
           {/* Back to top — like Ticket Tailor */}

@@ -10,8 +10,8 @@ export async function POST(req: Request) {
   if (!session_id || !quantity || !name || !email || !phone)
     return NextResponse.json({ error: 'All fields including phone are required' }, { status: 400 })
 
-  if (quantity < 1 || quantity > 4)
-    return NextResponse.json({ error: 'Quantity must be 1–4' }, { status: 400 })
+  if (quantity < 1 || quantity > 10)
+    return NextResponse.json({ error: 'Invalid quantity' }, { status: 400 })
 
   if (quantity > 1 && (!additional_attendees || additional_attendees.length < quantity - 1))
     return NextResponse.json({ error: 'Please provide names for all additional attendees' }, { status: 400 })
@@ -26,8 +26,12 @@ export async function POST(req: Request) {
   if (holdError) return NextResponse.json({ error: 'Could not process request' }, { status: 500 })
   if (!holdResult.success) return NextResponse.json({ error: holdResult.error, available: holdResult.available ?? 0 }, { status: 409 })
 
-  const { data: session } = await supabaseAdmin.from('sessions').select('price_pence, title, label, date, time, venue, description').eq('id', session_id).single()
+  const { data: session } = await supabaseAdmin.from('sessions').select('price_pence, title, label, date, time, venue, description, max_tickets_per_order').eq('id', session_id).single()
   if (!session) return NextResponse.json({ error: 'Session not found' }, { status: 404 })
+
+  const maxPerOrder = session.max_tickets_per_order ?? 4
+  if (quantity > maxPerOrder)
+    return NextResponse.json({ error: `Max ${maxPerOrder} tickets per order` }, { status: 400 })
 
   const totalPence = session.price_pence * quantity
 

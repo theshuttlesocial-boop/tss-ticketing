@@ -40,7 +40,7 @@ CREATE TABLE seat_holds (
   session_id   UUID NOT NULL REFERENCES sessions(id),
   quantity     INTEGER NOT NULL DEFAULT 1 CHECK (quantity BETWEEN 1 AND 4),
   hold_token   TEXT UNIQUE NOT NULL,                 -- given to the user's browser
-  expires_at   TIMESTAMPTZ NOT NULL DEFAULT (now() + INTERVAL '2 minutes'),
+  expires_at   TIMESTAMPTZ NOT NULL DEFAULT (now() + INTERVAL '1 minute'),
   used         BOOLEAN DEFAULT false,                -- true once payment confirmed
   created_at   TIMESTAMPTZ DEFAULT now()
 );
@@ -108,7 +108,7 @@ BEGIN
   RETURN json_build_object(
     'success', true,
     'hold_token', p_hold_token,
-    'expires_at', (now() + INTERVAL '2 minutes')::TEXT,
+    'expires_at', (now() + INTERVAL '1 minute')::TEXT,
     'available_after_hold', v_available - p_quantity
   );
 END;

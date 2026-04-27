@@ -15,7 +15,7 @@ const fmt = (p:number) => `£${(p/100).toFixed(2)}`
 const fmtDate = (d:string) => new Date(d).toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'})
 const SC:Record<string,string> = {open:T.accent,draft:T.muted,closed:T.warning,cancelled:T.danger,scheduled:T.info}
 
-interface Session { id:string;title:string;label?:string;venue:string;region:string;date:string;time:string;capacity:number;price_pence:number;status:string;booked:number;revenue_pence:number;opens_at?:string;description?:string;is_recurring?:boolean;recurring_parent_id?:string;cancelled_occurrence?:boolean;waitlist_count:number }
+interface Session { id:string;title:string;label?:string;venue:string;region:string;date:string;time:string;capacity:number;price_pence:number;status:string;booked:number;revenue_pence:number;opens_at?:string;description?:string;is_recurring?:boolean;recurring_parent_id?:string;cancelled_occurrence?:boolean;waitlist_count:number;max_tickets_per_order?:number;maps_url?:string }
 interface Booking { id:string;name:string;email:string;phone?:string;quantity:number;total_pence:number;booking_ref:string;created_at:string;stripe_status:string;additional_attendees?:any;sessions?:{title:string;date:string;venue:string;label?:string} }
 
 function displayStatus(s:Session):{label:string;color:string} {
@@ -67,7 +67,7 @@ export default function AdminPage() {
   const [editing,setEditing]=useState<Session|null>(null)
   const [filterSession,setFilterSession]=useState(''); const [filterStatus,setFilterStatus]=useState('')
   const [settings,setSettings]=useState<Record<string,string>>({})
-  const [form,setForm]=useState({title:'',label:'West',venue:'',customVenue:'',region:'North/West London',date:'',time:'19:00',capacity:24,price_pence:800,status:'draft',releaseMode:'manual',releaseDateTime:'',description:'',is_recurring:false,recurring_day_of_week:4})
+  const [form,setForm]=useState({title:'',label:'West',venue:'',customVenue:'',region:'North/West London',date:'',time:'19:00',capacity:24,price_pence:800,max_tickets_per_order:4,status:'draft',releaseMode:'manual',releaseDateTime:'',description:'',is_recurring:false,recurring_day_of_week:4})
   const [refunding,setRefunding]=useState<string|null>(null)
 
   function flash(m:string){setMsg(m);setTimeout(()=>setMsg(''),3500)}
@@ -102,11 +102,12 @@ export default function AdminPage() {
       title:form.title||(form.label?`TSS ${form.label} — ${venue}`:`TSS — ${venue}`),
       label:form.label,venue,region:form.region,date:form.date,time:form.time,
       capacity:Number(form.capacity),price_pence:Number(form.price_pence),
+      max_tickets_per_order:Number(form.max_tickets_per_order),
       status:opens_at?'draft':form.status,opens_at,description:form.description||null,
       is_recurring:form.is_recurring,recurring_day_of_week:form.is_recurring?Number(form.recurring_day_of_week):null
     })})
     setLoading(false)
-    if(res.ok){flash('✅ Session created!');setForm({title:'',label:'West',venue:'',customVenue:'',region:'North/West London',date:'',time:'19:00',capacity:24,price_pence:800,status:'draft',releaseMode:'manual',releaseDateTime:'',description:'',is_recurring:false,recurring_day_of_week:4});reload();setTab('sessions')}
+    if(res.ok){flash('✅ Session created!');setForm({title:'',label:'West',venue:'',customVenue:'',region:'North/West London',date:'',time:'19:00',capacity:24,price_pence:800,max_tickets_per_order:4,status:'draft',releaseMode:'manual',releaseDateTime:'',description:'',is_recurring:false,recurring_day_of_week:4});reload();setTab('sessions')}
     else{const d=await res.json();setError(d.error??'Failed')}
   }
 
@@ -302,6 +303,7 @@ export default function AdminPage() {
                 <Field label="Start Time"><input type="time" value={form.time} onChange={e=>setForm(f=>({...f,time:e.target.value}))} style={inp()}/></Field>
                 <Field label="Capacity"><input type="number" value={form.capacity} onChange={e=>setForm(f=>({...f,capacity:Number(e.target.value)}))} min={1} style={inp()}/></Field>
                 <Field label="Price (£)"><input type="number" value={form.price_pence/100} onChange={e=>setForm(f=>({...f,price_pence:Math.round(Number(e.target.value)*100)}))} min={1} step={0.5} style={inp()}/></Field>
+                <Field label="Max Tickets Per Order"><input type="number" value={form.max_tickets_per_order} onChange={e=>setForm(f=>({...f,max_tickets_per_order:Number(e.target.value)}))} min={1} max={20} style={inp()}/></Field>
               </div>
 
               <Field label="Description — venue address, parking, directions, what to bring">
@@ -442,6 +444,7 @@ export default function AdminPage() {
                       <div>
                         <div style={{fontWeight:600,fontSize:14}}>{w.name}</div>
                         <div style={{fontSize:11,color:T.muted}}>{w.email} · {w.phone}</div>
+                        {w.created_at&&<div style={{fontSize:10,color:T.muted,marginTop:1}}>Joined {new Date(w.created_at).toLocaleString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}</div>}
                       </div>
                     </div>
                     <div style={{fontSize:11,color:T.muted}}>{w.sessions?.title}</div>
@@ -482,6 +485,7 @@ export default function AdminPage() {
                       <div style={{textAlign:'right',minWidth:80}}>
                         <div style={{color:T.accent,fontWeight:700}}>{fmt(s.revenue)}</div>
                         <div style={{fontSize:11,color:T.muted}}>{s.tickets} tickets</div>
+                        {s.clicks>0&&<div style={{fontSize:10,color:T.info}}>{s.clicks} clicks</div>}
                       </div>
                     </div>
                   )
@@ -539,7 +543,7 @@ export default function AdminPage() {
 
 // ── Session Editor ────────────────────────────────────────────────────────────
 function SessionEditor({session,onSave,onCancel,onStatusChange,onSchedule,onGenerateNext,onDelete,secret,flash,reload}:{session:Session;onSave:(u:any)=>Promise<void>;onCancel:()=>void;onStatusChange:(s:string)=>void;onSchedule:(dt:string)=>void;onGenerateNext:()=>void;onDelete:()=>void;secret:string;flash:(m:string)=>void;reload:()=>void}) {
-  const [v,setV]=useState({title:session.title,label:session.label??'West',venue:session.venue,region:session.region,date:session.date,time:session.time,capacity:session.capacity,price_pence:session.price_pence,description:session.description??''})
+  const [v,setV]=useState({title:session.title,label:session.label??'West',venue:session.venue,region:session.region,date:session.date,time:session.time,capacity:session.capacity,price_pence:session.price_pence,description:session.description??'',max_tickets_per_order:session.max_tickets_per_order??4,maps_url:session.maps_url??''})
   const [schedDt,setSchedDt]=useState(session.opens_at?new Date(session.opens_at).toISOString().slice(0,16):'')
   const [saving,setSaving]=useState(false)
   const SC2:Record<string,string>={open:T.accent,draft:T.muted,closed:T.warning,cancelled:T.danger}
@@ -601,6 +605,16 @@ function SessionEditor({session,onSave,onCancel,onStatusChange,onSchedule,onGene
         <div style={{marginBottom:16}}>
           <label style={{fontSize:12,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.5px'}}>Description</label>
           <DebouncedTextarea value={v.description} onChange={val=>setV(p=>({...p,description:val}))} rows={3} style={{width:'100%',background:T.card2,border:`1px solid ${T.border}`,borderRadius:8,padding:'9px 12px',color:T.text,fontSize:13,outline:'none',boxSizing:'border-box' as const,fontFamily:'inherit',resize:'vertical' as const,lineHeight:1.6}}/>
+        </div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14,marginBottom:14}}>
+          <div>
+            <label style={{fontSize:12,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.5px'}}>Max Tickets Per Order</label>
+            <DebouncedInput type="number" value={String(v.max_tickets_per_order)} onChange={val=>setV(p=>({...p,max_tickets_per_order:Number(val)}))} min={1} max={20} style={{width:'100%',background:T.card2,border:`1px solid ${T.border}`,borderRadius:8,padding:'9px 12px',color:T.text,fontSize:13,outline:'none',boxSizing:'border-box' as const,fontFamily:'inherit'}}/>
+          </div>
+          <div>
+            <label style={{fontSize:12,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.5px'}}>Google Maps URL (override)</label>
+            <DebouncedInput type="url" value={v.maps_url} onChange={val=>setV(p=>({...p,maps_url:val}))} placeholder="https://maps.google.com/..." style={{width:'100%',background:T.card2,border:`1px solid ${T.border}`,borderRadius:8,padding:'9px 12px',color:T.text,fontSize:13,outline:'none',boxSizing:'border-box' as const,fontFamily:'inherit'}}/>
+          </div>
         </div>
         <div style={{display:'flex',gap:10,flexWrap:'wrap' as const}}>
           <button onClick={async()=>{setSaving(true);await onSave(v);setSaving(false)}} style={{padding:'11px 26px',background:T.accent,color:'#080f08',border:'none',borderRadius:10,fontWeight:700,fontSize:14,cursor:'pointer',fontFamily:'inherit'}}>{saving?'Saving…':'💾 Save Changes'}</button>
