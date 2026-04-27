@@ -143,6 +143,13 @@ export default function AdminPage() {
     const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download=filename;a.click()
   }
 
+  async function deleteSession(id:string,title:string){
+    if(!confirm(`Delete "${title}"? This cannot be undone.`))return
+    const res=await fetch(`/api/sessions?id=${id}`,{method:'DELETE',headers:{'x-admin-secret':secret}})
+    if(res.ok){flash('✅ Session deleted');setEditing(null);reload()}
+    else{const d=await res.json();flash(`❌ Delete failed: ${d.error}`)}
+  }
+
   async function generateNextRecurring(parentId:string){
     const res=await fetch('/api/recurring',{method:'POST',headers:{'Content-Type':'application/json','x-admin-secret':secret},body:JSON.stringify({parent_id:parentId})})
     if(res.ok){flash('✅ Next occurrence created as Draft');reload()}
@@ -240,7 +247,7 @@ export default function AdminPage() {
         {/* SESSIONS */}
         {tab==='sessions'&&(
           editing?(
-            <SessionEditor session={editing} onSave={async u=>{await patch(editing.id,u);setEditing(null)}} onCancel={()=>setEditing(null)} onStatusChange={async s=>patch(editing.id,{status:s,opens_at:null})} onSchedule={async dt=>patch(editing.id,{status:'draft',opens_at:new Date(dt).toISOString()})} onGenerateNext={()=>generateNextRecurring(editing.id)} secret={secret} flash={flash} reload={reload}/>
+            <SessionEditor session={editing} onSave={async u=>{await patch(editing.id,u);setEditing(null)}} onCancel={()=>setEditing(null)} onStatusChange={async s=>patch(editing.id,{status:s,opens_at:null})} onSchedule={async dt=>patch(editing.id,{status:'draft',opens_at:new Date(dt).toISOString()})} onGenerateNext={()=>generateNextRecurring(editing.id)} onDelete={()=>deleteSession(editing.id,editing.title)} secret={secret} flash={flash} reload={reload}/>
           ):(
             <div style={cardStyle}>
               <div style={{padding:'12px 18px',borderBottom:`1px solid ${T.border}`,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
@@ -531,7 +538,7 @@ export default function AdminPage() {
 }
 
 // ── Session Editor ────────────────────────────────────────────────────────────
-function SessionEditor({session,onSave,onCancel,onStatusChange,onSchedule,onGenerateNext,secret,flash,reload}:{session:Session;onSave:(u:any)=>Promise<void>;onCancel:()=>void;onStatusChange:(s:string)=>void;onSchedule:(dt:string)=>void;onGenerateNext:()=>void;secret:string;flash:(m:string)=>void;reload:()=>void}) {
+function SessionEditor({session,onSave,onCancel,onStatusChange,onSchedule,onGenerateNext,onDelete,secret,flash,reload}:{session:Session;onSave:(u:any)=>Promise<void>;onCancel:()=>void;onStatusChange:(s:string)=>void;onSchedule:(dt:string)=>void;onGenerateNext:()=>void;onDelete:()=>void;secret:string;flash:(m:string)=>void;reload:()=>void}) {
   const [v,setV]=useState({title:session.title,label:session.label??'West',venue:session.venue,region:session.region,date:session.date,time:session.time,capacity:session.capacity,price_pence:session.price_pence,description:session.description??''})
   const [schedDt,setSchedDt]=useState(session.opens_at?new Date(session.opens_at).toISOString().slice(0,16):'')
   const [saving,setSaving]=useState(false)
@@ -595,9 +602,10 @@ function SessionEditor({session,onSave,onCancel,onStatusChange,onSchedule,onGene
           <label style={{fontSize:12,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.5px'}}>Description</label>
           <DebouncedTextarea value={v.description} onChange={val=>setV(p=>({...p,description:val}))} rows={3} style={{width:'100%',background:T.card2,border:`1px solid ${T.border}`,borderRadius:8,padding:'9px 12px',color:T.text,fontSize:13,outline:'none',boxSizing:'border-box' as const,fontFamily:'inherit',resize:'vertical' as const,lineHeight:1.6}}/>
         </div>
-        <div style={{display:'flex',gap:10}}>
+        <div style={{display:'flex',gap:10,flexWrap:'wrap' as const}}>
           <button onClick={async()=>{setSaving(true);await onSave(v);setSaving(false)}} style={{padding:'11px 26px',background:T.accent,color:'#080f08',border:'none',borderRadius:10,fontWeight:700,fontSize:14,cursor:'pointer',fontFamily:'inherit'}}>{saving?'Saving…':'💾 Save Changes'}</button>
           <button onClick={onCancel} style={{padding:'11px 18px',background:'none',color:T.muted,border:`1px solid ${T.border}`,borderRadius:10,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>Cancel</button>
+          <button onClick={onDelete} style={{marginLeft:'auto',padding:'11px 18px',background:T.dangerDim,color:T.danger,border:`1px solid rgba(224,85,85,0.3)`,borderRadius:10,fontWeight:600,fontSize:13,cursor:'pointer',fontFamily:'inherit'}}>🗑 Delete Session</button>
         </div>
       </div>
     </div>
