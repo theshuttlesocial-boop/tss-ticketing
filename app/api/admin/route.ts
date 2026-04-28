@@ -102,7 +102,31 @@ export async function PATCH(req: Request) {
 
   const { session_id, ...rest } = body
   if (!session_id) return NextResponse.json({ error: 'session_id required' }, { status: 400 })
-  const { data, error } = await supabaseAdmin.from('sessions').update(rest).eq('id', session_id).select().single()
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // Columns guaranteed to exist from the original schema
+  const coreFields = ['title','label','venue','region','date','time','capacity','price_pence',
+    'description','status','opens_at','is_recurring','recurring_day_of_week','cancelled_occurrence']
+  // Optional columns added in migration 002 — may not exist on all deployments yet
+  const optionalFields = ['max_tickets_per_order','maps_url']
+
+  // Build full update payload, converting empty strings to null for optional text fields
+  const fullUpdate: Record<string,any> = {}
+  for (const k of coreFields) { if (k in rest) fullUpdate[k] = rest[k] }
+  for (const k of optionalFields) { if (k in rest) fullUpdate[k] = rest[k] === '' ? null : rest[k] }
+
+  const { data, error } = await supabaseAdmin.from('sessions').update(fullUpdate).eq('id', session_id).select().single()
+
+  if (error) {
+    // If the error is a missing column in the schema cache, retry with core fields only
+    const isSchemaError = error.message.includes('schema cache') || error.message.includes('Could not find')
+    if (isSchemaError) {
+      const coreUpdate: Record<string,any> = {}
+      for (const k of coreFields) { if (k in rest) coreUpdate[k] = rest[k] }
+      const { data: d2, error: e2 } = await supabaseAdmin.from('sessions').update(coreUpdate).eq('id', session_id).select().single()
+      if (e2) return NextResponse.json({ error: e2.message }, { status: 500 })
+      return NextResponse.json({ session: d2, warning: 'Saved without optional columns — run migration 002 in Supabase' })
+    }
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
   return NextResponse.json({ session: data })
 }
