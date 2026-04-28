@@ -82,6 +82,58 @@ export async function sendBookingConfirmation({ to, name, bookingRef, sessionTit
   })
 }
 
+export async function sendAdminBookingNotification({ name, email, phone, bookingRef, sessionTitle, sessionDate, sessionTime, venue, quantity, totalPence, additionalAttendees }: {
+  name: string; email: string; phone?: string; bookingRef: string
+  sessionTitle: string; sessionDate: string; sessionTime: string; venue: string
+  quantity: number; totalPence: number; additionalAttendees?: string[]
+}) {
+  if (!resend) return
+
+  const fmt = (p: number) => `£${(p/100).toFixed(2)}`
+  const fmtDate = (d: string) => new Date(d).toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'})
+
+  const attendeeSection = additionalAttendees?.length ? `
+    <div style="margin-top:12px;padding:10px 14px;background:#142014;border-radius:8px;font-size:13px;color:${muted};">
+      <div style="font-weight:600;color:${text};margin-bottom:6px;">All attendees:</div>
+      <div style="color:${text};">${name} (lead)</div>
+      ${additionalAttendees.map(a => `<div style="color:${text};">${a}</div>`).join('')}
+    </div>` : ''
+
+  await resend.emails.send({
+    from: process.env.EMAIL_FROM ?? 'bookings@theshuttlesocial.com',
+    to: 'theshuttlesocial@gmail.com',
+    subject: `🏸 New booking: ${sessionTitle} — ${name} (${quantity} ticket${quantity > 1 ? 's' : ''})`,
+    html: emailWrap(`
+      <div style="color:${brandColor};font-size:22px;font-weight:900;margin-bottom:4px;">New Booking 🎉</div>
+      <div style="color:${muted};font-size:14px;margin-bottom:24px;">A player just confirmed their spot.</div>
+      <div style="background:${card};border:1px solid #1e3220;border-radius:12px;padding:20px;margin-bottom:16px;">
+        <div style="font-size:11px;font-weight:700;color:${muted};letter-spacing:2px;margin-bottom:10px;">SESSION</div>
+        <table style="width:100%;border-collapse:collapse;">
+          ${infoRow('Session', sessionTitle)}
+          ${infoRow('Date', fmtDate(sessionDate))}
+          ${infoRow('Time', sessionTime)}
+          ${infoRow('Venue', venue)}
+        </table>
+      </div>
+      <div style="background:${card};border:1px solid #1e3220;border-radius:12px;padding:20px;margin-bottom:16px;">
+        <div style="font-size:11px;font-weight:700;color:${muted};letter-spacing:2px;margin-bottom:10px;">PLAYER</div>
+        <table style="width:100%;border-collapse:collapse;">
+          ${infoRow('Name', name)}
+          ${infoRow('Email', email)}
+          ${phone ? infoRow('Phone', phone) : ''}
+          ${infoRow('Tickets', `${quantity} × ${fmt(totalPence/quantity)}`)}
+          <tr style="border-top:1px solid #1e3220;">
+            <td style="padding:10px 0 0;color:${muted};font-size:13px;">Total paid</td>
+            <td style="text-align:right;color:${brandColor};font-weight:700;font-size:20px;padding-top:10px;">${fmt(totalPence)}</td>
+          </tr>
+          ${infoRow('Booking ref', bookingRef, true)}
+        </table>
+        ${attendeeSection}
+      </div>
+    `)
+  })
+}
+
 export async function sendWaitlistConfirmation({ to, name, position, sessionTitle, sessionDate }: {
   to: string; name: string; position: number; sessionTitle: string; sessionDate: string
 }) {

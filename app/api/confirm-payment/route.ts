@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { stripe } from '@/lib/stripe'
 import { supabaseAdmin } from '@/lib/supabase'
-import { sendBookingConfirmation } from '@/lib/email'
+import { sendBookingConfirmation, sendAdminBookingNotification } from '@/lib/email'
 
 export async function POST(req: Request) {
   console.log('[webhook] POST received')
@@ -74,6 +74,24 @@ export async function POST(req: Request) {
           console.log('[webhook] sendBookingConfirmation resolved OK')
         }).catch((err) => {
           console.error('[webhook] sendBookingConfirmation FAILED:', err)
+        })
+
+        sendAdminBookingNotification({
+          name: customer_name ?? booking.name,
+          email: booking.email,
+          phone: booking.phone ?? undefined,
+          bookingRef: booking_ref,
+          sessionTitle: session.title,
+          sessionDate: session.date,
+          sessionTime: session.time,
+          venue: session.venue,
+          quantity: booking.quantity,
+          totalPence: booking.total_pence,
+          additionalAttendees,
+        }).then(() => {
+          console.log('[webhook] sendAdminBookingNotification resolved OK')
+        }).catch((err) => {
+          console.error('[webhook] sendAdminBookingNotification FAILED:', err)
         })
       } else {
         console.warn('[webhook] session not found for session_id:', session_id)
