@@ -19,7 +19,14 @@ export async function GET() {
     (sessionsRes.data ?? []).map(async (session) => {
       const isScheduledOpen = session.opens_at && new Date(session.opens_at) <= now
       const effectiveStatus = isScheduledOpen ? 'open' : session.status
-      if (effectiveStatus === 'draft') return null
+
+      if (effectiveStatus === 'draft') {
+        // Has a future opens_at — surface as "coming_soon" so the frontend can show a countdown
+        if (session.opens_at && new Date(session.opens_at) > now) {
+          return { ...session, status: 'coming_soon', booked: 0, held: 0, available: session.capacity }
+        }
+        return null  // pure draft with no scheduled release — don't show publicly
+      }
 
       const [bookingRes, holdRes] = await Promise.all([
         supabaseAdmin.from('bookings').select('quantity').eq('session_id', session.id).eq('stripe_status', 'succeeded'),

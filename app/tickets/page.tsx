@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { loadStripe } from '@stripe/stripe-js'
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js'
 
@@ -111,6 +111,35 @@ function VenueMap({ venue, maps_url }: { venue: string; maps_url?: string }) {
       </a>
     </div>
   )
+}
+
+// ── Coming Soon Countdown ─────────────────────────────────────────────────────
+function ComingSoonCountdown({ opensAt, onUnlocked }: { opensAt: string; onUnlocked: () => void }) {
+  const [secsLeft, setSecsLeft] = useState(() => Math.max(0, Math.floor((new Date(opensAt).getTime() - Date.now()) / 1000)))
+  const firedRef = useRef(false)
+  const cbRef = useRef(onUnlocked)
+  useEffect(() => { cbRef.current = onUnlocked }, [onUnlocked])
+
+  useEffect(() => {
+    const tick = () => {
+      const s = Math.max(0, Math.floor((new Date(opensAt).getTime() - Date.now()) / 1000))
+      setSecsLeft(s)
+      if (s <= 0 && !firedRef.current) { firedRef.current = true; cbRef.current() }
+    }
+    const t = setInterval(tick, 1000)
+    return () => clearInterval(t)
+  }, [opensAt])
+
+  if (secsLeft > 86400) {
+    const d = new Date(opensAt)
+    const dateStr = d.toLocaleDateString('en-GB', { weekday:'short', day:'numeric', month:'short' })
+    const timeStr = d.toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit', hour12:false })
+    return <span>Opens {dateStr} at {timeStr}</span>
+  }
+  const h = Math.floor(secsLeft / 3600)
+  const m = Math.floor((secsLeft % 3600) / 60)
+  const s = secsLeft % 60
+  return <span>Opens in {h > 0 ? `${h}h ` : ''}{m}m {String(s).padStart(2,'0')}s</span>
 }
 
 // ── Checkout Form ─────────────────────────────────────────────────────────────
@@ -321,30 +350,32 @@ function BookingModal({session,termsText,onClose}:{session:Session;termsText:str
 }
 
 // ── Session Card ──────────────────────────────────────────────────────────────
-function SessionCard({session,onSelect,onWaitlist}:{session:Session;onSelect:()=>void;onWaitlist:()=>void}){
+function SessionCard({session,onSelect,onWaitlist,onUnlocked}:{session:Session;onSelect:()=>void;onWaitlist:()=>void;onUnlocked?:()=>void}){
   const [expanded,setExpanded]=useState(false)
+  const isComingSoon=session.status==='coming_soon'
   const pct=Math.round(((session.booked+session.held)/session.capacity)*100)
-  const soldOut=session.available<=0
-  const hot=session.available<=4&&!soldOut
+  const soldOut=session.available<=0&&!isComingSoon
+  const hot=session.available<=4&&!soldOut&&!isComingSoon
   const spotsLeft=session.available
 
   return(
-    <article style={{background:T.card,border:`1px solid ${hot?T.accent:T.border}`,borderRadius:12,overflow:'hidden',transition:'transform 0.15s,box-shadow 0.15s'}}
+    <article style={{background:T.card,border:`1px solid ${isComingSoon?'rgba(96,180,255,0.25)':hot?T.accent:T.border}`,borderRadius:12,overflow:'hidden',transition:'transform 0.15s,box-shadow 0.15s'}}
       onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.transform='translateY(-2px)';(e.currentTarget as HTMLElement).style.boxShadow='0 8px 32px rgba(111,207,64,0.08)'}}
       onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.transform='none';(e.currentTarget as HTMLElement).style.boxShadow='none'}}>
 
       <div style={{padding:'15px 17px',background:session.image_url?'none':'linear-gradient(135deg,#1a3a1a 0%,#0a1a0a 100%)'}}>
         {/* Badges row */}
         <div style={{display:'flex',gap:6,marginBottom:10,flexWrap:'wrap' as const}}>
-          {session.label&&<span style={{background:T.accentDim,color:T.accent,fontSize:10,fontWeight:700,padding:'2px 8px',borderRadius:20,border:`1px solid ${T.accentBorder}`}}>{session.label.toUpperCase()} LONDON</span>}
+          {session.label&&<span style={{background:isComingSoon?T.infoDim:T.accentDim,color:isComingSoon?T.info:T.accent,fontSize:10,fontWeight:700,padding:'2px 8px',borderRadius:20,border:`1px solid ${isComingSoon?'rgba(96,180,255,0.25)':T.accentBorder}`}}>{session.label.toUpperCase()} LONDON</span>}
+          {isComingSoon&&<span style={{background:T.infoDim,color:T.info,fontSize:10,fontWeight:700,padding:'2px 8px',borderRadius:20,border:'1px solid rgba(96,180,255,0.35)'}}>COMING SOON</span>}
           {hot&&!soldOut&&<span style={{background:'rgba(224,144,64,0.15)',color:T.warning,fontSize:10,fontWeight:700,padding:'2px 8px',borderRadius:20,border:'1px solid rgba(224,144,64,0.4)'}}>🔥 SELLING FAST</span>}
           {soldOut&&<span style={{background:T.dangerDim,color:T.danger,fontSize:10,fontWeight:700,padding:'2px 8px',borderRadius:20,border:'1px solid rgba(224,85,85,0.4)'}}>SOLD OUT</span>}
         </div>
 
         <div style={{display:'flex',gap:14,alignItems:'flex-start'}}>
           {/* Date block */}
-          <div style={{background:T.accentDim,border:`1px solid ${T.accentBorder}`,borderRadius:10,padding:'10px 12px',minWidth:52,textAlign:'center',flexShrink:0}}>
-            <div style={{fontSize:26,fontWeight:900,color:T.accent,lineHeight:1}}>{getDayNum(session.date)}</div>
+          <div style={{background:isComingSoon?T.infoDim:T.accentDim,border:`1px solid ${isComingSoon?'rgba(96,180,255,0.25)':T.accentBorder}`,borderRadius:10,padding:'10px 12px',minWidth:52,textAlign:'center',flexShrink:0}}>
+            <div style={{fontSize:26,fontWeight:900,color:isComingSoon?T.info:T.accent,lineHeight:1}}>{getDayNum(session.date)}</div>
             <div style={{fontSize:11,color:T.muted}}>{getMonth(session.date)}</div>
           </div>
 
@@ -386,7 +417,11 @@ function SessionCard({session,onSelect,onWaitlist}:{session:Session;onSelect:()=
 
             {/* CTA buttons */}
             <div style={{display:'flex',gap:8}}>
-              {!soldOut?(
+              {isComingSoon?(
+                <div style={{flex:1,padding:'11px 14px',background:T.infoDim,color:T.info,border:`1px solid rgba(96,180,255,0.25)`,borderRadius:9,fontWeight:600,fontSize:13,display:'flex',alignItems:'center',gap:6,userSelect:'none' as const}}>
+                  ⏰ <ComingSoonCountdown opensAt={session.opens_at!} onUnlocked={onUnlocked??(() =>{})}/>
+                </div>
+              ):!soldOut?(
                 <button onClick={()=>{fetch('/api/analytics',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session_id:session.id,event:'book_now_click'})}).catch(()=>{});onSelect()}} style={{flex:1,padding:'11px',background:T.accent,color:'#080f08',border:'none',borderRadius:9,fontWeight:700,fontSize:14,cursor:'pointer',fontFamily:'inherit'}}>
                   Book Now →
                 </button>
@@ -432,7 +467,7 @@ export default function TicketsPage() {
   },[fetchSessions])
 
   const open=sessions.filter(s=>s.status==='open')
-  const upcoming=sessions.filter(s=>s.status==='draft')
+  const comingSoon=sessions.filter(s=>s.status==='coming_soon')
 
   return(
     <>
@@ -498,15 +533,15 @@ export default function TicketsPage() {
                   </div>
                 </section>
               )}
-              {upcoming.length>0&&(
-                <section aria-label="Coming soon" style={{opacity:0.6}}>
+              {comingSoon.length>0&&(
+                <section aria-label="Coming soon" style={{marginBottom:32}}>
                   <div style={{fontSize:11,color:T.muted,letterSpacing:3,marginBottom:12,textTransform:'uppercase'}}>Coming soon</div>
                   <div style={{display:'flex',flexDirection:'column',gap:16}}>
-                    {upcoming.map(s=><SessionCard key={s.id} session={s} onSelect={()=>{}} onWaitlist={()=>setWaitlistSession(s)}/>)}
+                    {comingSoon.map(s=><SessionCard key={s.id} session={s} onSelect={()=>{}} onWaitlist={()=>{}} onUnlocked={fetchSessions}/>)}
                   </div>
                 </section>
               )}
-              {open.length===0&&upcoming.length===0&&(
+              {open.length===0&&comingSoon.length===0&&(
                 <div style={{textAlign:'center',padding:80,color:T.muted}}>
                   <div style={{fontSize:48,marginBottom:16}}>🏸</div>
                   <div style={{fontWeight:700,fontSize:18,marginBottom:8}}>No sessions open right now</div>
