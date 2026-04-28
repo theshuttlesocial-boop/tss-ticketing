@@ -64,7 +64,22 @@ export async function DELETE(req: Request) {
     return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
   const { searchParams } = new URL(req.url)
   const id = searchParams.get('id')
+  const force = searchParams.get('force')
   if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 })
+
+  // Check for paid bookings — warn before destroying financial records
+  const { data: paidBookings } = await supabaseAdmin
+    .from('bookings').select('id').eq('session_id', id).eq('stripe_status', 'succeeded')
+  if (paidBookings && paidBookings.length > 0 && !force) {
+    return NextResponse.json({ error: `This session has ${paidBookings.length} paid booking(s). Delete anyway?`, paid_bookings: paidBookings.length }, { status: 409 })
+  }
+
+  // Cascade delete all dependent records in safe order
+  await supabaseAdmin.from('session_analytics').delete().eq('session_id', id)
+  await supabaseAdmin.from('waitlist').delete().eq('session_id', id)
+  await supabaseAdmin.from('seat_holds').delete().eq('session_id', id)
+  await supabaseAdmin.from('bookings').delete().eq('session_id', id)
+
   const { error } = await supabaseAdmin.from('sessions').delete().eq('id', id)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ success: true })

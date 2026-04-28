@@ -31,13 +31,14 @@ function DebouncedTextarea({ value, onChange, ...props }: { value:string; onChan
   const [local, setLocal] = useState(value)
   useEffect(() => { setLocal(value) }, [value])
   useEffect(() => { const t = setTimeout(()=>onChange(local),400); return ()=>clearTimeout(t) }, [local])
-  return <textarea {...props} value={local} onChange={e=>setLocal(e.target.value)}/>
+  // flush immediately on blur so Save always gets the latest value
+  return <textarea {...props} value={local} onChange={e=>setLocal(e.target.value)} onBlur={()=>onChange(local)}/>
 }
 function DebouncedInput({ value, onChange, ...props }: { value:string; onChange:(v:string)=>void; [k:string]:any }) {
   const [local, setLocal] = useState(value)
   useEffect(()=>{ setLocal(value) },[value])
   useEffect(()=>{ const t=setTimeout(()=>onChange(local),300); return ()=>clearTimeout(t) },[local])
-  return <input {...props} value={local} onChange={e=>setLocal(e.target.value)}/>
+  return <input {...props} value={local} onChange={e=>setLocal(e.target.value)} onBlur={()=>onChange(local)}/>
 }
 
 function Field({label,children}:{label:string;children:React.ReactNode}) {
@@ -62,7 +63,7 @@ export default function AdminPage() {
   const [secret,setSecret]=useState(''); const [authed,setAuthed]=useState(false)
   const [sessions,setSessions]=useState<Session[]>([]); const [bookings,setBookings]=useState<Booking[]>([])
   const [waitlist,setWaitlist]=useState<any[]>([]); const [analytics,setAnalytics]=useState<any>(null)
-  const [tab,setTab]=useState<'overview'|'sessions'|'create'|'bookings'|'attendees'|'analytics'|'settings'>('overview')
+  const [tab,setTab]=useState<'overview'|'sessions'|'create'|'bookings'|'attendees'|'waitlist'|'analytics'|'settings'>('overview')
   const [loading,setLoading]=useState(false); const [error,setError]=useState(''); const [msg,setMsg]=useState('')
   const [editing,setEditing]=useState<Session|null>(null)
   const [filterSession,setFilterSession]=useState(''); const [filterStatus,setFilterStatus]=useState('')
@@ -147,8 +148,14 @@ export default function AdminPage() {
   async function deleteSession(id:string,title:string){
     if(!confirm(`Delete "${title}"? This cannot be undone.`))return
     const res=await fetch(`/api/sessions?id=${id}`,{method:'DELETE',headers:{'x-admin-secret':secret}})
-    if(res.ok){flash('✅ Session deleted');setEditing(null);reload()}
-    else{const d=await res.json();flash(`❌ Delete failed: ${d.error}`)}
+    if(res.ok){flash('✅ Session deleted');setEditing(null);reload();return}
+    const d=await res.json()
+    if(res.status===409&&d.paid_bookings){
+      if(!confirm(`⚠️ This session has ${d.paid_bookings} paid booking(s). Deleting will permanently remove all booking records. Continue?`))return
+      const res2=await fetch(`/api/sessions?id=${id}&force=1`,{method:'DELETE',headers:{'x-admin-secret':secret}})
+      if(res2.ok){flash('✅ Session deleted');setEditing(null);reload()}
+      else{const d2=await res2.json();flash(`❌ Delete failed: ${d2.error}`)}
+    }else{flash(`❌ Delete failed: ${d.error}`)}
   }
 
   async function generateNextRecurring(parentId:string){
@@ -161,6 +168,7 @@ export default function AdminPage() {
     if(!authed)return
     if(tab==='bookings')loadBookings()
     if(tab==='attendees'){loadBookings();loadWaitlist()}
+    if(tab==='waitlist')loadWaitlist()
     if(tab==='analytics')loadAnalytics()
   },[authed,tab,filterSession])
 
@@ -191,8 +199,8 @@ export default function AdminPage() {
   )
 
   const base:React.CSSProperties={minHeight:'100vh',background:T.bg,color:T.text,fontFamily:'system-ui,sans-serif'}
-  const tabs=[['overview','📊'],['sessions','📅'],['create','➕'],['bookings','🎟'],['attendees','👥'],['analytics','📈'],['settings','⚙️']]
-  const tabLabels:Record<string,string>={overview:'Overview',sessions:'Sessions',create:'New Session',bookings:'Bookings',attendees:'Attendees',analytics:'Analytics',settings:'Settings'}
+  const tabs=[['overview','📊'],['sessions','📅'],['create','➕'],['bookings','🎟'],['attendees','👥'],['waitlist','📋'],['analytics','📈'],['settings','⚙️']]
+  const tabLabels:Record<string,string>={overview:'Overview',sessions:'Sessions',create:'New Session',bookings:'Bookings',attendees:'Attendees',waitlist:'Waitlist',analytics:'Analytics',settings:'Settings'}
 
   return(
     <div style={base}>
@@ -452,6 +460,43 @@ export default function AdminPage() {
                 ))}
               </div>
             )}
+          </>
+        )}
+
+        {/* WAITLIST */}
+        {tab==='waitlist'&&(
+          <>
+            <div style={{display:'flex',gap:10,marginBottom:16,flexWrap:'wrap' as const}}>
+              <select value={filterSession} onChange={e=>setFilterSession(e.target.value)} style={{...inp({width:'auto',flex:1,minWidth:200})}}>
+                <option value="">All sessions</option>
+                {sessions.map(s=><option key={s.id} value={s.id}>{fmtDate(s.date)} — {s.title}</option>)}
+              </select>
+              <button onClick={()=>exportCSV(waitlist.map(w=>({position:w.position,name:w.name,email:w.email,phone:w.phone??'',session:w.sessions?.title??'',date:w.sessions?.date??'',joined:w.created_at?new Date(w.created_at).toLocaleString('en-GB'):''})),'tss-waitlist.csv')} style={{padding:'10px 16px',background:T.accentDim,color:T.accent,border:`1px solid ${T.accentBorder}`,borderRadius:8,cursor:'pointer',fontSize:13,fontWeight:600,fontFamily:'inherit'}}>
+                📥 Export CSV
+              </button>
+            </div>
+            <div style={cardStyle}>
+              <div style={{padding:'12px 18px',borderBottom:`1px solid ${T.border}`,fontWeight:600,fontSize:12,color:T.muted,textTransform:'uppercase',letterSpacing:1}}>
+                Waitlist — {waitlist.length} {waitlist.length===1?'person':'people'}
+              </div>
+              {waitlist.length===0&&<div style={{padding:40,textAlign:'center',color:T.muted}}>No waitlist entries{filterSession?' for this session':''}</div>}
+              {waitlist.map((w,i)=>(
+                <div key={w.id} style={{padding:'12px 18px',borderBottom:i<waitlist.length-1?`1px solid #0a140a`:'none',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                  <div style={{display:'flex',alignItems:'center',gap:12}}>
+                    <div style={{width:32,height:32,borderRadius:'50%',background:T.infoDim,border:`1px solid rgba(96,180,255,0.25)`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:700,color:T.info,flexShrink:0}}>#{w.position}</div>
+                    <div>
+                      <div style={{fontWeight:600,fontSize:14}}>{w.name}</div>
+                      <div style={{fontSize:12,color:T.muted}}>{w.email}{w.phone?` · ${w.phone}`:''}</div>
+                      {w.created_at&&<div style={{fontSize:11,color:T.muted,marginTop:2}}>Joined {new Date(w.created_at).toLocaleString('en-GB',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})}</div>}
+                    </div>
+                  </div>
+                  <div style={{textAlign:'right',minWidth:120}}>
+                    <div style={{fontSize:13,fontWeight:600,color:T.text}}>{w.sessions?.title}</div>
+                    <div style={{fontSize:11,color:T.muted}}>{w.sessions?.date?fmtDate(w.sessions.date):''}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </>
         )}
 
