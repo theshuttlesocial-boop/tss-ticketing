@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState, useCallback, useMemo } from 'react'
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 
 // ── Midnight Green Theme ──────────────────────────────────────────────────────
 const T = {
@@ -86,7 +86,11 @@ export default function AdminPage() {
   },[secret])
 
   async function patch(id:string,u:Record<string,any>){
-    await fetch('/api/admin',{method:'PATCH',headers:{'Content-Type':'application/json','x-admin-secret':secret},body:JSON.stringify({session_id:id,...u})})
+    const body={session_id:id,...u}
+    console.log('[admin] PATCH body:', JSON.stringify(body,null,2))
+    const res=await fetch('/api/admin',{method:'PATCH',headers:{'Content-Type':'application/json','x-admin-secret':secret},body:JSON.stringify(body)})
+    const d=await res.json()
+    console.log('[admin] PATCH response:', JSON.stringify(d,null,2))
     flash('✅ Saved!');reload();setEditing(null)
   }
 
@@ -588,7 +592,11 @@ export default function AdminPage() {
 
 // ── Session Editor ────────────────────────────────────────────────────────────
 function SessionEditor({session,onSave,onCancel,onStatusChange,onSchedule,onGenerateNext,onDelete,secret,flash,reload}:{session:Session;onSave:(u:any)=>Promise<void>;onCancel:()=>void;onStatusChange:(s:string)=>void;onSchedule:(dt:string)=>void;onGenerateNext:()=>void;onDelete:()=>void;secret:string;flash:(m:string)=>void;reload:()=>void}) {
-  const [v,setV]=useState({title:session.title,label:session.label??'West',venue:session.venue,region:session.region,date:session.date,time:session.time,capacity:session.capacity,price_pence:session.price_pence,description:session.description??'',max_tickets_per_order:session.max_tickets_per_order??4,maps_url:session.maps_url??''})
+  const initV = {title:session.title,label:session.label??'West',venue:session.venue,region:session.region,date:session.date,time:session.time,capacity:session.capacity,price_pence:session.price_pence,description:session.description??'',max_tickets_per_order:session.max_tickets_per_order??4,maps_url:session.maps_url??''}
+  const [v,setV]=useState(initV)
+  // vRef is always updated synchronously — Save reads from here, not from state
+  const vRef=useRef(initV)
+  function updateField(key:string,val:any){const next={...vRef.current,[key]:val};vRef.current=next;setV(next)}
   const [schedDt,setSchedDt]=useState(session.opens_at?new Date(session.opens_at).toISOString().slice(0,16):'')
   const [saving,setSaving]=useState(false)
   const SC2:Record<string,string>={open:T.accent,draft:T.muted,closed:T.warning,cancelled:T.danger}
@@ -636,33 +644,33 @@ function SessionEditor({session,onSave,onCancel,onStatusChange,onSchedule,onGene
           </div>
         )}
 
-        {/* Edit fields */}
+        {/* Edit fields — plain controlled inputs; onChange writes to vRef immediately so Save never gets stale values */}
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14,marginBottom:14}}>
           {[['Label','label','text'],['Title','title','text'],['Venue','venue','text'],['Region','region','text'],['Date','date','date'],['Time','time','time'],['Capacity','capacity','number'],['Price (£)','price_pence','number']].map(([l,k,t])=>(
             <div key={k}>
               <label style={{fontSize:12,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.5px'}}>{l}</label>
-              <DebouncedInput type={t} value={k==='price_pence'?String((v as any)[k]/100):String((v as any)[k])}
-                onChange={val=>setV(p=>({...p,[k]:k==='price_pence'?Math.round(Number(val)*100):t==='number'?Number(val):val}))}
+              <input type={t} value={k==='price_pence'?String((v as any)[k]/100):String((v as any)[k])}
+                onChange={e=>{const raw=e.target.value;updateField(k,k==='price_pence'?Math.round(Number(raw)*100):t==='number'?Number(raw):raw)}}
                 style={{width:'100%',background:T.card2,border:`1px solid ${T.border}`,borderRadius:8,padding:'9px 12px',color:T.text,fontSize:13,outline:'none',boxSizing:'border-box' as const,fontFamily:'inherit'}}/>
             </div>
           ))}
         </div>
         <div style={{marginBottom:16}}>
           <label style={{fontSize:12,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.5px'}}>Description</label>
-          <DebouncedTextarea value={v.description} onChange={val=>setV(p=>({...p,description:val}))} rows={3} style={{width:'100%',background:T.card2,border:`1px solid ${T.border}`,borderRadius:8,padding:'9px 12px',color:T.text,fontSize:13,outline:'none',boxSizing:'border-box' as const,fontFamily:'inherit',resize:'vertical' as const,lineHeight:1.6}}/>
+          <textarea value={v.description} onChange={e=>updateField('description',e.target.value)} rows={3} style={{width:'100%',background:T.card2,border:`1px solid ${T.border}`,borderRadius:8,padding:'9px 12px',color:T.text,fontSize:13,outline:'none',boxSizing:'border-box' as const,fontFamily:'inherit',resize:'vertical' as const,lineHeight:1.6}}/>
         </div>
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14,marginBottom:14}}>
           <div>
             <label style={{fontSize:12,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.5px'}}>Max Tickets Per Order</label>
-            <DebouncedInput type="number" value={String(v.max_tickets_per_order)} onChange={val=>setV(p=>({...p,max_tickets_per_order:Number(val)}))} min={1} max={20} style={{width:'100%',background:T.card2,border:`1px solid ${T.border}`,borderRadius:8,padding:'9px 12px',color:T.text,fontSize:13,outline:'none',boxSizing:'border-box' as const,fontFamily:'inherit'}}/>
+            <input type="number" value={String(v.max_tickets_per_order)} onChange={e=>updateField('max_tickets_per_order',Number(e.target.value))} min={1} max={20} style={{width:'100%',background:T.card2,border:`1px solid ${T.border}`,borderRadius:8,padding:'9px 12px',color:T.text,fontSize:13,outline:'none',boxSizing:'border-box' as const,fontFamily:'inherit'}}/>
           </div>
           <div>
             <label style={{fontSize:12,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.5px'}}>Google Maps URL (override)</label>
-            <DebouncedInput type="url" value={v.maps_url} onChange={val=>setV(p=>({...p,maps_url:val}))} placeholder="https://maps.google.com/..." style={{width:'100%',background:T.card2,border:`1px solid ${T.border}`,borderRadius:8,padding:'9px 12px',color:T.text,fontSize:13,outline:'none',boxSizing:'border-box' as const,fontFamily:'inherit'}}/>
+            <input type="url" value={v.maps_url} onChange={e=>updateField('maps_url',e.target.value)} placeholder="https://maps.google.com/..." style={{width:'100%',background:T.card2,border:`1px solid ${T.border}`,borderRadius:8,padding:'9px 12px',color:T.text,fontSize:13,outline:'none',boxSizing:'border-box' as const,fontFamily:'inherit'}}/>
           </div>
         </div>
         <div style={{display:'flex',gap:10,flexWrap:'wrap' as const}}>
-          <button onClick={async()=>{setSaving(true);await onSave(v);setSaving(false)}} style={{padding:'11px 26px',background:T.accent,color:'#080f08',border:'none',borderRadius:10,fontWeight:700,fontSize:14,cursor:'pointer',fontFamily:'inherit'}}>{saving?'Saving…':'💾 Save Changes'}</button>
+          <button onClick={async()=>{setSaving(true);await onSave(vRef.current);setSaving(false)}} style={{padding:'11px 26px',background:T.accent,color:'#080f08',border:'none',borderRadius:10,fontWeight:700,fontSize:14,cursor:'pointer',fontFamily:'inherit'}}>{saving?'Saving…':'💾 Save Changes'}</button>
           <button onClick={onCancel} style={{padding:'11px 18px',background:'none',color:T.muted,border:`1px solid ${T.border}`,borderRadius:10,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>Cancel</button>
           <button onClick={onDelete} style={{marginLeft:'auto',padding:'11px 18px',background:T.dangerDim,color:T.danger,border:`1px solid rgba(224,85,85,0.3)`,borderRadius:10,fontWeight:600,fontSize:13,cursor:'pointer',fontFamily:'inherit'}}>🗑 Delete Session</button>
         </div>
