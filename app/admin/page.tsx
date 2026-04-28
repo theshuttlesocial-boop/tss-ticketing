@@ -15,6 +15,23 @@ const fmt = (p:number) => `£${(p/100).toFixed(2)}`
 const fmtDate = (d:string) => new Date(d).toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'})
 const SC:Record<string,string> = {open:T.accent,draft:T.muted,closed:T.warning,cancelled:T.danger,scheduled:T.info}
 
+// ── UK timezone helpers (handles BST/GMT automatically) ───────────────────────
+function utcToUKLocal(isoUtc:string):string {
+  const d=new Date(isoUtc)
+  const parts=new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/London',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false}).formatToParts(d)
+  const g=(t:string)=>parts.find(p=>p.type===t)?.value??''
+  return `${g('year')}-${g('month')}-${g('day')}T${g('hour')}:${g('minute')}`
+}
+function ukLocalToUTC(local:string):string {
+  const [dt,tm]=local.split('T'); const [y,mo,d]=dt.split('-').map(Number); const [h,mi]=tm.split(':').map(Number)
+  const guess=new Date(Date.UTC(y,mo-1,d,h,mi))
+  const ukParts=new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/London',hour:'2-digit',minute:'2-digit',hour12:false}).formatToParts(guess)
+  const ukH=parseInt(ukParts.find(p=>p.type==='hour')!.value)
+  const ukMi=parseInt(ukParts.find(p=>p.type==='minute')!.value)
+  const diffMs=((h-ukH)*60+(mi-ukMi))*60000
+  return new Date(guess.getTime()+diffMs).toISOString()
+}
+
 interface Session { id:string;title:string;label?:string;venue:string;region:string;date:string;time:string;capacity:number;price_pence:number;status:string;booked:number;revenue_pence:number;opens_at?:string;description?:string;is_recurring?:boolean;recurring_parent_id?:string;cancelled_occurrence?:boolean;waitlist_count:number;max_tickets_per_order?:number;maps_url?:string }
 interface Booking { id:string;name:string;email:string;phone?:string;quantity:number;total_pence:number;booking_ref:string;created_at:string;stripe_status:string;additional_attendees?:any;sessions?:{title:string;date:string;venue:string;label?:string} }
 
@@ -91,7 +108,12 @@ export default function AdminPage() {
     const res=await fetch('/api/admin',{method:'PATCH',headers:{'Content-Type':'application/json','x-admin-secret':secret},body:JSON.stringify(body)})
     const d=await res.json()
     console.log('[admin] PATCH response:', JSON.stringify(d,null,2))
-    flash('✅ Saved!');reload();setEditing(null)
+    if(!res.ok){flash(`❌ Save failed: ${d.error??'Unknown error'}`);return}
+    // Immediately update sessions state with the saved record so reopen shows correct data
+    if(d.session){setSessions(prev=>prev.map(s=>s.id===id?{...s,...d.session}:s))}
+    flash('✅ Saved!')
+    await reload()   // await so fresh data is loaded before editor closes
+    setEditing(null)
   }
 
   async function saveSetting(key:string,value:string){
@@ -260,7 +282,7 @@ export default function AdminPage() {
         {/* SESSIONS */}
         {tab==='sessions'&&(
           editing?(
-            <SessionEditor session={editing} onSave={async u=>{await patch(editing.id,u);setEditing(null)}} onCancel={()=>setEditing(null)} onStatusChange={async s=>patch(editing.id,{status:s,opens_at:null})} onSchedule={async dt=>patch(editing.id,{status:'draft',opens_at:new Date(dt).toISOString()})} onGenerateNext={()=>generateNextRecurring(editing.id)} onDelete={()=>deleteSession(editing.id,editing.title)} secret={secret} flash={flash} reload={reload}/>
+            <SessionEditor session={editing} onSave={async u=>{await patch(editing.id,u);setEditing(null)}} onCancel={()=>setEditing(null)} onStatusChange={async s=>patch(editing.id,{status:s,opens_at:null})} onSchedule={async dt=>patch(editing.id,{status:'draft',opens_at:dt})} onGenerateNext={()=>generateNextRecurring(editing.id)} onDelete={()=>deleteSession(editing.id,editing.title)} secret={secret} flash={flash} reload={reload}/>
           ):(
             <div style={cardStyle}>
               <div style={{padding:'12px 18px',borderBottom:`1px solid ${T.border}`,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
@@ -597,7 +619,7 @@ function SessionEditor({session,onSave,onCancel,onStatusChange,onSchedule,onGene
   // vRef is always updated synchronously — Save reads from here, not from state
   const vRef=useRef(initV)
   function updateField(key:string,val:any){const next={...vRef.current,[key]:val};vRef.current=next;setV(next)}
-  const [schedDt,setSchedDt]=useState(session.opens_at?new Date(session.opens_at).toISOString().slice(0,16):'')
+  const [schedDt,setSchedDt]=useState(session.opens_at?utcToUKLocal(session.opens_at):'')
   const [saving,setSaving]=useState(false)
   const SC2:Record<string,string>={open:T.accent,draft:T.muted,closed:T.warning,cancelled:T.danger}
 
@@ -621,15 +643,15 @@ function SessionEditor({session,onSave,onCancel,onStatusChange,onSchedule,onGene
             ))}
           </div>
           <div style={{borderTop:`1px solid ${T.border}`,paddingTop:12}}>
-            <div style={{fontSize:12,color:T.info,fontWeight:600,marginBottom:8}}>⏰ Schedule automatic release:</div>
+            <div style={{fontSize:12,color:T.info,fontWeight:600,marginBottom:8}}>⏰ Schedule automatic release (UK time):</div>
             <div style={{display:'flex',gap:10,alignItems:'flex-end',flexWrap:'wrap' as const}}>
               <div style={{flex:1,minWidth:180}}>
                 <input type="datetime-local" value={schedDt} onChange={e=>setSchedDt(e.target.value)} style={{...{width:'100%',background:T.card2,border:`1px solid rgba(96,180,255,0.35)`,borderRadius:8,padding:'9px 12px',color:T.text,fontSize:13,outline:'none',boxSizing:'border-box' as const,fontFamily:'inherit'}}}/>
               </div>
-              <button onClick={()=>schedDt&&onSchedule(schedDt)} disabled={!schedDt} style={{padding:'9px 16px',background:T.infoDim,color:T.info,border:`1px solid rgba(96,180,255,0.3)`,borderRadius:8,cursor:'pointer',fontWeight:600,fontSize:12,whiteSpace:'nowrap' as const,fontFamily:'inherit'}}>⏰ Schedule</button>
+              <button onClick={()=>schedDt&&onSchedule(ukLocalToUTC(schedDt))} disabled={!schedDt} style={{padding:'9px 16px',background:T.infoDim,color:T.info,border:`1px solid rgba(96,180,255,0.3)`,borderRadius:8,cursor:'pointer',fontWeight:600,fontSize:12,whiteSpace:'nowrap' as const,fontFamily:'inherit'}}>⏰ Schedule</button>
               {session.opens_at&&<button onClick={()=>onStatusChange('draft')} style={{padding:'9px 12px',background:'none',color:T.muted,border:`1px solid ${T.border}`,borderRadius:8,cursor:'pointer',fontSize:12,fontFamily:'inherit'}}>Clear</button>}
             </div>
-            {session.opens_at&&<div style={{marginTop:8,fontSize:12,color:T.info}}>⏰ Scheduled: {new Date(session.opens_at).toLocaleString('en-GB',{weekday:'short',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}</div>}
+            {session.opens_at&&<div style={{marginTop:8,fontSize:12,color:T.info}}>⏰ Scheduled: {new Date(session.opens_at).toLocaleString('en-GB',{timeZone:'Europe/London',weekday:'short',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})} UK time</div>}
           </div>
         </div>
 
