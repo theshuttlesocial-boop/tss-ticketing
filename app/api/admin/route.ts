@@ -39,12 +39,16 @@ export async function GET(req: Request) {
     const analyticsRows = analyticsRes.data ?? []
 
     const clicksBySession: Record<string,number> = {}
-    analyticsRows.forEach(r => { clicksBySession[r.session_id] = (clicksBySession[r.session_id]??0)+1 })
+    const viewsBySession:  Record<string,number> = {}
+    analyticsRows.forEach(r => {
+      if (r.event === 'book_now_click') clicksBySession[r.session_id] = (clicksBySession[r.session_id]??0)+1
+      viewsBySession[r.session_id] = (viewsBySession[r.session_id]??0)+1
+    })
 
     const revenueBySession = sessions.map(s => {
       const sb = bookings.filter(b => b.session_id === s.id)
-      return { session: s, bookings: sb, revenue: sb.reduce((a,b)=>a+b.total_pence,0), tickets: sb.reduce((a,b)=>a+b.quantity,0), clicks: clicksBySession[s.id]??0 }
-    }).filter(s => s.tickets > 0 || s.clicks > 0)
+      return { session: s, bookings: sb, revenue: sb.reduce((a,b)=>a+b.total_pence,0), tickets: sb.reduce((a,b)=>a+b.quantity,0), clicks: clicksBySession[s.id]??0, views: viewsBySession[s.id]??0 }
+    }).filter(s => s.tickets > 0 || s.clicks > 0 || s.views > 0)
 
     const revenueByMonth: Record<string,number> = {}
     bookings.forEach(b => {

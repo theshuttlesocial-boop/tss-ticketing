@@ -190,6 +190,16 @@ export default function AdminPage() {
     else flash('❌ Failed to create next occurrence')
   }
 
+  // Auto-select the first upcoming session when switching to Attendees tab
+  useEffect(()=>{
+    if(!authed||tab!=='attendees')return
+    if(!filterSession&&sessions.length>0){
+      const today=new Date().toISOString().split('T')[0]
+      const upcoming=sessions.filter(s=>s.date>=today).sort((a,b)=>a.date.localeCompare(b.date))
+      setFilterSession(upcoming.length>0?upcoming[0].id:sessions[sessions.length-1].id)
+    }
+  },[authed,tab])  // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(()=>{
     if(!authed)return
     if(tab==='bookings')loadBookings()
@@ -553,10 +563,10 @@ export default function AdminPage() {
                         <div style={{fontWeight:600,fontSize:13,marginBottom:4}}>{s.session.title}</div>
                         <div style={{height:4,background:T.border,borderRadius:2}}><div style={{height:'100%',width:`${pct}%`,background:T.accent,borderRadius:2}}/></div>
                       </div>
-                      <div style={{textAlign:'right',minWidth:80}}>
+                      <div style={{textAlign:'right',minWidth:90}}>
                         <div style={{color:T.accent,fontWeight:700}}>{fmt(s.revenue)}</div>
                         <div style={{fontSize:11,color:T.muted}}>{s.tickets} tickets</div>
-                        {s.clicks>0&&<div style={{fontSize:10,color:T.info}}>{s.clicks} clicks</div>}
+                        {s.views>0&&<div style={{fontSize:10,color:T.muted}}>{s.views} view{s.views!==1?'s':''}{s.clicks>0?` · ${s.clicks} click${s.clicks!==1?'s':''}`:''}</div>}
                       </div>
                     </div>
                   )

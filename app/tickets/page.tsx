@@ -142,7 +142,7 @@ function ComingSoonCountdown({ opensAt, onUnlocked }: { opensAt: string; onUnloc
   return <span>Opens in {h > 0 ? `${h}h ` : ''}{m}m {String(s).padStart(2,'0')}s</span>
 }
 
-// ── Checkout Form ─────────────────────────────────────────────────────────────
+// ── Checkout Form (payment step — rendered inside Elements provider) ──────────
 function CheckoutForm({ bookingRef, expiresAt, onSuccess }:{bookingRef:string;expiresAt:string;onSuccess:()=>void}) {
   const stripe=useStripe(); const elements=useElements()
   const [paying,setPaying]=useState(false); const [error,setError]=useState('')
@@ -156,11 +156,13 @@ function CheckoutForm({ bookingRef, expiresAt, onSuccess }:{bookingRef:string;ex
   }
   return(
     <div>
-      <div style={{display:'flex',justifyContent:'space-between',padding:'8px 12px',background:T.accentDim,border:`1px solid ${T.accentBorder}`,borderRadius:8,marginBottom:16,alignItems:'center'}}>
-        <span style={{fontSize:13,color:T.muted}}>⏱ Seat held for</span>
-        <span style={{fontFamily:'monospace',fontSize:20,color:secs<60?T.danger:T.accent,fontWeight:700}}>{mm}:{ss}</span>
+      {/* Calm seat-saved banner — only turns red in final 20 seconds */}
+      <div style={{display:'flex',justifyContent:'space-between',padding:'9px 13px',background:secs<20?T.dangerDim:T.accentDim,border:`1px solid ${secs<20?'rgba(224,85,85,0.35)':T.accentBorder}`,borderRadius:8,marginBottom:16,alignItems:'center',transition:'background 0.3s,border-color 0.3s'}}>
+        <span style={{fontSize:13,color:secs<20?T.danger:T.accent,fontWeight:600}}>✅ Your spot is saved — complete payment below</span>
+        <span style={{fontFamily:'monospace',fontSize:13,color:secs<20?T.danger:T.muted,fontWeight:700}}>{mm}:{ss}</span>
       </div>
-      <PaymentElement options={{layout:'tabs'}}/>
+      {/* Accordion layout puts Apple Pay / Google Pay / Link at the top */}
+      <PaymentElement options={{layout:'accordion'}}/>
       {error&&<div style={{marginTop:12,padding:'10px 14px',background:T.dangerDim,border:`1px solid rgba(224,85,85,0.3)`,borderRadius:8,color:T.danger,fontSize:13}}>{error}</div>}
       <button onClick={pay} disabled={paying||!stripe} style={{marginTop:16,width:'100%',padding:'14px',borderRadius:10,background:paying?T.border:T.accent,color:paying?T.muted:'#080f08',border:'none',fontWeight:700,fontSize:15,cursor:'pointer',fontFamily:'inherit'}}>
         {paying?'Processing…':'Confirm & Pay'}
@@ -214,125 +216,173 @@ function WaitlistModal({session,onClose}:{session:Session;onClose:()=>void}){
 
 // ── Booking Modal ─────────────────────────────────────────────────────────────
 function BookingModal({session,termsText,onClose}:{session:Session;termsText:string;onClose:()=>void}){
-  const [step,setStep]=useState<'details'|'payment'|'done'>('details')
   const [name,setName]=useState(''); const [email,setEmail]=useState(''); const [phone,setPhone]=useState('')
   const [qty,setQty]=useState(1); const [additionalNames,setAdditionalNames]=useState<string[]>([])
   const [termsAccepted,setTermsAccepted]=useState(false); const [showTerms,setShowTerms]=useState(false)
   const [loading,setLoading]=useState(false); const [error,setError]=useState('')
   const [clientSecret,setCs]=useState(''); const [bookingRef,setRef]=useState(''); const [expiresAt,setExpires]=useState('')
+  const [done,setDone]=useState(false); const [hasSavedUser,setHasSavedUser]=useState(false)
+
   const maxQty=Math.min(session.max_tickets_per_order??4,session.available)
   const total=session.price_pence*qty
+
+  // Pre-fill details from localStorage for returning customers
+  useEffect(()=>{
+    try{
+      const saved=localStorage.getItem('tss_user')
+      if(saved){const u=JSON.parse(saved);if(u.name)setName(u.name);if(u.email)setEmail(u.email);if(u.phone)setPhone(u.phone);setHasSavedUser(true)}
+    }catch{}
+  },[])
+
+  function clearSaved(){try{localStorage.removeItem('tss_user')}catch{};setName('');setEmail('');setPhone('');setHasSavedUser(false)}
 
   function updateQty(n:number){
     setQty(n)
     setAdditionalNames(prev=>{const a=[...prev];while(a.length<n-1)a.push('');return a.slice(0,n-1)})
   }
 
-  async function handleContinue(){
-    if(!termsAccepted){setError('Please accept the terms and conditions');return}
+  const formComplete=!!(name&&email&&phone&&termsAccepted&&!clientSecret&&(qty===1||additionalNames.slice(0,qty-1).every(n=>n)))
+
+  async function reserveSeat(){
     setLoading(true);setError('')
     try{
       const res=await fetch('/api/book',{method:'POST',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({session_id:session.id,quantity:qty,name,email,phone,additional_attendees:additionalNames.filter(Boolean).map(n=>({name:n}))})})
       const d=await res.json()
       if(!res.ok){setError(d.error??'Could not reserve seat');return}
-      setCs(d.clientSecret);setRef(d.bookingRef);setExpires(d.expiresAt);setStep('payment')
+      try{localStorage.setItem('tss_user',JSON.stringify({name,email,phone}))}catch{}
+      setCs(d.clientSecret);setRef(d.bookingRef);setExpires(d.expiresAt)
     }catch{setError('Network error — please try again')}
     finally{setLoading(false)}
   }
+
+  // ── Done screen
+  if(done) return(
+    <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.92)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center',padding:16}} role="dialog" aria-modal="true">
+      <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:16,width:'100%',maxWidth:480,padding:28,textAlign:'center'}}>
+        <div style={{fontSize:52,marginBottom:12}}>🏸</div>
+        <div style={{fontSize:26,fontWeight:700,color:T.accent,marginBottom:8}}>You're in!</div>
+        <p style={{color:T.muted,fontSize:14,marginBottom:8}}>Confirmation sent to <strong style={{color:T.text}}>{email}</strong></p>
+        <p style={{color:T.muted,fontSize:14,marginBottom:20}}>Booking ref: <strong style={{color:T.accent}}>{bookingRef}</strong></p>
+        <button onClick={onClose} style={{padding:'12px 28px',background:T.accent,color:'#080f08',border:'none',borderRadius:10,fontWeight:700,fontSize:15,cursor:'pointer',fontFamily:'inherit'}}>Done</button>
+      </div>
+    </div>
+  )
 
   return(
     <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.92)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center',padding:16}} onClick={e=>{if(e.target===e.currentTarget)onClose()}} role="dialog" aria-modal="true" aria-label="Book tickets">
       <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:16,width:'100%',maxWidth:480,padding:28,position:'relative',maxHeight:'92vh',overflowY:'auto'}}>
         <button onClick={onClose} style={{position:'absolute',top:16,right:16,background:'none',border:'none',color:T.muted,fontSize:22,cursor:'pointer'}} aria-label="Close checkout">✕</button>
 
-        {step!=='done'&&(
+        {/* Session header */}
+        <div style={{marginBottom:20}}>
+          {session.label&&<span style={{background:T.accentDim,color:T.accent,fontSize:11,fontWeight:700,padding:'2px 8px',borderRadius:20,border:`1px solid ${T.accentBorder}`,marginBottom:6,display:'inline-block'}}>{session.label} London</span>}
+          <div style={{fontWeight:700,fontSize:18,color:T.accent}}>{session.title}</div>
+          <div style={{display:'flex',gap:12,marginTop:6,flexWrap:'wrap' as const}}>
+            <span style={{fontSize:13,color:T.muted}}>📅 {fmtDateLong(session.date)}</span>
+            <span style={{fontSize:13,color:T.muted}}>🕐 {session.time}</span>
+            <span style={{fontSize:13,color:T.muted}}>📍 {session.venue}</span>
+          </div>
+        </div>
+
+        {/* Description — only shown before seat is reserved */}
+        {!clientSecret&&session.description&&<div style={{marginBottom:16,padding:'12px 14px',background:T.accentDim,border:`1px solid ${T.accentBorder}`,borderRadius:8,fontSize:13,color:'#a0c890',lineHeight:1.6,whiteSpace:'pre-wrap'}}>{session.description}</div>}
+
+        {/* Form fields — locked (read-only overlay) once seat is reserved */}
+        <div style={{opacity:clientSecret?0.55:1,pointerEvents:clientSecret?'none':'auto',transition:'opacity 0.3s'}}>
+
+          {/* Returning customer banner */}
+          {hasSavedUser&&!clientSecret&&(
+            <div style={{marginBottom:12,display:'flex',justifyContent:'space-between',alignItems:'center',padding:'8px 12px',background:T.accentDim,border:`1px solid ${T.accentBorder}`,borderRadius:8}}>
+              <span style={{fontSize:13,color:T.accent}}>👋 Welcome back, {name.split(' ')[0]}!</span>
+              <button onClick={clearSaved} style={{background:'none',border:'none',color:T.muted,cursor:'pointer',fontSize:12,fontFamily:'inherit',textDecoration:'underline'}}>Not you? Clear</button>
+            </div>
+          )}
+
+          {/* Name */}
+          <div style={{marginBottom:14}}>
+            <label style={{fontSize:12,color:T.muted,display:'block',marginBottom:5}}>Full Name *</label>
+            <input type="text" value={name} onChange={e=>setName(e.target.value)} placeholder="Your name" autoComplete="name" style={inp()}
+              onFocus={e=>(e.target.style.borderColor=T.accent)} onBlur={e=>(e.target.style.borderColor=T.border)}/>
+          </div>
+
+          {/* Email */}
+          <div style={{marginBottom:14}}>
+            <label style={{fontSize:12,color:T.muted,display:'block',marginBottom:5}}>Email *</label>
+            <input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="you@email.com" autoComplete="email" style={inp()}
+              onFocus={e=>(e.target.style.borderColor=T.accent)} onBlur={e=>(e.target.style.borderColor=T.border)}/>
+          </div>
+
+          {/* Phone */}
+          <div style={{marginBottom:14}}>
+            <label style={{fontSize:12,color:T.muted,display:'block',marginBottom:5}}>Phone *</label>
+            <input type="tel" value={phone} onChange={e=>setPhone(e.target.value)} placeholder="+44 7700 000000" autoComplete="tel" style={inp()}
+              onFocus={e=>(e.target.style.borderColor=T.accent)} onBlur={e=>(e.target.style.borderColor=T.border)}/>
+          </div>
+
+          {/* Quantity */}
           <div style={{marginBottom:20}}>
-            {session.label&&<span style={{background:T.accentDim,color:T.accent,fontSize:11,fontWeight:700,padding:'2px 8px',borderRadius:20,border:`1px solid ${T.accentBorder}`,marginBottom:6,display:'inline-block'}}>{session.label} London</span>}
-            <div style={{fontWeight:700,fontSize:18,color:T.accent}}>{session.title}</div>
-            <div style={{display:'flex',gap:12,marginTop:6,flexWrap:'wrap' as const}}>
-              <span style={{fontSize:13,color:T.muted}}>📅 {fmtDateLong(session.date)}</span>
-              <span style={{fontSize:13,color:T.muted}}>🕐 {session.time}</span>
-              <span style={{fontSize:13,color:T.muted}}>📍 {session.venue}</span>
+            <label style={{fontSize:12,color:T.muted,display:'block',marginBottom:8}}>Number of Tickets</label>
+            <div style={{display:'flex',gap:8}}>
+              {Array.from({length:maxQty},(_,i)=>i+1).map(n=>(
+                <button key={n} onClick={()=>updateQty(n)} style={{flex:1,padding:'10px 0',borderRadius:8,cursor:'pointer',border:`1px solid ${qty===n?T.accent:T.border}`,background:qty===n?T.accentDim:T.card,color:qty===n?T.accent:T.text,fontWeight:700,fontSize:15,fontFamily:'inherit'}}>{n}</button>
+              ))}
             </div>
           </div>
-        )}
 
-        {step==='details'&&(
-          <>
-            {session.description&&<div style={{marginBottom:16,padding:'12px 14px',background:T.accentDim,border:`1px solid ${T.accentBorder}`,borderRadius:8,fontSize:13,color:'#a0c890',lineHeight:1.6,whiteSpace:'pre-wrap'}}>{session.description}</div>}
-
-            {[['Full Name *','text',name,setName,'Your name'],['Email *','email',email,setEmail,'you@email.com'],['Phone *','tel',phone,setPhone,'+44 7700 000000']].map(([l,t,v,sv,ph])=>(
-              <div key={l as string} style={{marginBottom:14}}>
-                <label style={{fontSize:12,color:T.muted,display:'block',marginBottom:5}}>{l as string}</label>
-                <input type={t as string} value={v as string} onChange={e=>(sv as any)(e.target.value)} placeholder={ph as string} style={inp()}
-                  onFocus={e=>(e.target.style.borderColor=T.accent)} onBlur={e=>(e.target.style.borderColor=T.border)}/>
-              </div>
-            ))}
-
-            <div style={{marginBottom:20}}>
-              <label style={{fontSize:12,color:T.muted,display:'block',marginBottom:8}}>Number of Tickets</label>
-              <div style={{display:'flex',gap:8}}>
-                {Array.from({length:maxQty},(_,i)=>i+1).map(n=>(
-                  <button key={n} onClick={()=>updateQty(n)} style={{flex:1,padding:'10px 0',borderRadius:8,cursor:'pointer',border:`1px solid ${qty===n?T.accent:T.border}`,background:qty===n?T.accentDim:T.card,color:qty===n?T.accent:T.text,fontWeight:700,fontSize:15,fontFamily:'inherit'}}>{n}</button>
-                ))}
-              </div>
-            </div>
-
-            {qty>1&&(
-              <div style={{marginBottom:20,padding:'14px',background:'rgba(255,255,255,0.02)',border:`1px solid ${T.border}`,borderRadius:10}}>
-                <div style={{fontSize:12,color:T.muted,marginBottom:10,fontWeight:600}}>Additional attendee names (required)</div>
-                {Array.from({length:qty-1},(_,i)=>(
-                  <div key={i} style={{marginBottom:10}}>
-                    <label style={{fontSize:12,color:T.muted,display:'block',marginBottom:4}}>Attendee {i+2} full name *</label>
-                    <input value={additionalNames[i]??''} onChange={e=>{const a=[...additionalNames];a[i]=e.target.value;setAdditionalNames(a)}}
-                      placeholder={`Full name of attendee ${i+2}`} style={inp()}
-                      onFocus={e=>(e.target.style.borderColor=T.accent)} onBlur={e=>(e.target.style.borderColor=T.border)}/>
-                  </div>
-                ))}
-              </div>
-            )}
-
+          {/* Additional attendees */}
+          {qty>1&&(
             <div style={{marginBottom:20,padding:'14px',background:'rgba(255,255,255,0.02)',border:`1px solid ${T.border}`,borderRadius:10}}>
-              <label style={{display:'flex',alignItems:'flex-start',gap:10,cursor:'pointer'}}>
-                <input type="checkbox" checked={termsAccepted} onChange={e=>setTermsAccepted(e.target.checked)} style={{marginTop:2,width:16,height:16,accentColor:T.accent}}/>
-                <span style={{fontSize:13,color:T.muted,lineHeight:1.5}}>
-                  I agree to the{' '}
-                  <button onClick={e=>{e.preventDefault();setShowTerms(true)}} style={{background:'none',border:'none',color:T.accent,cursor:'pointer',fontSize:13,textDecoration:'underline',fontFamily:'inherit',padding:0}}>
-                    Terms & Conditions
-                  </button>
-                </span>
-              </label>
+              <div style={{fontSize:12,color:T.muted,marginBottom:10,fontWeight:600}}>Additional attendee names (required)</div>
+              {Array.from({length:qty-1},(_,i)=>(
+                <div key={i} style={{marginBottom:10}}>
+                  <label style={{fontSize:12,color:T.muted,display:'block',marginBottom:4}}>Attendee {i+2} full name *</label>
+                  <input value={additionalNames[i]??''} onChange={e=>{const a=[...additionalNames];a[i]=e.target.value;setAdditionalNames(a)}}
+                    placeholder={`Full name of attendee ${i+2}`} autoComplete="off" style={inp()}
+                    onFocus={e=>(e.target.style.borderColor=T.accent)} onBlur={e=>(e.target.style.borderColor=T.border)}/>
+                </div>
+              ))}
             </div>
+          )}
 
-            <div style={{display:'flex',justifyContent:'space-between',padding:'12px 0',borderTop:`1px solid ${T.border}`,marginBottom:16}}>
-              <span style={{color:T.muted}}>Total</span>
-              <span style={{fontWeight:700,fontSize:20,color:T.accent}}>{fmt(total)}</span>
-            </div>
-            {error&&<div style={{marginBottom:12,padding:'10px',background:T.dangerDim,color:T.danger,borderRadius:8,fontSize:13}}>{error}</div>}
-            <button onClick={handleContinue} disabled={!name||!email||!phone||loading||(qty>1&&additionalNames.slice(0,qty-1).some(n=>!n))}
-              style={{width:'100%',padding:'13px',borderRadius:10,border:'none',background:(!name||!email||!phone||loading)?T.border:T.accent,color:(!name||!email||!phone||loading)?T.muted:'#080f08',fontWeight:700,fontSize:15,cursor:'pointer',fontFamily:'inherit'}}>
-              {loading?'Reserving your seat…':'Continue to Payment →'}
-            </button>
-          </>
+          {/* Terms */}
+          <div style={{marginBottom:20,padding:'14px',background:'rgba(255,255,255,0.02)',border:`1px solid ${T.border}`,borderRadius:10}}>
+            <label style={{display:'flex',alignItems:'flex-start',gap:10,cursor:'pointer'}}>
+              <input type="checkbox" checked={termsAccepted} onChange={e=>setTermsAccepted(e.target.checked)} style={{marginTop:2,width:16,height:16,accentColor:T.accent}}/>
+              <span style={{fontSize:13,color:T.muted,lineHeight:1.5}}>
+                I agree to the{' '}
+                <button onClick={e=>{e.preventDefault();setShowTerms(true)}} style={{background:'none',border:'none',color:T.accent,cursor:'pointer',fontSize:13,textDecoration:'underline',fontFamily:'inherit',padding:0}}>
+                  Terms & Conditions
+                </button>
+              </span>
+            </label>
+          </div>
+        </div>
+
+        {/* Dynamic price total — live update as quantity changes */}
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',padding:'12px 0',borderTop:`1px solid ${T.border}`,marginBottom:16}}>
+          <span style={{fontSize:13,color:T.muted}}>{qty} × {fmt(session.price_pence)}</span>
+          <span style={{fontWeight:700,fontSize:20,color:T.accent}}>{fmt(total)}</span>
+        </div>
+
+        {error&&<div style={{marginBottom:12,padding:'10px',background:T.dangerDim,color:T.danger,borderRadius:8,fontSize:13}}>{error}</div>}
+
+        {/* Reserve button — visible only before seat is held */}
+        {!clientSecret&&(
+          <button onClick={reserveSeat} disabled={!formComplete||loading}
+            style={{width:'100%',padding:'13px',borderRadius:10,border:'none',background:(!formComplete||loading)?T.border:T.accent,color:(!formComplete||loading)?T.muted:'#080f08',fontWeight:700,fontSize:15,cursor:formComplete&&!loading?'pointer':'default',fontFamily:'inherit',marginBottom:clientSecret?0:0}}>
+            {loading?'Reserving your seat…':'Continue to Payment →'}
+          </button>
         )}
 
-        {step==='payment'&&clientSecret&&(
+        {/* Payment section — appears inline once seat is reserved (no modal swap) */}
+        {clientSecret&&(
           <Elements stripe={stripePromise} options={{clientSecret,appearance:{theme:'night',variables:{colorPrimary:T.accent,colorBackground:T.card,colorText:T.text,borderRadius:'8px'}}}}>
-            <CheckoutForm bookingRef={bookingRef} expiresAt={expiresAt} onSuccess={()=>setStep('done')}/>
+            <CheckoutForm bookingRef={bookingRef} expiresAt={expiresAt} onSuccess={()=>setDone(true)}/>
           </Elements>
         )}
 
-        {step==='done'&&(
-          <div style={{textAlign:'center',padding:'10px 0'}}>
-            <div style={{fontSize:52,marginBottom:12}}>🏸</div>
-            <div style={{fontSize:26,fontWeight:700,color:T.accent,marginBottom:8}}>You're in!</div>
-            <p style={{color:T.muted,fontSize:14,marginBottom:8}}>Confirmation sent to <strong style={{color:T.text}}>{email}</strong></p>
-            <p style={{color:T.muted,fontSize:14,marginBottom:20}}>Booking ref: <strong style={{color:T.accent}}>{bookingRef}</strong></p>
-            <button onClick={onClose} style={{padding:'12px 28px',background:T.accent,color:'#080f08',border:'none',borderRadius:10,fontWeight:700,fontSize:15,cursor:'pointer',fontFamily:'inherit'}}>Done</button>
-          </div>
-        )}
-
+        {/* Terms overlay */}
         {showTerms&&(
           <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.95)',zIndex:2000,display:'flex',alignItems:'center',justifyContent:'center',padding:16}} role="dialog" aria-modal="true">
             <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:16,width:'100%',maxWidth:520,padding:28,maxHeight:'80vh',overflowY:'auto'}}>
@@ -408,7 +458,7 @@ function SessionCard({session,onSelect,onWaitlist,onUnlocked}:{session:Session;o
               </div>
               <div style={{display:'flex',justifyContent:'space-between',fontSize:12}}>
                 <span style={{color:soldOut?T.danger:hot?T.warning:T.muted}}>
-                  {soldOut?'🔴 Sold out':hot?`🟠 Only ${spotsLeft} spot${spotsLeft===1?'':'s'} remaining`:`🟢 ${spotsLeft} of ${session.capacity} spots remaining`}
+                  {soldOut?'🔴 Sold out':hot?`🟠 Only ${spotsLeft} spot${spotsLeft===1?'':'s'} remaining`:`🟢 ${spotsLeft} spot${spotsLeft===1?'':'s'} remaining`}
                 </span>
                 <span style={{color:T.accent,fontWeight:600}}>{fmt(session.price_pence)} / person</span>
               </div>
@@ -453,12 +503,24 @@ export default function TicketsPage() {
   const [waitlistSession,setWaitlistSession]=useState<Session|null>(null)
 
   const sessionsHashRef=useRef('')
+  const viewsFiredRef=useRef(false)
   const fetchSessions=useCallback(async()=>{
     const res=await fetch('/api/sessions')
     const d=await res.json()
     // Only re-render if data actually changed — prevents page jitter on 15s auto-refresh
     const hash=JSON.stringify(d.sessions)
-    if(hash!==sessionsHashRef.current){sessionsHashRef.current=hash;setSessions(d.sessions??[])}
+    if(hash!==sessionsHashRef.current){
+      sessionsHashRef.current=hash
+      const newSessions:Session[]=d.sessions??[]
+      setSessions(newSessions)
+      // Fire session_view events once per page load for all open sessions
+      if(!viewsFiredRef.current&&newSessions.length>0){
+        viewsFiredRef.current=true
+        newSessions.filter(s=>s.status==='open'||s.status==='coming_soon').forEach(s=>{
+          fetch('/api/analytics',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session_id:s.id,event:'session_view'})}).catch(()=>{})
+        })
+      }
+    }
     if(d.settings)setSettings(d.settings)
     setLoading(false)
   },[])

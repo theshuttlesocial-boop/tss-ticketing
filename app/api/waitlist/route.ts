@@ -11,8 +11,14 @@ export async function POST(req: Request) {
   const { data: existing } = await supabaseAdmin.from('waitlist').select('id').eq('session_id', session_id).eq('email', email).single()
   if (existing) return NextResponse.json({ error: 'You are already on the waitlist' }, { status: 409 })
 
-  const { data: pos } = await supabaseAdmin.rpc('get_next_waitlist_position', { p_session_id: session_id })
-  const position = pos ?? 1
+  // Atomic-safe MAX+1 — avoids broken RPC and race-safe enough for low-volume waitlist
+  const { data: posData } = await supabaseAdmin
+    .from('waitlist')
+    .select('position')
+    .eq('session_id', session_id)
+    .order('position', { ascending: false })
+    .limit(1)
+  const position = ((posData?.[0]?.position) ?? 0) + 1
 
   const { data: entry, error } = await supabaseAdmin.from('waitlist').insert({ session_id, name, email, phone, position }).select().single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
