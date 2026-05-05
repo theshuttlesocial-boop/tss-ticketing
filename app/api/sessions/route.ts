@@ -4,43 +4,65 @@ import { supabaseAdmin } from '@/lib/supabase'
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
+  const now = new Date()
+  const today = now.toISOString().split('T')[0]  // YYYY-MM-DD — exclude past sessions
+
   const [sessionsRes, settingsRes] = await Promise.all([
-    supabaseAdmin.from('sessions').select('*').in('status', ['open','draft']).eq('cancelled_occurrence', false).order('date', { ascending: true }),
+    supabaseAdmin.from('sessions').select('*')
+      .in('status', ['open','draft'])
+      .eq('cancelled_occurrence', false)
+      .gte('date', today)
+      .order('date', { ascending: true }),
     supabaseAdmin.from('site_settings').select('*')
   ])
 
   if (sessionsRes.error) return NextResponse.json({ error: sessionsRes.error.message }, { status: 500 })
 
-  const now = new Date()
   const settings: Record<string,string> = {}
   ;(settingsRes.data ?? []).forEach(s => { settings[s.key] = s.value })
 
-  const enriched = await Promise.all(
-    (sessionsRes.data ?? []).map(async (session) => {
-      const isScheduledOpen = session.opens_at && new Date(session.opens_at) <= now
-      const effectiveStatus = isScheduledOpen ? 'open' : session.status
+  // Separate into open vs coming_soon in one pass
+  const openSessions: (typeof sessionsRes.data)[number][] = []
+  const comingSoon: (typeof sessionsRes.data)[number][] = []
 
-      if (effectiveStatus === 'draft') {
-        // Has a future opens_at — surface as "coming_soon" so the frontend can show a countdown
-        if (session.opens_at && new Date(session.opens_at) > now) {
-          return { ...session, status: 'coming_soon', booked: 0, held: 0, available: session.capacity }
-        }
-        return null  // pure draft with no scheduled release — don't show publicly
-      }
+  for (const session of sessionsRes.data ?? []) {
+    const isScheduledOpen = session.opens_at && new Date(session.opens_at) <= now
+    const effectiveStatus = isScheduledOpen ? 'open' : session.status
+    if (effectiveStatus === 'draft') {
+      if (session.opens_at && new Date(session.opens_at) > now) comingSoon.push(session)
+      // else: pure draft, skip
+    } else {
+      openSessions.push(session)
+    }
+  }
 
-      const [bookingRes, holdRes] = await Promise.all([
-        supabaseAdmin.from('bookings').select('quantity').eq('session_id', session.id).eq('stripe_status', 'succeeded'),
-        supabaseAdmin.from('seat_holds').select('quantity').eq('session_id', session.id).eq('used', false).gt('expires_at', now.toISOString()),
+  // Two bulk queries instead of 2× N per-session queries
+  const openIds = openSessions.map(s => s.id)
+  const [bookingsRes, holdsRes] = openIds.length > 0
+    ? await Promise.all([
+        supabaseAdmin.from('bookings').select('session_id,quantity').in('session_id', openIds).eq('stripe_status', 'succeeded'),
+        supabaseAdmin.from('seat_holds').select('session_id,quantity').in('session_id', openIds).eq('used', false).gt('expires_at', now.toISOString()),
       ])
+    : [{ data: [] as {session_id:string;quantity:number}[] }, { data: [] as {session_id:string;quantity:number}[] }]
 
-      const booked = (bookingRes.data ?? []).reduce((s,b) => s+b.quantity, 0)
-      const held   = (holdRes.data ?? []).reduce((s,h) => s+h.quantity, 0)
+  const bookedBy: Record<string,number> = {}
+  const heldBy:   Record<string,number> = {}
+  ;(bookingsRes.data ?? []).forEach(b => { bookedBy[b.session_id] = (bookedBy[b.session_id] ?? 0) + b.quantity })
+  ;(holdsRes.data   ?? []).forEach(h => { heldBy[h.session_id]   = (heldBy[h.session_id]   ?? 0) + h.quantity })
 
-      return { ...session, status: effectiveStatus, booked, held, available: session.capacity - booked - held }
-    })
+  const enriched = [
+    ...openSessions.map(s => {
+      const booked = bookedBy[s.id] ?? 0
+      const held   = heldBy[s.id]   ?? 0
+      return { ...s, status: 'open', booked, held, available: s.capacity - booked - held }
+    }),
+    ...comingSoon.map(s => ({ ...s, status: 'coming_soon', booked: 0, held: 0, available: s.capacity })),
+  ].sort((a, b) => a.date.localeCompare(b.date))
+
+  return NextResponse.json(
+    { sessions: enriched, settings },
+    { headers: { 'Cache-Control': 'no-store' } }
   )
-
-  return NextResponse.json({ sessions: enriched.filter(Boolean), settings })
 }
 
 export async function POST(req: Request) {

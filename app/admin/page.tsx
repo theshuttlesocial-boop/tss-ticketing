@@ -614,7 +614,7 @@ export default function AdminPage() {
 
 // ── Session Editor ────────────────────────────────────────────────────────────
 function SessionEditor({session,onSave,onCancel,onStatusChange,onSchedule,onGenerateNext,onDelete,secret,flash,reload}:{session:Session;onSave:(u:any)=>Promise<void>;onCancel:()=>void;onStatusChange:(s:string)=>void;onSchedule:(dt:string)=>void;onGenerateNext:()=>void;onDelete:()=>void;secret:string;flash:(m:string)=>void;reload:()=>void}) {
-  const initV = {title:session.title,label:session.label??'West',venue:session.venue,region:session.region,date:session.date,time:session.time,capacity:session.capacity,price_pence:session.price_pence,description:session.description??'',max_tickets_per_order:session.max_tickets_per_order??4,maps_url:session.maps_url??''}
+  const initV = {title:session.title,label:session.label??'West',venue:session.venue,region:session.region,date:session.date,time:session.time,capacity:session.capacity,price_pence:session.price_pence,description:session.description??'',max_tickets_per_order:session.max_tickets_per_order??4,maps_url:session.maps_url??'',is_recurring:session.is_recurring??false}
   const [v,setV]=useState(initV)
   // vRef is always updated synchronously — Save reads from here, not from state
   const vRef=useRef(initV)
@@ -656,15 +656,17 @@ function SessionEditor({session,onSave,onCancel,onStatusChange,onSchedule,onGene
         </div>
 
         {/* Recurring options */}
-        {session.is_recurring&&(
-          <div style={{marginBottom:20,padding:'12px 14px',background:T.infoDim,border:`1px solid rgba(96,180,255,0.2)`,borderRadius:10}}>
-            <div style={{fontSize:13,fontWeight:600,color:T.info,marginBottom:8}}>↻ Recurring Session</div>
+        <div style={{marginBottom:20,padding:'12px 14px',background:T.infoDim,border:`1px solid rgba(96,180,255,0.2)`,borderRadius:10}}>
+          <label style={{display:'flex',alignItems:'center',gap:10,cursor:'pointer',marginBottom:v.is_recurring?12:0}}>
+            <input type="checkbox" checked={v.is_recurring} onChange={e=>updateField('is_recurring',e.target.checked)} style={{accentColor:T.info,width:16,height:16}}/>
+            <span style={{fontSize:13,fontWeight:600,color:T.info}}>↻ Recurring session (auto-creates weekly)</span>
+          </label>
+          {v.is_recurring&&(
             <div style={{display:'flex',gap:8}}>
-              <button onClick={onGenerateNext} style={{padding:'8px 14px',background:T.infoDim,color:T.info,border:`1px solid rgba(96,180,255,0.3)`,borderRadius:8,cursor:'pointer',fontSize:12,fontWeight:600,fontFamily:'inherit'}}>➕ Create Next Week's Session</button>
-              <button onClick={()=>{if(confirm('Cancel just this week?'))reload()}} style={{padding:'8px 14px',background:T.dangerDim,color:T.danger,border:`1px solid rgba(224,85,85,0.3)`,borderRadius:8,cursor:'pointer',fontSize:12,fontWeight:600,fontFamily:'inherit'}}>🚫 Cancel This Week</button>
+              <button onClick={onGenerateNext} style={{padding:'8px 14px',background:'rgba(96,180,255,0.12)',color:T.info,border:`1px solid rgba(96,180,255,0.3)`,borderRadius:8,cursor:'pointer',fontSize:12,fontWeight:600,fontFamily:'inherit'}}>➕ Create Next Week's Session</button>
             </div>
-          </div>
-        )}
+          )}
+        </div>
 
         {/* Edit fields — plain controlled inputs; onChange writes to vRef immediately so Save never gets stale values */}
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14,marginBottom:14}}>

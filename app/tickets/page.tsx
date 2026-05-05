@@ -452,10 +452,13 @@ export default function TicketsPage() {
   const [selected,setSelected]=useState<Session|null>(null)
   const [waitlistSession,setWaitlistSession]=useState<Session|null>(null)
 
+  const sessionsHashRef=useRef('')
   const fetchSessions=useCallback(async()=>{
     const res=await fetch('/api/sessions')
     const d=await res.json()
-    setSessions(d.sessions??[])
+    // Only re-render if data actually changed — prevents page jitter on 15s auto-refresh
+    const hash=JSON.stringify(d.sessions)
+    if(hash!==sessionsHashRef.current){sessionsHashRef.current=hash;setSessions(d.sessions??[])}
     if(d.settings)setSettings(d.settings)
     setLoading(false)
   },[])

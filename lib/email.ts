@@ -134,6 +134,42 @@ export async function sendAdminBookingNotification({ name, email, phone, booking
   })
 }
 
+export async function sendAdminWaitlistNotification({ name, email, phone, position, sessionTitle, sessionDate, sessionTime, venue }: {
+  name: string; email: string; phone?: string; position: number
+  sessionTitle: string; sessionDate: string; sessionTime: string; venue: string
+}) {
+  if (!resend) return
+  const fmtDate = (d: string) => new Date(d).toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'})
+
+  await resend.emails.send({
+    from: process.env.EMAIL_FROM ?? 'bookings@theshuttlesocial.com',
+    to: 'theshuttlesocial@gmail.com',
+    subject: `🎯 Waitlist: ${name} joined — ${sessionTitle} (#${position})`,
+    html: emailWrap(`
+      <div style="color:${brandColor};font-size:22px;font-weight:900;margin-bottom:4px;">New Waitlist Entry 🎯</div>
+      <div style="color:${muted};font-size:14px;margin-bottom:24px;">Someone joined the waitlist for a sold-out session.</div>
+      <div style="background:${card};border:1px solid #1e3220;border-radius:12px;padding:20px;margin-bottom:16px;">
+        <div style="font-size:11px;font-weight:700;color:${muted};letter-spacing:2px;margin-bottom:10px;">SESSION</div>
+        <table style="width:100%;border-collapse:collapse;">
+          ${infoRow('Session', sessionTitle)}
+          ${infoRow('Date', fmtDate(sessionDate))}
+          ${infoRow('Time', sessionTime)}
+          ${infoRow('Venue', venue)}
+        </table>
+      </div>
+      <div style="background:${card};border:1px solid #1e3220;border-radius:12px;padding:20px;">
+        <div style="font-size:11px;font-weight:700;color:${muted};letter-spacing:2px;margin-bottom:10px;">PLAYER</div>
+        <table style="width:100%;border-collapse:collapse;">
+          ${infoRow('Name', name)}
+          ${infoRow('Email', email)}
+          ${phone ? infoRow('Phone', phone) : ''}
+          ${infoRow('Waitlist position', `#${position}`, true)}
+        </table>
+      </div>
+    `)
+  })
+}
+
 export async function sendWaitlistConfirmation({ to, name, position, sessionTitle, sessionDate }: {
   to: string; name: string; position: number; sessionTitle: string; sessionDate: string
 }) {
