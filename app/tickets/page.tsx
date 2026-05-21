@@ -145,26 +145,59 @@ function ComingSoonCountdown({ opensAt, onUnlocked }: { opensAt: string; onUnloc
 // ── Checkout Form (payment step — rendered inside Elements provider) ──────────
 function CheckoutForm({ bookingRef, expiresAt, onSuccess }:{bookingRef:string;expiresAt:string;onSuccess:()=>void}) {
   const stripe=useStripe(); const elements=useElements()
-  const [paying,setPaying]=useState(false); const [error,setError]=useState('')
+  const [paying,setPaying]=useState(false); const [error,setError]=useState(''); const [overtime,setOvertime]=useState(false)
   const [secs,setSecs]=useState(()=>Math.max(0,Math.floor((new Date(expiresAt).getTime()-Date.now())/1000)))
   useEffect(()=>{const t=setInterval(()=>setSecs(s=>Math.max(0,s-1)),1000);return()=>clearInterval(t)},[])
   const mm=String(Math.floor(secs/60)).padStart(2,'0'), ss=String(secs%60).padStart(2,'0')
+
   async function pay(){
-    if(!stripe||!elements)return; setPaying(true); setError('')
-    const {error:e}=await stripe.confirmPayment({elements,confirmParams:{return_url:`${window.location.origin}/tickets/success?ref=${bookingRef}`},redirect:'if_required'})
-    if(e){setError(e.message??'Payment failed');setPaying(false)}else onSuccess()
+    if(!stripe||!elements)return
+    setPaying(true); setError(''); setOvertime(false)
+
+    // 45-second "still waiting" message — shown if Apple Pay/bank is slow
+    const overtimeTimer=setTimeout(()=>setOvertime(true),45000)
+
+    // 30-second hard timeout on the Stripe call so the button never stays stuck
+    const timeoutPromise=new Promise<{error:{message:string}}>((resolve)=>
+      setTimeout(()=>resolve({error:{message:'Payment is taking longer than expected. Please check your email — if you completed Apple Pay your booking may already be confirmed. Otherwise try again.'}}),30000)
+    )
+
+    try{
+      const result=await Promise.race([
+        stripe.confirmPayment({elements,confirmParams:{return_url:`${window.location.origin}/tickets/success?ref=${bookingRef}`},redirect:'if_required'}),
+        timeoutPromise,
+      ])
+      clearTimeout(overtimeTimer)
+      if(result.error){
+        setError(result.error.message??'Payment failed. Please try again.')
+      }else{
+        onSuccess()
+      }
+    }catch(err:any){
+      clearTimeout(overtimeTimer)
+      setError(err?.message??'Payment failed. Please try again.')
+    }finally{
+      setPaying(false)
+    }
   }
+
   return(
     <div>
       {/* Calm seat-saved banner — only turns red in final 20 seconds */}
       <div style={{display:'flex',justifyContent:'space-between',padding:'9px 13px',background:secs<20?T.dangerDim:T.accentDim,border:`1px solid ${secs<20?'rgba(224,85,85,0.35)':T.accentBorder}`,borderRadius:8,marginBottom:16,alignItems:'center',transition:'background 0.3s,border-color 0.3s'}}>
-        <span style={{fontSize:13,color:secs<20?T.danger:T.accent,fontWeight:600}}>✅ Your spot is saved — complete payment below</span>
+        <span style={{fontSize:13,color:secs<20?T.danger:T.accent,fontWeight:600}}>Your spot is saved — complete payment below</span>
         <span style={{fontFamily:'monospace',fontSize:13,color:secs<20?T.danger:T.muted,fontWeight:700}}>{mm}:{ss}</span>
       </div>
       {/* Accordion layout puts Apple Pay / Google Pay / Link at the top */}
       <PaymentElement options={{layout:'accordion'}}/>
-      {error&&<div style={{marginTop:12,padding:'10px 14px',background:T.dangerDim,border:`1px solid rgba(224,85,85,0.3)`,borderRadius:8,color:T.danger,fontSize:13}}>{error}</div>}
-      <button onClick={pay} disabled={paying||!stripe} style={{marginTop:16,width:'100%',padding:'14px',borderRadius:10,background:paying?T.border:T.accent,color:paying?T.muted:'#080f08',border:'none',fontWeight:700,fontSize:15,cursor:'pointer',fontFamily:'inherit'}}>
+      {/* Overtime message — shown after 45s if still processing */}
+      {overtime&&paying&&(
+        <div style={{marginTop:10,padding:'10px 14px',background:T.infoDim,border:`1px solid rgba(96,180,255,0.3)`,borderRadius:8,color:T.info,fontSize:12,lineHeight:1.6}}>
+          Still processing... If you completed Apple Pay or your bank auth, please check your email before retrying — your booking may already be confirmed.
+        </div>
+      )}
+      {error&&<div style={{marginTop:12,padding:'10px 14px',background:T.dangerDim,border:`1px solid rgba(224,85,85,0.3)`,borderRadius:8,color:T.danger,fontSize:13,lineHeight:1.5}}>{error}</div>}
+      <button onClick={pay} disabled={paying||!stripe} style={{marginTop:16,width:'100%',padding:'14px',borderRadius:10,background:paying?T.border:T.accent,color:paying?T.muted:'#080f08',border:'none',fontWeight:700,fontSize:15,cursor:paying?'default':'pointer',fontFamily:'inherit'}}>
         {paying?'Processing…':'Confirm & Pay'}
       </button>
     </div>

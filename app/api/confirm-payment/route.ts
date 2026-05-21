@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { stripe } from '@/lib/stripe'
 import { supabaseAdmin } from '@/lib/supabase'
-import { sendBookingConfirmation, sendAdminBookingNotification } from '@/lib/email'
+import { sendBookingConfirmation, sendAdminBookingNotification, sendApologyRefundEmail } from '@/lib/email'
 
 export async function POST(req: Request) {
   console.log('[webhook] POST received')
@@ -29,75 +29,156 @@ export async function POST(req: Request) {
 
     const { hold_token, booking_ref, session_id, customer_name } = pi.metadata
 
+    // ── 1. Find the pending booking ──────────────────────────────────────────
+    const { data: pendingBooking } = await supabaseAdmin
+      .from('bookings').select('*')
+      .eq('stripe_payment_intent_id', pi.id).single()
+
+    if (!pendingBooking) {
+      console.warn('[webhook] booking not found for pi.id:', pi.id)
+      return NextResponse.json({ received: true })
+    }
+
+    // Idempotency: already processed
+    if (pendingBooking.stripe_status === 'succeeded') {
+      console.log('[webhook] booking already succeeded, skipping')
+      return NextResponse.json({ received: true })
+    }
+
+    // ── 2. Capacity check before confirming ──────────────────────────────────
+    //    This guards against expired holds that freed a slot which was re-sold.
+    const [sessionRes, bookedRes] = await Promise.all([
+      supabaseAdmin.from('sessions').select('capacity,title,label,date,time,venue,description').eq('id', session_id).single(),
+      supabaseAdmin.from('bookings').select('quantity').eq('session_id', session_id).eq('stripe_status', 'succeeded'),
+    ])
+
+    const session = sessionRes.data
+    const capacity = session?.capacity ?? 0
+    const alreadyBooked = (bookedRes.data ?? []).reduce((a: number, b: any) => a + b.quantity, 0)
+
+    console.log(`[webhook] capacity check: capacity=${capacity}, alreadyBooked=${alreadyBooked}, thisQty=${pendingBooking.quantity}`)
+
+    if (alreadyBooked + pendingBooking.quantity > capacity) {
+      // ── 2a. OVERSELL DETECTED — refund immediately ───────────────────────
+      console.error(`[webhook] OVERSELL DETECTED for session ${session_id} — issuing refund for pi.id ${pi.id}`)
+
+      try {
+        await stripe.refunds.create({ payment_intent: pi.id })
+        console.log('[webhook] refund created successfully')
+      } catch (refundErr: any) {
+        console.error('[webhook] refund creation failed:', refundErr.message)
+        // Continue — still update DB status so we know what happened
+      }
+
+      await supabaseAdmin.from('bookings')
+        .update({ stripe_status: 'refunded' })
+        .eq('stripe_payment_intent_id', pi.id)
+
+      sendApologyRefundEmail({
+        to: pendingBooking.email,
+        name: customer_name ?? pendingBooking.name,
+        bookingRef: booking_ref,
+        sessionTitle: session?.title ?? 'your session',
+        sessionDate: session?.date ?? '',
+        amountPence: pendingBooking.total_pence,
+      }).catch(err => console.error('[webhook] apology email failed:', err))
+
+      return NextResponse.json({ received: true })
+    }
+
+    // ── 3. Mark booking as succeeded ────────────────────────────────────────
+    //    The DB trigger enforce_capacity is a hard backstop here — if a race
+    //    condition slipped through the check above, the trigger will raise
+    //    'capacity_exceeded' and this update will fail.
     const { data: booking, error: bookingError } = await supabaseAdmin
       .from('bookings').update({ stripe_status: 'succeeded' })
       .eq('stripe_payment_intent_id', pi.id).select().single()
 
-    console.log('[webhook] booking update result — found:', !!booking, 'error:', bookingError?.message ?? null)
+    if (bookingError) {
+      console.error('[webhook] booking update failed:', bookingError.message)
 
-    if (booking) {
-      console.log('[webhook] booking email:', booking.email, 'quantity:', booking.quantity)
+      // DB trigger caught a race-condition oversell
+      if (bookingError.message.includes('capacity_exceeded') || bookingError.message.includes('capacity')) {
+        console.error('[webhook] DB trigger blocked oversell — refunding pi.id:', pi.id)
 
-      await supabaseAdmin.from('seat_holds').update({ used: true }).eq('hold_token', hold_token)
-      console.log('[webhook] seat hold marked used')
+        try {
+          await stripe.refunds.create({ payment_intent: pi.id })
+        } catch (refundErr: any) {
+          console.error('[webhook] trigger-path refund failed:', refundErr.message)
+        }
 
-      const { data: session, error: sessionError } = await supabaseAdmin
-        .from('sessions').select('title,label,date,time,venue,description').eq('id', session_id).single()
+        await supabaseAdmin.from('bookings')
+          .update({ stripe_status: 'refunded' })
+          .eq('stripe_payment_intent_id', pi.id)
 
-      console.log('[webhook] session fetch — found:', !!session, 'error:', sessionError?.message ?? null)
-
-      if (session) {
-        console.log('[webhook] session title:', session.title)
-
-        const additionalAttendees = booking.additional_attendees
-          ? (typeof booking.additional_attendees === 'string' ? JSON.parse(booking.additional_attendees) : booking.additional_attendees).map((a: any) => a.name ?? a)
-          : undefined
-
-        console.log('[webhook] calling sendBookingConfirmation to:', booking.email)
-        console.log('[webhook] RESEND_API_KEY set:', !!process.env.RESEND_API_KEY)
-        console.log('[webhook] EMAIL_FROM:', process.env.EMAIL_FROM ?? '(not set)')
-
-        sendBookingConfirmation({
-          to: booking.email,
-          name: customer_name ?? booking.name,
+        sendApologyRefundEmail({
+          to: pendingBooking.email,
+          name: customer_name ?? pendingBooking.name,
           bookingRef: booking_ref,
-          sessionTitle: session.title,
-          sessionLabel: session.label,
-          sessionDate: session.date,
-          sessionTime: session.time,
-          venue: session.venue,
-          description: session.description,
-          quantity: booking.quantity,
-          totalPence: booking.total_pence,
-          additionalAttendees,
-        }).then(() => {
-          console.log('[webhook] sendBookingConfirmation resolved OK')
-        }).catch((err) => {
-          console.error('[webhook] sendBookingConfirmation FAILED:', err)
-        })
-
-        sendAdminBookingNotification({
-          name: customer_name ?? booking.name,
-          email: booking.email,
-          phone: booking.phone ?? undefined,
-          bookingRef: booking_ref,
-          sessionTitle: session.title,
-          sessionDate: session.date,
-          sessionTime: session.time,
-          venue: session.venue,
-          quantity: booking.quantity,
-          totalPence: booking.total_pence,
-          additionalAttendees,
-        }).then(() => {
-          console.log('[webhook] sendAdminBookingNotification resolved OK')
-        }).catch((err) => {
-          console.error('[webhook] sendAdminBookingNotification FAILED:', err)
-        })
-      } else {
-        console.warn('[webhook] session not found for session_id:', session_id)
+          sessionTitle: session?.title ?? 'your session',
+          sessionDate: session?.date ?? '',
+          amountPence: pendingBooking.total_pence,
+        }).catch(console.error)
       }
+
+      return NextResponse.json({ received: true })
+    }
+
+    console.log('[webhook] booking confirmed — email:', booking.email, 'quantity:', booking.quantity)
+
+    // ── 4. Mark hold as used (if it still exists — it may have expired) ──────
+    await supabaseAdmin.from('seat_holds').update({ used: true }).eq('hold_token', hold_token)
+    console.log('[webhook] seat hold marked used (or was already expired)')
+
+    // ── 5. Send confirmation emails ──────────────────────────────────────────
+    if (session) {
+      const additionalAttendees = booking.additional_attendees
+        ? (typeof booking.additional_attendees === 'string'
+            ? JSON.parse(booking.additional_attendees)
+            : booking.additional_attendees
+          ).map((a: any) => a.name ?? a)
+        : undefined
+
+      console.log('[webhook] calling sendBookingConfirmation to:', booking.email)
+
+      sendBookingConfirmation({
+        to: booking.email,
+        name: customer_name ?? booking.name,
+        bookingRef: booking_ref,
+        sessionTitle: session.title,
+        sessionLabel: session.label,
+        sessionDate: session.date,
+        sessionTime: session.time,
+        venue: session.venue,
+        description: session.description,
+        quantity: booking.quantity,
+        totalPence: booking.total_pence,
+        additionalAttendees,
+      }).then(() => {
+        console.log('[webhook] sendBookingConfirmation resolved OK')
+      }).catch((err) => {
+        console.error('[webhook] sendBookingConfirmation FAILED:', err)
+      })
+
+      sendAdminBookingNotification({
+        name: customer_name ?? booking.name,
+        email: booking.email,
+        phone: booking.phone ?? undefined,
+        bookingRef: booking_ref,
+        sessionTitle: session.title,
+        sessionDate: session.date,
+        sessionTime: session.time,
+        venue: session.venue,
+        quantity: booking.quantity,
+        totalPence: booking.total_pence,
+        additionalAttendees,
+      }).then(() => {
+        console.log('[webhook] sendAdminBookingNotification resolved OK')
+      }).catch((err) => {
+        console.error('[webhook] sendAdminBookingNotification FAILED:', err)
+      })
     } else {
-      console.warn('[webhook] booking not found for pi.id:', pi.id)
+      console.warn('[webhook] session not found for session_id:', session_id)
     }
   }
 

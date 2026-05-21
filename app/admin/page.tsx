@@ -87,6 +87,10 @@ export default function AdminPage() {
   const [settings,setSettings]=useState<Record<string,string>>({})
   const [form,setForm]=useState({title:'',label:'West',venue:'',customVenue:'',region:'North/West London',date:'',time:'19:00',capacity:24,price_pence:800,max_tickets_per_order:4,status:'draft',releaseMode:'manual',releaseDateTime:'',description:'',is_recurring:false,recurring_day_of_week:4})
   const [refunding,setRefunding]=useState<string|null>(null)
+  const [calView,setCalView]=useState(false)
+  const [attendeeSearch,setAttendeeSearch]=useState('')
+  const [searchLoading,setSearchLoading]=useState(false)
+  const allBookingsRef=useRef<Booking[]>([])
 
   function flash(m:string){setMsg(m);setTimeout(()=>setMsg(''),3500)}
 
@@ -208,6 +212,28 @@ export default function AdminPage() {
     if(tab==='analytics')loadAnalytics()
   },[authed,tab,filterSession])
 
+  // Load all bookings for cross-session attendee search
+  useEffect(()=>{
+    if(!authed||tab!=='attendees'||!attendeeSearch.trim())return
+    if(allBookingsRef.current.length>0)return
+    setSearchLoading(true)
+    fetch('/api/admin?type=bookings',{headers:{'x-admin-secret':secret}})
+      .then(r=>r.json())
+      .then(d=>{allBookingsRef.current=d.bookings??[]})
+      .finally(()=>setSearchLoading(false))
+  },[authed,tab,attendeeSearch,secret])
+
+  const searchResults=useMemo(()=>{
+    if(!attendeeSearch.trim())return[]
+    const q=attendeeSearch.trim().toLowerCase()
+    return allBookingsRef.current.filter(b=>
+      b.name.toLowerCase().includes(q)||
+      b.email.toLowerCase().includes(q)||
+      (b.phone??'').includes(q)||
+      b.booking_ref.toLowerCase().includes(q)
+    )
+  },[attendeeSearch,searchLoading]) // searchLoading as dep so memo re-runs when data arrives
+
   const summary = useMemo(()=>({
     totalRev: sessions.reduce((a,s)=>a+(s.revenue_pence??0),0),
     totalBooked: sessions.reduce((a,s)=>a+(s.booked??0),0),
@@ -294,13 +320,25 @@ export default function AdminPage() {
           editing?(
             <SessionEditor session={editing} onSave={async u=>{await patch(editing.id,u);setEditing(null)}} onCancel={()=>setEditing(null)} onStatusChange={async s=>patch(editing.id,{status:s,opens_at:null})} onSchedule={async dt=>patch(editing.id,{status:'draft',opens_at:dt})} onGenerateNext={()=>generateNextRecurring(editing.id)} onDelete={()=>deleteSession(editing.id,editing.title)} secret={secret} flash={flash} reload={reload}/>
           ):(
+            <>
+            <div style={{display:'flex',gap:8,marginBottom:16,alignItems:'center',flexWrap:'wrap' as const}}>
+              <div style={{flex:1,fontWeight:600,fontSize:12,color:T.muted,textTransform:'uppercase',letterSpacing:1,alignSelf:'center'}}>All Sessions — tap to edit</div>
+              <div style={{display:'flex',gap:6}}>
+                {[['List','list'],['Calendar','cal']].map(([label,key])=>(
+                  <button key={key} onClick={()=>setCalView(key==='cal')} style={{padding:'6px 14px',borderRadius:8,border:'none',cursor:'pointer',fontSize:12,fontWeight:600,background:calView===(key==='cal')?T.accentDim:'#142014',color:calView===(key==='cal')?T.accent:T.muted,outline:calView===(key==='cal')?`1px solid ${T.accentBorder}`:'none',fontFamily:'inherit'}}>{label}</button>
+                ))}
+              </div>
+              {!calView&&<select value={filterStatus} onChange={e=>setFilterStatus(e.target.value)} style={{...inp({width:'auto',padding:'5px 10px',fontSize:12})}}>
+                <option value="">All statuses</option>
+                {['open','draft','closed','cancelled'].map(s=><option key={s} value={s}>{s}</option>)}
+              </select>}
+            </div>
+            {calView?(
+              <CalendarView sessions={sessions} onEdit={s=>setEditing(s)}/>
+            ):(
             <div style={cardStyle}>
               <div style={{padding:'12px 18px',borderBottom:`1px solid ${T.border}`,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                <div style={{fontWeight:600,fontSize:12,color:T.muted,textTransform:'uppercase',letterSpacing:1}}>All Sessions — tap to edit</div>
-                <select value={filterStatus} onChange={e=>setFilterStatus(e.target.value)} style={{...inp({width:'auto',padding:'5px 10px',fontSize:12})}}>
-                  <option value="">All statuses</option>
-                  {['open','draft','closed','cancelled'].map(s=><option key={s} value={s}>{s}</option>)}
-                </select>
+                <div style={{fontWeight:600,fontSize:12,color:T.muted,textTransform:'uppercase',letterSpacing:1}}>{sessions.filter(s=>!filterStatus||s.status===filterStatus).length} session{sessions.filter(s=>!filterStatus||s.status===filterStatus).length!==1?'s':''}</div>
               </div>
               {sessions.filter(s=>!filterStatus||s.status===filterStatus).map(s=>{
                 const pct=Math.round((s.booked/s.capacity)*100); const ds=displayStatus(s)
@@ -329,6 +367,8 @@ export default function AdminPage() {
                 )
               })}
             </div>
+            )}
+            </>
           )
         )}
 
@@ -442,59 +482,107 @@ export default function AdminPage() {
         {/* ATTENDEES */}
         {tab==='attendees'&&(
           <>
-            <div style={{display:'flex',gap:10,marginBottom:16,flexWrap:'wrap' as const}}>
-              <select value={filterSession} onChange={e=>setFilterSession(e.target.value)} style={{...inp({width:'auto',flex:1,minWidth:200})}}>
-                <option value="">All sessions</option>
-                {sessions.map(s=><option key={s.id} value={s.id}>{fmtDate(s.date)} — {s.title}</option>)}
-              </select>
-              <button onClick={()=>exportCSV(bookings.filter(b=>b.stripe_status==='succeeded').map(b=>({name:b.name,email:b.email,phone:b.phone??'',tickets:b.quantity,ref:b.booking_ref,session:b.sessions?.title??'',date:b.sessions?.date??''})),'tss-attendees.csv')} style={{padding:'10px 16px',background:T.accentDim,color:T.accent,border:`1px solid ${T.accentBorder}`,borderRadius:8,cursor:'pointer',fontSize:13,fontWeight:600,fontFamily:'inherit'}}>
-                📥 Export Names
-              </button>
+            {/* Search bar — cross-session name/email lookup */}
+            <div style={{marginBottom:12,position:'relative' as const}}>
+              <input value={attendeeSearch} onChange={e=>setAttendeeSearch(e.target.value)} placeholder="Search all sessions by name, email, phone or ref..." style={{...inp(),paddingLeft:36,fontSize:13}}/>
+              <span style={{position:'absolute' as const,left:12,top:'50%',transform:'translateY(-50%)',color:T.muted,fontSize:14,pointerEvents:'none' as const}}>🔍</span>
+              {attendeeSearch&&<button onClick={()=>setAttendeeSearch('')} style={{position:'absolute' as const,right:10,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',color:T.muted,cursor:'pointer',fontSize:16,lineHeight:1}}>✕</button>}
             </div>
 
-            {/* Confirmed attendees */}
-            <div style={cardStyle}>
-              <div style={{padding:'12px 18px',borderBottom:`1px solid ${T.border}`,fontWeight:600,fontSize:12,color:T.muted,textTransform:'uppercase',letterSpacing:1}}>
-                Confirmed Attendees ({bookings.filter(b=>b.stripe_status==='succeeded').reduce((a,b)=>a+b.quantity,0)})
-              </div>
-              {bookings.filter(b=>b.stripe_status==='succeeded').map((b,i,arr)=>{
-                const attendees=b.additional_attendees?(typeof b.additional_attendees==='string'?JSON.parse(b.additional_attendees):b.additional_attendees):[]
-                return(
-                  <div key={b.id} style={{padding:'10px 18px',borderBottom:i<arr.length-1?`1px solid #0a140a`:'none',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                    <div>
-                      <div style={{fontWeight:600,fontSize:14}}>{b.name}</div>
-                      {attendees.map((a:any,j:number)=><div key={j} style={{fontSize:12,color:T.muted}}>↳ {a.name??a}</div>)}
-                      <div style={{fontSize:11,color:T.muted}}>{b.email} · {b.phone}</div>
-                    </div>
-                    <div style={{fontSize:12,color:T.muted,textAlign:'right'}}>
-                      <div>{b.quantity} ticket{b.quantity>1?'s':''}</div>
-                      <div style={{fontSize:10}}>{b.booking_ref}</div>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-
-            {/* Waitlist */}
-            {waitlist.length>0&&(
+            {/* When search is active, show search results */}
+            {attendeeSearch.trim()?(
               <div style={cardStyle}>
                 <div style={{padding:'12px 18px',borderBottom:`1px solid ${T.border}`,fontWeight:600,fontSize:12,color:T.muted,textTransform:'uppercase',letterSpacing:1}}>
-                  Waitlist ({waitlist.length})
+                  {searchLoading?'Searching…':`${searchResults.length} result${searchResults.length!==1?'s':''} for "${attendeeSearch}"`}
                 </div>
-                {waitlist.map((w,i)=>(
-                  <div key={w.id} style={{padding:'10px 18px',borderBottom:i<waitlist.length-1?`1px solid #0a140a`:'none',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                    <div style={{display:'flex',alignItems:'center',gap:10}}>
-                      <div style={{width:28,height:28,borderRadius:'50%',background:T.infoDim,border:`1px solid rgba(96,180,255,0.25)`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:700,color:T.info}}>#{w.position}</div>
+                {!searchLoading&&searchResults.length===0&&<div style={{padding:40,textAlign:'center',color:T.muted}}>No matching attendees found</div>}
+                {searchResults.map((b,i)=>{
+                  const attendees=b.additional_attendees?(typeof b.additional_attendees==='string'?JSON.parse(b.additional_attendees):b.additional_attendees):[]
+                  return(
+                    <div key={b.id} style={{padding:'10px 18px',borderBottom:i<searchResults.length-1?`1px solid #0a140a`:'none',display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
                       <div>
-                        <div style={{fontWeight:600,fontSize:14}}>{w.name}</div>
-                        <div style={{fontSize:11,color:T.muted}}>{w.email} · {w.phone}</div>
-                        {w.created_at&&<div style={{fontSize:10,color:T.muted,marginTop:1}}>Joined {new Date(w.created_at).toLocaleString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}</div>}
+                        <div style={{fontWeight:600,fontSize:14}}>{b.name}</div>
+                        {attendees.map((a:any,j:number)=><div key={j} style={{fontSize:12,color:T.muted}}>↳ {a.name??a}</div>)}
+                        <div style={{fontSize:12,color:T.muted}}>{b.email}{b.phone?` · ${b.phone}`:''}</div>
+                        <div style={{fontSize:11,color:'#2a4a2a',marginTop:2}}>{b.booking_ref} · {new Date(b.created_at).toLocaleString('en-GB')}</div>
+                      </div>
+                      <div style={{textAlign:'right',minWidth:100}}>
+                        <div style={{fontSize:12,fontWeight:600,color:T.text}}>{b.sessions?.title??''}</div>
+                        <div style={{fontSize:11,color:T.muted}}>{b.sessions?.date?fmtDate(b.sessions.date):''}</div>
+                        <div style={{fontSize:11,color:T.accent,marginTop:2}}>{b.quantity} ticket{b.quantity>1?'s':''}</div>
                       </div>
                     </div>
-                    <div style={{fontSize:11,color:T.muted}}>{w.sessions?.title}</div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
+            ):(
+              <>
+                {/* Session filter + export */}
+                <div style={{display:'flex',gap:10,marginBottom:16,flexWrap:'wrap' as const}}>
+                  <select value={filterSession} onChange={e=>setFilterSession(e.target.value)} style={{...inp({width:'auto',flex:1,minWidth:200})}}>
+                    <option value="">All sessions</option>
+                    {sessions.map(s=><option key={s.id} value={s.id}>{fmtDate(s.date)} — {s.title}</option>)}
+                  </select>
+                  <button onClick={()=>{
+                    // Flatten: one row per person (lead + additional attendees)
+                    const rows:any[]=[]
+                    bookings.filter(b=>b.stripe_status==='succeeded').forEach(b=>{
+                      const extras=b.additional_attendees?(typeof b.additional_attendees==='string'?JSON.parse(b.additional_attendees):b.additional_attendees):[]
+                      rows.push({name:b.name,email:b.email,phone:b.phone??'',tickets:b.quantity,ref:b.booking_ref,session:b.sessions?.title??'',date:b.sessions?.date??''})
+                      extras.forEach((a:any)=>rows.push({name:a.name??a,email:'',phone:'',tickets:'',ref:b.booking_ref,session:b.sessions?.title??'',date:b.sessions?.date??''}))
+                    })
+                    exportCSV(rows,'tss-attendees.csv')
+                  }} style={{padding:'10px 16px',background:T.accentDim,color:T.accent,border:`1px solid ${T.accentBorder}`,borderRadius:8,cursor:'pointer',fontSize:13,fontWeight:600,fontFamily:'inherit'}}>
+                    📥 Export Names
+                  </button>
+                </div>
+
+                {/* Confirmed attendees */}
+                <div style={cardStyle}>
+                  <div style={{padding:'12px 18px',borderBottom:`1px solid ${T.border}`,fontWeight:600,fontSize:12,color:T.muted,textTransform:'uppercase',letterSpacing:1}}>
+                    Confirmed Attendees ({bookings.filter(b=>b.stripe_status==='succeeded').reduce((a,b)=>a+b.quantity,0)})
+                  </div>
+                  {bookings.filter(b=>b.stripe_status==='succeeded').length===0&&<div style={{padding:40,textAlign:'center',color:T.muted}}>No confirmed attendees</div>}
+                  {bookings.filter(b=>b.stripe_status==='succeeded').map((b,i,arr)=>{
+                    const attendees=b.additional_attendees?(typeof b.additional_attendees==='string'?JSON.parse(b.additional_attendees):b.additional_attendees):[]
+                    return(
+                      <div key={b.id} style={{padding:'10px 18px',borderBottom:i<arr.length-1?`1px solid #0a140a`:'none',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                        <div>
+                          <div style={{fontWeight:600,fontSize:14}}>{b.name}</div>
+                          {attendees.map((a:any,j:number)=><div key={j} style={{fontSize:12,color:T.muted}}>↳ {a.name??a}</div>)}
+                          <div style={{fontSize:11,color:T.muted}}>{b.email} · {b.phone}</div>
+                        </div>
+                        <div style={{fontSize:12,color:T.muted,textAlign:'right'}}>
+                          <div>{b.quantity} ticket{b.quantity>1?'s':''}</div>
+                          <div style={{fontSize:10}}>{b.booking_ref}</div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+
+                {/* Waitlist */}
+                {waitlist.length>0&&(
+                  <div style={cardStyle}>
+                    <div style={{padding:'12px 18px',borderBottom:`1px solid ${T.border}`,fontWeight:600,fontSize:12,color:T.muted,textTransform:'uppercase',letterSpacing:1}}>
+                      Waitlist ({waitlist.length})
+                    </div>
+                    {waitlist.map((w,i)=>(
+                      <div key={w.id} style={{padding:'10px 18px',borderBottom:i<waitlist.length-1?`1px solid #0a140a`:'none',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                        <div style={{display:'flex',alignItems:'center',gap:10}}>
+                          <div style={{width:28,height:28,borderRadius:'50%',background:T.infoDim,border:`1px solid rgba(96,180,255,0.25)`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:700,color:T.info}}>#{w.position}</div>
+                          <div>
+                            <div style={{fontWeight:600,fontSize:14}}>{w.name}</div>
+                            <div style={{fontSize:11,color:T.muted}}>{w.email} · {w.phone}</div>
+                            {w.created_at&&<div style={{fontSize:10,color:T.muted,marginTop:1}}>Joined {new Date(w.created_at).toLocaleString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}</div>}
+                          </div>
+                        </div>
+                        <div style={{fontSize:11,color:T.muted}}>{w.sessions?.title}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
             )}
           </>
         )}
@@ -617,6 +705,75 @@ export default function AdminPage() {
           </div>
         )}
 
+      </div>
+    </div>
+  )
+}
+
+// ── Calendar View ─────────────────────────────────────────────────────────────
+function CalendarView({sessions,onEdit}:{sessions:Session[];onEdit:(s:Session)=>void}){
+  const [year,setYear]=useState(new Date().getFullYear())
+  const [month,setMonth]=useState(new Date().getMonth()) // 0-indexed
+
+  function prevMonth(){if(month===0){setMonth(11);setYear(y=>y-1)}else setMonth(m=>m-1)}
+  function nextMonth(){if(month===11){setMonth(0);setYear(y=>y+1)}else setMonth(m=>m+1)}
+
+  const firstDow=(new Date(year,month,1).getDay()+6)%7 // Mon=0
+  const daysInMonth=new Date(year,month+1,0).getDate()
+  const todayStr=new Date().toISOString().split('T')[0]
+  const monthLabel=new Date(year,month).toLocaleString('en-GB',{month:'long',year:'numeric'})
+
+  // Group sessions by date string
+  const byDate:Record<string,Session[]>={}
+  sessions.forEach(s=>{
+    const d=s.date.split('T')[0]
+    const [sy,sm]=d.split('-').map(Number)
+    if(sy===year&&sm-1===month){if(!byDate[d])byDate[d]=[];byDate[d].push(s)}
+  })
+
+  const SC2:Record<string,string>={open:'#6fcf40',draft:'#6b8a6b',closed:'#e09040',cancelled:'#e05555'}
+
+  const cells:Array<number|null>=[...Array(firstDow).fill(null),...Array.from({length:daysInMonth},(_,i)=>i+1)]
+  // Pad to full rows of 7
+  while(cells.length%7!==0)cells.push(null)
+
+  return(
+    <div>
+      {/* Month navigation */}
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12,padding:'10px 16px',background:'#0a140a',borderRadius:10}}>
+        <button onClick={prevMonth} style={{background:'none',border:`1px solid #1e3220`,color:'#6b8a6b',padding:'6px 12px',borderRadius:8,cursor:'pointer',fontSize:14,fontFamily:'inherit'}}>‹</button>
+        <div style={{fontWeight:700,fontSize:15,color:'#edf5ed'}}>{monthLabel}</div>
+        <button onClick={nextMonth} style={{background:'none',border:`1px solid #1e3220`,color:'#6b8a6b',padding:'6px 12px',borderRadius:8,cursor:'pointer',fontSize:14,fontFamily:'inherit'}}>›</button>
+      </div>
+      {/* Day-of-week headers */}
+      <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:2,marginBottom:2}}>
+        {['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(d=>(
+          <div key={d} style={{textAlign:'center',fontSize:10,color:'#6b8a6b',padding:'4px 0',fontWeight:600}}>{d}</div>
+        ))}
+      </div>
+      {/* Calendar grid */}
+      <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:2}}>
+        {cells.map((day,i)=>{
+          if(day===null)return<div key={`e${i}`} style={{minHeight:70,background:'#060c06',borderRadius:6}}/>
+          const dateStr=`${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`
+          const daySessions=byDate[dateStr]??[]
+          const isToday=dateStr===todayStr
+          return(
+            <div key={dateStr} style={{minHeight:70,background:'#0f180f',border:`1px solid ${isToday?'#6fcf40':'#1e3220'}`,borderRadius:6,padding:'4px 3px'}}>
+              <div style={{fontSize:10,fontWeight:isToday?700:400,color:isToday?'#6fcf40':'#6b8a6b',marginBottom:2,textAlign:'right',paddingRight:2}}>{day}</div>
+              {daySessions.map(s=>{
+                const c=SC2[s.status]??'#6b8a6b'
+                const spotsLeft=s.capacity-(s.booked??0)
+                return(
+                  <div key={s.id} onClick={()=>onEdit(s)} style={{padding:'2px 3px',borderRadius:3,background:`${c}18`,border:`1px solid ${c}33`,color:c,fontSize:9,cursor:'pointer',marginBottom:1,lineHeight:1.3,overflow:'hidden'}}>
+                    <div style={{fontWeight:700,whiteSpace:'nowrap' as const,overflow:'hidden',textOverflow:'ellipsis'}}>{s.label||''} {s.time}</div>
+                    <div style={{color:'#6b8a6b',fontSize:8}}>{spotsLeft}/{s.capacity} left</div>
+                  </div>
+                )
+              })}
+            </div>
+          )
+        })}
       </div>
     </div>
   )
