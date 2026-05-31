@@ -1,5 +1,6 @@
 'use client'
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useState, useCallback, useRef, useMemo, Component } from 'react'
+import type { ReactNode } from 'react'
 import { loadStripe } from '@stripe/stripe-js'
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js'
 
@@ -26,6 +27,24 @@ const fmtDateLong = (d:string) => new Date(d).toLocaleDateString('en-GB',{weekda
 const fmtDateShort = (d:string) => new Date(d).toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'})
 const getDayNum = (d:string) => new Date(d).getDate()
 const getMonth = (d:string) => new Date(d).toLocaleString('en-GB',{month:'short'}).toUpperCase()
+
+// ── Error Boundary — catches React render crashes in booking flow ─────────────
+class ErrorBoundary extends Component<{children:ReactNode;fallback?:ReactNode},{hasError:boolean}> {
+  constructor(props:any){super(props);this.state={hasError:false}}
+  static getDerivedStateFromError(){return{hasError:true}}
+  componentDidCatch(err:Error){console.error('[ErrorBoundary]',err)}
+  render(){
+    if(this.state.hasError) return this.props.fallback??(
+      <div style={{padding:32,textAlign:'center',color:'#6b8a6b',fontSize:14}}>
+        <div style={{fontSize:32,marginBottom:12}}>⚠️</div>
+        <div style={{fontWeight:600,color:'#edf5ed',marginBottom:8}}>Something went wrong</div>
+        <div style={{marginBottom:16}}>Please refresh and try again. If you completed payment, check your email for a confirmation.</div>
+        <button onClick={()=>this.setState({hasError:false})} style={{padding:'10px 20px',background:'#6fcf40',color:'#080f08',border:'none',borderRadius:8,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>Try again</button>
+      </div>
+    )
+    return this.props.children
+  }
+}
 
 // ── Schema.org structured data for SEO ───────────────────────────────────────
 function SessionSchema({ session }: { session: Session }) {
@@ -147,19 +166,22 @@ function CheckoutForm({ bookingRef, expiresAt, onSuccess }:{bookingRef:string;ex
   const stripe=useStripe(); const elements=useElements()
   const [paying,setPaying]=useState(false); const [error,setError]=useState(''); const [overtime,setOvertime]=useState(false)
   const [secs,setSecs]=useState(()=>Math.max(0,Math.floor((new Date(expiresAt).getTime()-Date.now())/1000)))
+  // Track mount state so we never setState after unmount (user closes modal mid-payment)
+  const mountedRef=useRef(true)
+  useEffect(()=>{return()=>{mountedRef.current=false}},[])
   useEffect(()=>{const t=setInterval(()=>setSecs(s=>Math.max(0,s-1)),1000);return()=>clearInterval(t)},[])
   const mm=String(Math.floor(secs/60)).padStart(2,'0'), ss=String(secs%60).padStart(2,'0')
 
   async function pay(){
     if(!stripe||!elements)return
-    setPaying(true); setError(''); setOvertime(false)
+    if(mountedRef.current){setPaying(true);setError('');setOvertime(false)}
 
-    // 45-second "still waiting" message — shown if Apple Pay/bank is slow
-    const overtimeTimer=setTimeout(()=>setOvertime(true),45000)
+    // 45-second "still waiting" banner — useful for Apple Pay / bank 3DS flows
+    const overtimeTimer=setTimeout(()=>{if(mountedRef.current)setOvertime(true)},45000)
 
-    // 30-second hard timeout on the Stripe call so the button never stays stuck
+    // 30-second hard timeout — prevents the button staying stuck forever
     const timeoutPromise=new Promise<{error:{message:string}}>((resolve)=>
-      setTimeout(()=>resolve({error:{message:'Payment is taking longer than expected. Please check your email — if you completed Apple Pay your booking may already be confirmed. Otherwise try again.'}}),30000)
+      setTimeout(()=>resolve({error:{message:'Payment is taking longer than expected. Please check your email — if you completed Apple Pay your booking may already be confirmed. Otherwise tap Confirm & Pay again.'}}),30000)
     )
 
     try{
@@ -168,16 +190,31 @@ function CheckoutForm({ bookingRef, expiresAt, onSuccess }:{bookingRef:string;ex
         timeoutPromise,
       ])
       clearTimeout(overtimeTimer)
+      if(!mountedRef.current)return // modal was closed — don't touch state
+
       if(result.error){
-        setError(result.error.message??'Payment failed. Please try again.')
+        // Detect Apple Pay / Google Pay sheet dismissed without payment
+        // Stripe returns type=validation_error or code=payment_intent_authentication_failure
+        const e=result.error as any
+        const isDismissed=(e.type==='validation_error')||
+          (e.code==='payment_intent_authentication_failure')||
+          (e.message?.toLowerCase().includes('cancel'))||
+          (e.message?.toLowerCase().includes('dismiss'))
+        if(isDismissed){
+          // Silent reset — wallet was just cancelled, no scary error message
+          setError('')
+        }else{
+          setError(e.message??'Payment failed. Please try again.')
+        }
       }else{
         onSuccess()
       }
     }catch(err:any){
       clearTimeout(overtimeTimer)
+      if(!mountedRef.current)return
       setError(err?.message??'Payment failed. Please try again.')
     }finally{
-      setPaying(false)
+      if(mountedRef.current)setPaying(false)
     }
   }
 
@@ -197,8 +234,8 @@ function CheckoutForm({ bookingRef, expiresAt, onSuccess }:{bookingRef:string;ex
         </div>
       )}
       {error&&<div style={{marginTop:12,padding:'10px 14px',background:T.dangerDim,border:`1px solid rgba(224,85,85,0.3)`,borderRadius:8,color:T.danger,fontSize:13,lineHeight:1.5}}>{error}</div>}
-      <button onClick={pay} disabled={paying||!stripe} style={{marginTop:16,width:'100%',padding:'14px',borderRadius:10,background:paying?T.border:T.accent,color:paying?T.muted:'#080f08',border:'none',fontWeight:700,fontSize:15,cursor:paying?'default':'pointer',fontFamily:'inherit'}}>
-        {paying?'Processing…':'Confirm & Pay'}
+      <button onClick={pay} disabled={paying||!stripe} style={{marginTop:16,width:'100%',padding:'16px',minHeight:56,borderRadius:10,background:paying?T.border:T.accent,color:paying?T.muted:'#080f08',border:'none',fontWeight:800,fontSize:18,cursor:paying?'default':'pointer',fontFamily:'inherit',letterSpacing:'-0.2px'}}>
+        {paying?'Processing…':'Confirm & Pay →'}
       </button>
     </div>
   )
@@ -244,6 +281,20 @@ function WaitlistModal({session,onClose}:{session:Session;onClose:()=>void}){
         )}
       </div>
     </div>
+  )
+}
+
+// ── Stable Elements wrapper — memoises options so the Stripe iframe never remounts ─
+function ElementsWithStableOptions({clientSecret,bookingRef,expiresAt,onSuccess}:{clientSecret:string;bookingRef:string;expiresAt:string;onSuccess:()=>void}){
+  // options object is stable: clientSecret is set once and never changes after mount
+  const options=useMemo(()=>({
+    clientSecret,
+    appearance:{theme:'night' as const,variables:{colorPrimary:T.accent,colorBackground:T.card,colorText:T.text,borderRadius:'8px'}},
+  }),[clientSecret])
+  return(
+    <Elements stripe={stripePromise} options={options}>
+      <CheckoutForm bookingRef={bookingRef} expiresAt={expiresAt} onSuccess={onSuccess}/>
+    </Elements>
   )
 }
 
@@ -403,16 +454,20 @@ function BookingModal({session,termsText,onClose}:{session:Session;termsText:str
         {/* Reserve button — visible only before seat is held */}
         {!clientSecret&&(
           <button onClick={reserveSeat} disabled={!formComplete||loading}
-            style={{width:'100%',padding:'13px',borderRadius:10,border:'none',background:(!formComplete||loading)?T.border:T.accent,color:(!formComplete||loading)?T.muted:'#080f08',fontWeight:700,fontSize:15,cursor:formComplete&&!loading?'pointer':'default',fontFamily:'inherit',marginBottom:clientSecret?0:0}}>
+            style={{width:'100%',padding:'18px 24px',minHeight:56,borderRadius:12,border:'none',
+              background:(!formComplete||loading)?T.border:T.accent,
+              color:(!formComplete||loading)?T.muted:'#080f08',
+              fontWeight:800,fontSize:18,cursor:formComplete&&!loading?'pointer':'default',
+              fontFamily:'inherit',letterSpacing:'-0.2px',
+              boxShadow:formComplete&&!loading?`0 4px 24px rgba(111,207,64,0.35)`:'none',
+              transition:'box-shadow 0.2s,transform 0.1s'}}>
             {loading?'Reserving your seat…':'Continue to Payment →'}
           </button>
         )}
 
-        {/* Payment section — appears inline once seat is reserved (no modal swap) */}
+        {/* Payment section — memoised options so Elements never remounts mid-flow */}
         {clientSecret&&(
-          <Elements stripe={stripePromise} options={{clientSecret,appearance:{theme:'night',variables:{colorPrimary:T.accent,colorBackground:T.card,colorText:T.text,borderRadius:'8px'}}}}>
-            <CheckoutForm bookingRef={bookingRef} expiresAt={expiresAt} onSuccess={()=>setDone(true)}/>
-          </Elements>
+          <ElementsWithStableOptions clientSecret={clientSecret} bookingRef={bookingRef} expiresAt={expiresAt} onSuccess={()=>setDone(true)}/>
         )}
 
         {/* Terms overlay */}
@@ -538,24 +593,30 @@ export default function TicketsPage() {
   const sessionsHashRef=useRef('')
   const viewsFiredRef=useRef(false)
   const fetchSessions=useCallback(async()=>{
-    const res=await fetch('/api/sessions')
-    const d=await res.json()
-    // Only re-render if data actually changed — prevents page jitter on 15s auto-refresh
-    const hash=JSON.stringify(d.sessions)
-    if(hash!==sessionsHashRef.current){
-      sessionsHashRef.current=hash
-      const newSessions:Session[]=d.sessions??[]
-      setSessions(newSessions)
-      // Fire session_view events once per page load for all open sessions
-      if(!viewsFiredRef.current&&newSessions.length>0){
-        viewsFiredRef.current=true
-        newSessions.filter(s=>s.status==='open'||s.status==='coming_soon').forEach(s=>{
-          fetch('/api/analytics',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session_id:s.id,event:'session_view'})}).catch(()=>{})
-        })
+    try{
+      const res=await fetch('/api/sessions')
+      if(!res.ok)return // silent: don't wipe state on transient server error
+      const d=await res.json()
+      // Only re-render if data actually changed — prevents page jitter on 15s auto-refresh
+      const hash=JSON.stringify(d.sessions)
+      if(hash!==sessionsHashRef.current){
+        sessionsHashRef.current=hash
+        const newSessions:Session[]=d.sessions??[]
+        setSessions(newSessions)
+        // Fire session_view events once per page load for all open sessions
+        if(!viewsFiredRef.current&&newSessions.length>0){
+          viewsFiredRef.current=true
+          newSessions.filter(s=>s.status==='open'||s.status==='coming_soon').forEach(s=>{
+            fetch('/api/analytics',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session_id:s.id,event:'session_view'})}).catch(()=>{})
+          })
+        }
       }
+      if(d.settings)setSettings(d.settings)
+    }catch{
+      // Network failure on auto-refresh — silently ignore, keep showing last data
+    }finally{
+      setLoading(false)
     }
-    if(d.settings)setSettings(d.settings)
-    setLoading(false)
   },[])
 
   useEffect(()=>{
@@ -665,8 +726,16 @@ export default function TicketsPage() {
         </footer>
       </div>
 
-      {selected&&<BookingModal session={selected} termsText={settings.terms_and_conditions??''} onClose={()=>{setSelected(null);fetchSessions()}}/>}
-      {waitlistSession&&<WaitlistModal session={waitlistSession} onClose={()=>{setWaitlistSession(null);fetchSessions()}}/>}
+      {selected&&(
+        <ErrorBoundary>
+          <BookingModal session={selected} termsText={settings.terms_and_conditions??''} onClose={()=>{setSelected(null);fetchSessions()}}/>
+        </ErrorBoundary>
+      )}
+      {waitlistSession&&(
+        <ErrorBoundary>
+          <WaitlistModal session={waitlistSession} onClose={()=>{setWaitlistSession(null);fetchSessions()}}/>
+        </ErrorBoundary>
+      )}
     </>
   )
 }

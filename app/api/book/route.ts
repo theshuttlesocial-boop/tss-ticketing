@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { createPaymentIntent } from '@/lib/stripe'
+import { createPaymentIntent, stripe } from '@/lib/stripe'
 import { nanoid } from 'nanoid'
 
 export async function POST(req: Request) {
@@ -15,6 +15,45 @@ export async function POST(req: Request) {
 
   if (quantity > 1 && (!additional_attendees || additional_attendees.length < quantity - 1))
     return NextResponse.json({ error: 'Please provide names for all additional attendees' }, { status: 400 })
+
+  // ── Dedup: return existing PaymentIntent if same email+session booked in last 10 min ──
+  // Prevents double-charging if user taps "Continue" twice or retries after Apple Pay glitch
+  const dedupeWindow = new Date(Date.now() - 10 * 60 * 1000).toISOString()
+  const { data: existingBooking } = await supabaseAdmin
+    .from('bookings')
+    .select('stripe_payment_intent_id, booking_ref, total_pence, created_at')
+    .eq('session_id', session_id)
+    .eq('email', email)
+    .eq('quantity', quantity)
+    .eq('stripe_status', 'pending')
+    .gte('created_at', dedupeWindow)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .single()
+
+  if (existingBooking?.stripe_payment_intent_id) {
+    try {
+      const pi = await stripe.paymentIntents.retrieve(existingBooking.stripe_payment_intent_id)
+      // Only reuse if still in a payable state (not already succeeded/cancelled)
+      if (pi.status === 'requires_payment_method' || pi.status === 'requires_confirmation' || pi.status === 'requires_action') {
+        const holdToken = pi.metadata?.hold_token
+        let expiresAt = new Date(Date.now() + 8 * 60 * 1000).toISOString()
+        if (holdToken) {
+          const { data: hold } = await supabaseAdmin
+            .from('seat_holds').select('expires_at').eq('hold_token', holdToken).single()
+          if (hold?.expires_at) expiresAt = hold.expires_at
+        }
+        console.log('[book] dedup: returning existing PI for', email, session_id)
+        return NextResponse.json({
+          clientSecret: pi.client_secret, holdToken, bookingRef: existingBooking.booking_ref,
+          expiresAt, totalPence: existingBooking.total_pence,
+        })
+      }
+    } catch (e) {
+      // If PI retrieval fails, fall through and create a fresh one
+      console.warn('[book] dedup PI retrieval failed, creating fresh:', e)
+    }
+  }
 
   const holdToken  = nanoid(24)
   const bookingRef = 'TSS-' + nanoid(5).toUpperCase()
