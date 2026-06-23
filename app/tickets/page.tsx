@@ -165,6 +165,7 @@ function ComingSoonCountdown({ opensAt, onUnlocked }: { opensAt: string; onUnloc
 function CheckoutForm({ bookingRef, expiresAt, onSuccess }:{bookingRef:string;expiresAt:string;onSuccess:()=>void}) {
   const stripe=useStripe(); const elements=useElements()
   const [paying,setPaying]=useState(false); const [error,setError]=useState(''); const [overtime,setOvertime]=useState(false)
+  const [stripeReady,setStripeReady]=useState(false)
   const [secs,setSecs]=useState(()=>Math.max(0,Math.floor((new Date(expiresAt).getTime()-Date.now())/1000)))
   // Track mount state so we never setState after unmount (user closes modal mid-payment)
   const mountedRef=useRef(true)
@@ -174,6 +175,12 @@ function CheckoutForm({ bookingRef, expiresAt, onSuccess }:{bookingRef:string;ex
 
   async function pay(){
     if(!stripe||!elements)return
+    // Guard: PaymentElement must be mounted and ready before we can confirm
+    const paymentElement=elements.getElement(PaymentElement)
+    if(!paymentElement){
+      console.warn('[CheckoutForm] PaymentElement not ready — aborting confirmPayment')
+      return
+    }
     if(mountedRef.current){setPaying(true);setError('');setOvertime(false)}
 
     // 45-second "still waiting" banner — useful for Apple Pay / bank 3DS flows
@@ -226,7 +233,13 @@ function CheckoutForm({ bookingRef, expiresAt, onSuccess }:{bookingRef:string;ex
         <span style={{fontFamily:'monospace',fontSize:13,color:secs<20?T.danger:T.muted,fontWeight:700}}>{mm}:{ss}</span>
       </div>
       {/* Accordion layout puts Apple Pay / Google Pay / Link at the top */}
-      <PaymentElement options={{layout:'accordion'}}/>
+      <PaymentElement options={{layout:'accordion'}} onReady={()=>setStripeReady(true)}/>
+      {/* Loading state — shown until Stripe's iframe signals it's interactive */}
+      {!stripeReady&&(
+        <div style={{marginTop:10,padding:'10px 14px',background:T.card2,border:`1px solid ${T.border}`,borderRadius:8,color:T.muted,fontSize:13,textAlign:'center'}}>
+          Loading payment form...
+        </div>
+      )}
       {/* Overtime message — shown after 45s if still processing */}
       {overtime&&paying&&(
         <div style={{marginTop:10,padding:'10px 14px',background:T.infoDim,border:`1px solid rgba(96,180,255,0.3)`,borderRadius:8,color:T.info,fontSize:12,lineHeight:1.6}}>
@@ -234,8 +247,8 @@ function CheckoutForm({ bookingRef, expiresAt, onSuccess }:{bookingRef:string;ex
         </div>
       )}
       {error&&<div style={{marginTop:12,padding:'10px 14px',background:T.dangerDim,border:`1px solid rgba(224,85,85,0.3)`,borderRadius:8,color:T.danger,fontSize:13,lineHeight:1.5}}>{error}</div>}
-      <button onClick={pay} disabled={paying||!stripe} style={{marginTop:16,width:'100%',padding:'16px',minHeight:56,borderRadius:10,background:paying?T.border:T.accent,color:paying?T.muted:'#080f08',border:'none',fontWeight:800,fontSize:18,cursor:paying?'default':'pointer',fontFamily:'inherit',letterSpacing:'-0.2px'}}>
-        {paying?'Processing…':'Confirm & Pay →'}
+      <button onClick={pay} disabled={paying||!stripe||!stripeReady} style={{marginTop:16,width:'100%',padding:'16px',minHeight:56,borderRadius:10,background:(paying||!stripeReady)?T.border:T.accent,color:(paying||!stripeReady)?T.muted:'#080f08',border:'none',fontWeight:800,fontSize:18,cursor:(paying||!stripeReady)?'default':'pointer',fontFamily:'inherit',letterSpacing:'-0.2px'}}>
+        {paying?'Processing…':!stripeReady?'Loading payment form...':'Confirm & Pay →'}
       </button>
     </div>
   )
