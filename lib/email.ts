@@ -28,6 +28,67 @@ function infoRow(label: string, value: string, highlight = false) {
   return `<tr><td style="padding:7px 0;color:${muted};font-size:13px;">${label}</td><td style="text-align:right;color:${highlight ? brandColor : text};font-weight:${highlight ? 700 : 400};font-size:${highlight ? 17 : 13}px;">${value}</td></tr>`
 }
 
+// ── ICS calendar attachment ───────────────────────────────────────────────────
+
+// Converts a YYYY-MM-DD + HH:MM pair, interpreted as Europe/London local time,
+// into the equivalent UTC Date — handles BST/GMT automatically.
+function ukLocalToUTCDate(dateStr: string, timeStr: string): Date {
+  const [y, mo, d] = dateStr.split('-').map(Number)
+  const [h, mi] = timeStr.split(':').map(Number)
+  const guess = new Date(Date.UTC(y, mo - 1, d, h, mi))
+  const ukParts = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit', hour12: false }).formatToParts(guess)
+  const ukH = parseInt(ukParts.find(p => p.type === 'hour')!.value)
+  const ukMi = parseInt(ukParts.find(p => p.type === 'minute')!.value)
+  const diffMs = ((h - ukH) * 60 + (mi - ukMi)) * 60000
+  return new Date(guess.getTime() + diffMs)
+}
+
+// Formats a Date as a UTC ICS datetime: YYYYMMDDTHHMMSSZ
+function toICSDate(d: Date): string {
+  return d.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z'
+}
+
+// Escapes backslash, semicolon, comma and newline per RFC 5545 §3.3.11
+function escapeICS(s: string): string {
+  return s
+    .replace(/\\/g, '\\\\')
+    .replace(/;/g, '\\;')
+    .replace(/,/g, '\\,')
+    .replace(/\n/g, '\\n')
+}
+
+export function generateICS(session: {
+  title: string; venue: string; date: string; time: string; bookingRef: string
+}): string {
+  const start = ukLocalToUTCDate(session.date, session.time)
+  const end = new Date(start.getTime() + 2 * 60 * 60 * 1000)
+
+  const lines = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//The Shuttle Social//Booking Confirmation//EN',
+    'CALSCALE:GREGORIAN',
+    'METHOD:PUBLISH',
+    'BEGIN:VEVENT',
+    `UID:${session.bookingRef}@theshuttlesocial.com`,
+    `DTSTAMP:${toICSDate(new Date())}`,
+    `DTSTART:${toICSDate(start)}`,
+    `DTEND:${toICSDate(end)}`,
+    `SUMMARY:${escapeICS(session.title)}`,
+    `LOCATION:${escapeICS(session.venue)}`,
+    `DESCRIPTION:${escapeICS(`Booking ref: ${session.bookingRef}\nView your tickets: https://tickets.theshuttlesocial.com`)}`,
+    'BEGIN:VALARM',
+    'ACTION:DISPLAY',
+    'DESCRIPTION:Reminder',
+    'TRIGGER:-PT1H',
+    'END:VALARM',
+    'END:VEVENT',
+    'END:VCALENDAR',
+  ]
+
+  return lines.join('\r\n') + '\r\n'
+}
+
 export async function sendBookingConfirmation({ to, name, bookingRef, sessionTitle, sessionLabel, sessionDate, sessionTime, venue, description, quantity, totalPence, additionalAttendees }: {
   to: string; name: string; bookingRef: string; sessionTitle: string; sessionLabel?: string
   sessionDate: string; sessionTime: string; venue: string; description?: string
@@ -50,10 +111,17 @@ export async function sendBookingConfirmation({ to, name, bookingRef, sessionTit
       ${description}
     </div>` : ''
 
+  const ics = generateICS({ title: sessionTitle, venue, date: sessionDate, time: sessionTime, bookingRef })
+
   await resend.emails.send({
     from: process.env.EMAIL_FROM ?? 'bookings@theshuttlesocial.com',
     to,
     subject: `Booking confirmed: ${sessionTitle} - Ref ${bookingRef}`,
+    attachments: [{
+      filename: 'tss-session.ics',
+      content: Buffer.from(ics, 'utf-8').toString('base64'),
+      content_type: 'text/calendar',
+    }],
     html: emailWrap(`
       <div style="color:${brandColor};font-size:26px;font-weight:900;margin-bottom:4px;">You're in, ${name}!</div>
       <div style="color:${muted};font-size:14px;margin-bottom:24px;">Your spot is confirmed. See you on court!</div>
