@@ -17,9 +17,9 @@ const inp = (extra?:object):React.CSSProperties => ({ width:'100%', background:'
 
 interface Session {
   id:string; title:string; label?:string; venue:string; region:string
-  date:string; time:string; capacity:number; price_pence:number
-  status:string; booked:number; held:number; available:number
-  description?:string; waitlist_count:number; opens_at?:string; image_url?:string; max_tickets_per_order?:number; maps_url?:string
+  date:string; time:string; price_pence:number
+  status:string; availability:'available'|'limited'|'sold_out'; spotsRemaining?:number
+  description?:string; waitlist_count?:number; opens_at?:string; image_url?:string; max_tickets_per_order?:number; maps_url?:string
 }
 
 const fmt = (p:number) => `£${(p/100).toFixed(2)}`
@@ -62,7 +62,7 @@ function SessionSchema({ session }: { session: Session }) {
     "eventStatus": "https://schema.org/EventScheduled",
     "eventAttendanceMode": "https://schema.org/OfflineEventAttendanceMode",
     "offers": { "@type": "Offer", "price": (session.price_pence/100).toFixed(2), "priceCurrency": "GBP",
-      "availability": session.available > 0 ? "https://schema.org/InStock" : "https://schema.org/SoldOut" }
+      "availability": session.availability !== 'sold_out' ? "https://schema.org/InStock" : "https://schema.org/SoldOut" }
   }
   return <script type="application/ld+json" dangerouslySetInnerHTML={{__html: JSON.stringify(schema)}}/>
 }
@@ -320,7 +320,9 @@ function BookingModal({session,termsText,onClose}:{session:Session;termsText:str
   const [clientSecret,setCs]=useState(''); const [bookingRef,setRef]=useState(''); const [expiresAt,setExpires]=useState('')
   const [done,setDone]=useState(false); const [hasSavedUser,setHasSavedUser]=useState(false)
 
-  const maxQty=Math.min(session.max_tickets_per_order??4,session.available)
+  const maxQty=session.availability==='limited'
+    ?Math.min(session.max_tickets_per_order??4,session.spotsRemaining??1)
+    :session.max_tickets_per_order??4
   const total=session.price_pence*qty
 
   // Pre-fill details from localStorage for returning customers
@@ -504,10 +506,9 @@ function BookingModal({session,termsText,onClose}:{session:Session;termsText:str
 function SessionCard({session,onSelect,onWaitlist,onUnlocked}:{session:Session;onSelect:()=>void;onWaitlist:()=>void;onUnlocked?:()=>void}){
   const [expanded,setExpanded]=useState(false)
   const isComingSoon=session.status==='coming_soon'
-  const pct=Math.round(((session.booked+session.held)/session.capacity)*100)
-  const soldOut=session.available<=0&&!isComingSoon
-  const hot=session.available<=4&&!soldOut&&!isComingSoon
-  const spotsLeft=session.available
+  const soldOut=session.availability==='sold_out'
+  const hot=session.availability==='limited'
+  const spotsLeft=session.spotsRemaining
 
   return(
     <article style={{background:T.card,border:`1px solid ${isComingSoon?'rgba(96,180,255,0.25)':hot?T.accent:T.border}`,borderRadius:12,overflow:'hidden',transition:'transform 0.15s,box-shadow 0.15s'}}
@@ -552,14 +553,16 @@ function SessionCard({session,onSelect,onWaitlist,onUnlocked}:{session:Session;o
               </div>
             )}
 
-            {/* Spots remaining bar */}
+            {/* Availability indicator */}
             <div style={{marginBottom:12}}>
-              <div style={{height:5,background:T.border,borderRadius:3,marginBottom:5}}>
-                <div style={{height:'100%',width:`${pct}%`,background:pct>=90?T.danger:pct>=70?T.warning:T.accent,borderRadius:3,transition:'width 0.5s'}}/>
-              </div>
+              {hot&&(
+                <div style={{height:5,background:T.border,borderRadius:3,marginBottom:5}}>
+                  <div style={{height:'100%',width:`${Math.max(80,100-(spotsLeft??1)*4)}%`,background:T.warning,borderRadius:3,transition:'width 0.5s'}}/>
+                </div>
+              )}
               <div style={{display:'flex',justifyContent:'space-between',fontSize:12}}>
                 <span style={{color:soldOut?T.danger:hot?T.warning:T.muted}}>
-                  {soldOut?'🔴 Sold out':hot?`🟠 Only ${spotsLeft} spot${spotsLeft===1?'':'s'} remaining`:`🟢 ${spotsLeft} spot${spotsLeft===1?'':'s'} remaining`}
+                  {soldOut?'🔴 Sold out':hot?`🟠 Only ${spotsLeft} spot${spotsLeft===1?'':'s'} remaining`:'🟢 Tickets available'}
                 </span>
                 <span style={{color:T.accent,fontWeight:600}}>{fmt(session.price_pence)} / person</span>
               </div>

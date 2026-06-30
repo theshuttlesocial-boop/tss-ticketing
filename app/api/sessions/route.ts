@@ -3,6 +3,12 @@ import { supabaseAdmin } from '@/lib/supabase'
 
 export const dynamic = 'force-dynamic'
 
+function getAvailability(spotsRemaining: number) {
+  if (spotsRemaining <= 0) return { availability: 'sold_out' as const }
+  if (spotsRemaining <= 5) return { availability: 'limited' as const, spotsRemaining }
+  return { availability: 'available' as const }
+}
+
 export async function GET() {
   const now = new Date()
   const today = now.toISOString().split('T')[0]  // YYYY-MM-DD — exclude past sessions
@@ -54,9 +60,16 @@ export async function GET() {
     ...openSessions.map(s => {
       const booked = bookedBy[s.id] ?? 0
       const held   = heldBy[s.id]   ?? 0
-      return { ...s, status: 'open', booked, held, available: s.capacity - booked - held }
+      const spotsRemaining = s.capacity - booked - held
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { capacity: _cap, ...pub } = s
+      return { ...pub, status: 'open' as const, ...getAvailability(spotsRemaining) }
     }),
-    ...comingSoon.map(s => ({ ...s, status: 'coming_soon', booked: 0, held: 0, available: s.capacity })),
+    ...comingSoon.map(s => {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { capacity: _cap, ...pub } = s
+      return { ...pub, status: 'coming_soon' as const, availability: 'available' as const }
+    }),
   ].sort((a, b) => a.date.localeCompare(b.date))
 
   return NextResponse.json(
