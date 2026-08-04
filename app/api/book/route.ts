@@ -16,6 +16,16 @@ export async function POST(req: Request) {
   if (quantity > 1 && (!additional_attendees || additional_attendees.length < quantity - 1))
     return NextResponse.json({ error: 'Please provide names for all additional attendees' }, { status: 400 })
 
+  // ── Blocklist check ──────────────────────────────────────────────────────────
+  const { data: blockedEntry } = await supabaseAdmin
+    .from('blocked_emails')
+    .select('id')
+    .eq('email', email.trim().toLowerCase())
+    .maybeSingle()
+  if (blockedEntry) {
+    return NextResponse.json({ error: "We're unable to complete your booking. Please contact an admin for assistance." }, { status: 400 })
+  }
+
   // ── Dedup: return existing PaymentIntent if same email+session booked in last 10 min ──
   // Prevents double-charging if user taps "Continue" twice or retries after Apple Pay glitch
   const dedupeWindow = new Date(Date.now() - 10 * 60 * 1000).toISOString()

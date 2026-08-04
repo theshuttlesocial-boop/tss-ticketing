@@ -80,7 +80,7 @@ export default function AdminPage() {
   const [secret,setSecret]=useState(''); const [authed,setAuthed]=useState(false)
   const [sessions,setSessions]=useState<Session[]>([]); const [bookings,setBookings]=useState<Booking[]>([])
   const [waitlist,setWaitlist]=useState<any[]>([]); const [analytics,setAnalytics]=useState<any>(null)
-  const [tab,setTab]=useState<'overview'|'sessions'|'create'|'bookings'|'attendees'|'waitlist'|'analytics'|'settings'>('overview')
+  const [tab,setTab]=useState<'overview'|'sessions'|'create'|'bookings'|'attendees'|'waitlist'|'analytics'|'settings'|'blocked'>('overview')
   const [loading,setLoading]=useState(false); const [error,setError]=useState(''); const [msg,setMsg]=useState('')
   const [editing,setEditing]=useState<Session|null>(null)
   const [filterSession,setFilterSession]=useState(''); const [filterStatus,setFilterStatus]=useState('')
@@ -91,6 +91,10 @@ export default function AdminPage() {
   const [attendeeSearch,setAttendeeSearch]=useState('')
   const [searchLoading,setSearchLoading]=useState(false)
   const allBookingsRef=useRef<Booking[]>([])
+  const [blocked,setBlocked]=useState<{id:string;email:string;reason?:string;created_at:string}[]>([])
+  const [blockForm,setBlockForm]=useState({email:'',reason:''})
+  const [blockLoading,setBlockLoading]=useState(false)
+  const [blockError,setBlockError]=useState('')
 
   function flash(m:string){setMsg(m);setTimeout(()=>setMsg(''),3500)}
 
@@ -159,6 +163,26 @@ export default function AdminPage() {
     const d=await res.json();setAnalytics(d)
   }
 
+  async function loadBlocked(){
+    const res=await fetch('/api/admin/blocked',{headers:{'x-admin-secret':secret}})
+    const d=await res.json();setBlocked(d.blocked??[])
+  }
+
+  async function addBlocked(){
+    setBlockLoading(true);setBlockError('')
+    const res=await fetch('/api/admin/blocked',{method:'POST',headers:{'Content-Type':'application/json','x-admin-secret':secret},body:JSON.stringify({email:blockForm.email,reason:blockForm.reason||null})})
+    const d=await res.json()
+    setBlockLoading(false)
+    if(!res.ok){setBlockError(d.error??'Failed');return}
+    setBlockForm({email:'',reason:''});loadBlocked();flash('✅ Email blocked')
+  }
+
+  async function removeBlocked(id:string,email:string){
+    if(!confirm(`Remove ${email} from blocklist?`))return
+    await fetch(`/api/admin/blocked?id=${id}`,{method:'DELETE',headers:{'x-admin-secret':secret}})
+    loadBlocked();flash('✅ Removed from blocklist')
+  }
+
   async function refund(bookingId:string,bookingRef:string){
     if(!confirm(`Refund booking ${bookingRef}? This cannot be undone.`))return
     setRefunding(bookingId)
@@ -210,6 +234,7 @@ export default function AdminPage() {
     if(tab==='attendees'){loadBookings();loadWaitlist()}
     if(tab==='waitlist')loadWaitlist()
     if(tab==='analytics')loadAnalytics()
+    if(tab==='blocked')loadBlocked()
   },[authed,tab,filterSession])
 
   // Load all bookings for cross-session attendee search
@@ -261,8 +286,8 @@ export default function AdminPage() {
   )
 
   const base:React.CSSProperties={minHeight:'100vh',background:T.bg,color:T.text,fontFamily:'system-ui,sans-serif'}
-  const tabs=[['overview','📊'],['sessions','📅'],['create','➕'],['bookings','🎟'],['attendees','👥'],['waitlist','📋'],['analytics','📈'],['settings','⚙️']]
-  const tabLabels:Record<string,string>={overview:'Overview',sessions:'Sessions',create:'New Session',bookings:'Bookings',attendees:'Attendees',waitlist:'Waitlist',analytics:'Analytics',settings:'Settings'}
+  const tabs=[['overview','📊'],['sessions','📅'],['create','➕'],['bookings','🎟'],['attendees','👥'],['waitlist','📋'],['analytics','📈'],['settings','⚙️'],['blocked','🚫']]
+  const tabLabels:Record<string,string>={overview:'Overview',sessions:'Sessions',create:'New Session',bookings:'Bookings',attendees:'Attendees',waitlist:'Waitlist',analytics:'Analytics',settings:'Settings',blocked:'Blocked'}
 
   return(
     <div style={base}>
@@ -685,6 +710,50 @@ export default function AdminPage() {
               </div>
             </>
           ):<div style={{textAlign:'center',padding:40,color:T.muted}}>Loading analytics…</div>
+        )}
+
+        {/* BLOCKED */}
+        {tab==='blocked'&&(
+          <>
+            {/* Add form */}
+            <div style={{...cardStyle,marginBottom:16}}>
+              <div style={{padding:'12px 18px',borderBottom:`1px solid ${T.border}`,fontWeight:600,fontSize:12,color:T.muted,textTransform:'uppercase',letterSpacing:1}}>Block an Email Address</div>
+              <div style={{padding:16,display:'flex',gap:10,flexWrap:'wrap' as const,alignItems:'flex-end'}}>
+                <div style={{flex:'2 1 200px'}}>
+                  <label style={{fontSize:12,color:T.muted,display:'block',marginBottom:5}}>Email *</label>
+                  <input value={blockForm.email} onChange={e=>setBlockForm(f=>({...f,email:e.target.value}))} onKeyDown={e=>e.key==='Enter'&&blockForm.email&&addBlocked()} placeholder="someone@example.com" type="email" style={inp()}/>
+                </div>
+                <div style={{flex:'3 1 200px'}}>
+                  <label style={{fontSize:12,color:T.muted,display:'block',marginBottom:5}}>Reason (optional)</label>
+                  <input value={blockForm.reason} onChange={e=>setBlockForm(f=>({...f,reason:e.target.value}))} onKeyDown={e=>e.key==='Enter'&&blockForm.email&&addBlocked()} placeholder="e.g. No-show x3, chargeback" style={inp()}/>
+                </div>
+                <button onClick={addBlocked} disabled={!blockForm.email||blockLoading} style={{padding:'10px 20px',background:T.danger,color:'#fff',border:'none',borderRadius:8,fontWeight:700,fontSize:13,cursor:'pointer',fontFamily:'inherit',flexShrink:0,opacity:(!blockForm.email||blockLoading)?0.5:1}}>
+                  {blockLoading?'Blocking…':'Block'}
+                </button>
+              </div>
+              {blockError&&<div style={{padding:'0 16px 12px',color:T.danger,fontSize:13}}>{blockError}</div>}
+            </div>
+
+            {/* Blocked list */}
+            <div style={cardStyle}>
+              <div style={{padding:'12px 18px',borderBottom:`1px solid ${T.border}`,fontWeight:600,fontSize:12,color:T.muted,textTransform:'uppercase',letterSpacing:1}}>
+                Blocked Emails ({blocked.length})
+              </div>
+              {blocked.length===0&&<div style={{padding:40,textAlign:'center',color:T.muted}}>No blocked emails</div>}
+              {blocked.map((b,i)=>(
+                <div key={b.id} style={{padding:'12px 18px',borderBottom:i<blocked.length-1?`1px solid #0a140a`:'none',display:'flex',justifyContent:'space-between',alignItems:'center',gap:12}}>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontWeight:600,fontSize:14,color:T.danger}}>{b.email}</div>
+                    {b.reason&&<div style={{fontSize:12,color:T.muted,marginTop:2}}>{b.reason}</div>}
+                    <div style={{fontSize:11,color:'#2a4a2a',marginTop:2}}>Blocked {new Date(b.created_at).toLocaleString('en-GB',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})}</div>
+                  </div>
+                  <button onClick={()=>removeBlocked(b.id,b.email)} style={{padding:'5px 12px',background:T.dangerDim,color:T.danger,border:`1px solid rgba(224,85,85,0.25)`,borderRadius:6,cursor:'pointer',fontSize:12,fontWeight:600,fontFamily:'inherit',flexShrink:0}}>
+                    Remove
+                  </button>
+                </div>
+              ))}
+            </div>
+          </>
         )}
 
         {/* SETTINGS */}
