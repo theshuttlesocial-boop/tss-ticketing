@@ -6,8 +6,10 @@ node_modules/
 out/
 
 # Environment variables — NEVER commit these
-.env.local
-.env*.local
+# Broad pattern: catches .env.local, .env.production, and stray editor
+# saves like ".env.localRESEND_API_KEY=.save" that the old rules missed.
+.env*
+!.env.example
 
 # Misc
 .DS_Store
