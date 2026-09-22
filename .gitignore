@@ -13,3 +13,6 @@ out/
 .DS_Store
 *.pem
 npm-debug.log*
+
+# Upstream engine reference — vendored copy lives in lib/live-session/
+tss-live/
