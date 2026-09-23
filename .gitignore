@@ -16,3 +16,6 @@ npm-debug.log*
 
 # Upstream engine reference — vendored copy lives in lib/live-session/
 tss-live/
+
+# TypeScript incremental build info
+*.tsbuildinfo
