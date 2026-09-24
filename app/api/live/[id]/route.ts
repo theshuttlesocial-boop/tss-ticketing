@@ -1,16 +1,24 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { checkAdmin } from '@/lib/live-session/auth'
-import { loadSession, createLiveSession, LiveSessionError } from '@/lib/live-session/actions'
+import { loadSession } from '@/lib/live-session/actions'
+import { redactSession } from '@/lib/live-session/redact'
 
 type Ctx = { params: Promise<{ id: string }> }
 
-// Public: the board and player pages read this without a login.
-export async function GET(_req: Request, { params }: Ctx) {
+/**
+ * Admins get the full session. Everyone else gets a redacted copy: names and
+ * court assignments, no ratings, levels, game counts or player totals.
+ *
+ * Redaction happens here rather than in the UI because the anon key ships in
+ * the browser bundle — see migration 006.
+ */
+export async function GET(req: Request, { params }: Ctx) {
   const { id } = await params
   try {
     const session = await loadSession(id)
-    return NextResponse.json({ session })
+    if (checkAdmin(req)) return NextResponse.json({ session, admin: true })
+    return NextResponse.json({ session: redactSession(session), admin: false })
   } catch (e) {
     return NextResponse.json({ error: (e as Error).message }, { status: 404 })
   }
