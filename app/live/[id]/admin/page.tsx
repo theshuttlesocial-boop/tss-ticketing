@@ -3,6 +3,7 @@ import { use, useState, useMemo, useEffect } from 'react'
 import { useLiveSession } from '../../_hooks/useLiveSession'
 import { CourtCard } from '../../_components/CourtCard'
 import { T, inp, cardStyle, btn } from '../../_components/theme'
+import { FormBadges } from '../../_components/Form'
 import { standings, grandFinal, roundComplete, DEFAULT_CONFIG } from '@/lib/live-session/engine'
 import type { Config } from '@/lib/live-session/engine'
 
@@ -174,15 +175,7 @@ export default function LiveAdminPage({ params }: { params: Promise<{ id: string
             </div>
           </section>
 
-          {showQr && (
-            <section style={{ ...cardStyle, padding:16 }}>
-              <h2 style={{ fontSize:16, margin:'0 0 4px' }}>Player QR codes</h2>
-              <p style={{ color:T.muted, fontSize:13, margin:'0 0 12px' }}>
-                Each links to that player&apos;s own page. Print or hold up the screen.
-              </p>
-              <QrGrid sessionId={id} players={Object.values(session.players)} origin={origin} />
-            </section>
-          )}
+          {showQr && <SessionQr sessionId={id} origin={origin} />}
         </div>
 
         {/* ── Sidebar ── */}
@@ -196,8 +189,8 @@ export default function LiveAdminPage({ params }: { params: Promise<{ id: string
                     <th style={{ padding:'4px 6px' }}>#</th>
                     <th style={{ padding:'4px 6px' }}>Player</th>
                     <th style={{ padding:'4px 6px', textAlign:'right' }}>Rating</th>
-                    <th style={{ padding:'4px 6px', textAlign:'right' }}>Conf</th>
                     <th style={{ padding:'4px 6px', textAlign:'right' }}>G</th>
+                    <th style={{ padding:'4px 6px' }}>Form</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -207,8 +200,10 @@ export default function LiveAdminPage({ params }: { params: Promise<{ id: string
                       <td style={{ padding:'6px', color:T.muted }}>{i + 1}</td>
                       <td style={{ padding:'6px', fontWeight:600 }}>{s.name}</td>
                       <td style={{ padding:'6px', textAlign:'right' }}>{Math.round(s.rating)}</td>
-                      <td style={{ padding:'6px', textAlign:'right', color:T.muted }}>{Math.round(s.confRating)}</td>
                       <td style={{ padding:'6px', textAlign:'right', color:T.muted }}>{s.games}</td>
+                      <td style={{ padding:'6px' }}>
+                        <FormBadges playerId={s.id} results={session.results} max={4} />
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -247,35 +242,57 @@ export default function LiveAdminPage({ params }: { params: Promise<{ id: string
   )
 }
 
-/** Client-side QR grid — generated in the browser to keep this page one component. */
-function QrGrid({ sessionId, players, origin }: {
-  sessionId: string; players: { id: string; name: string }[]; origin: string
-}) {
-  const [svgs, setSvgs] = useState<Record<string, string>>({})
+/**
+ * ONE QR for the whole session, not one per player.
+ *
+ * Players scan the same code, pick their name once on /join, and their phone
+ * remembers them. The previous per-player grid meant showing 28 people 28
+ * different codes, which defeated the point.
+ */
+function SessionQr({ sessionId, origin }: { sessionId: string; origin: string }) {
+  const [svg, setSvg] = useState('')
+  const [permanent, setPermanent] = useState(false)
+  const joinUrl = `${origin}/live/${sessionId}/join`
+  const url = permanent ? `${origin}/live/latest` : joinUrl
+
   useEffect(() => {
     let cancelled = false
     import('qrcode').then(async QR => {
-      const out: Record<string, string> = {}
-      for (const p of players) {
-        out[p.id] = await QR.toString(`${origin}/live/${sessionId}/player/${p.id}`,
-          { type:'svg', errorCorrectionLevel:'M', margin:2, width:104 })
-      }
-      if (!cancelled) setSvgs(out)
+      const out = await QR.toString(url, { type:'svg', errorCorrectionLevel:'M', margin:2, width:320 })
+      if (!cancelled) setSvg(out)
     })
     return () => { cancelled = true }
-  }, [sessionId, players, origin])
+  }, [url])
 
   return (
-    <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(128px,1fr))', gap:12 }}>
-      {players.map(p => (
-        <div key={p.id} style={{ background:T.card2, border:`1px solid ${T.border}`,
-          borderRadius:10, padding:10, textAlign:'center' }}>
-          <div style={{ background:'#fff', borderRadius:6, padding:4, lineHeight:0, minHeight:104 }}
-            dangerouslySetInnerHTML={{ __html: svgs[p.id] ?? '' }} />
-          <div style={{ fontSize:12, fontWeight:600, marginTop:7 }}>{p.name}</div>
+    <section style={{ ...cardStyle, padding:16 }}>
+      <h2 style={{ fontSize:16, margin:'0 0 4px' }}>Session QR code</h2>
+      <p style={{ color:T.muted, fontSize:13, margin:'0 0 12px' }}>
+        One code for everyone. Players scan it, tap their name once, and their phone
+        remembers them for the night.
+      </p>
+
+      <div style={{ display:'flex', gap:18, alignItems:'flex-start', flexWrap:'wrap' }}>
+        <div style={{ background:'#fff', borderRadius:10, padding:8, lineHeight:0, minWidth:320 }}
+          dangerouslySetInnerHTML={{ __html: svg }} />
+        <div style={{ flex:1, minWidth:220 }}>
+          <label style={{ display:'flex', gap:8, alignItems:'flex-start', cursor:'pointer', marginBottom:12 }}>
+            <input type="checkbox" checked={permanent} onChange={e => setPermanent(e.target.checked)}
+              style={{ marginTop:3 }} />
+            <span style={{ fontSize:13 }}>
+              <strong>Reusable code</strong>
+              <span style={{ display:'block', color:T.muted, marginTop:2 }}>
+                Points at /live/latest, which always resolves to the current session.
+                Print once, laminate it, use it every week.
+              </span>
+            </span>
+          </label>
+          <div style={{ fontSize:11, color:T.muted, wordBreak:'break-all', marginBottom:10 }}>{url}</div>
+          <button style={btn()} onClick={() => { navigator.clipboard?.writeText(url) }}>Copy link</button>
+          <button style={{ ...btn(), marginLeft:8 }} onClick={() => window.print()}>Print</button>
         </div>
-      ))}
-    </div>
+      </div>
+    </section>
   )
 }
 

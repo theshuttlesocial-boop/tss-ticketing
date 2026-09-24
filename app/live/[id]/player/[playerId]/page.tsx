@@ -2,6 +2,7 @@
 import { use } from 'react'
 import { useLiveSession } from '../../../_hooks/useLiveSession'
 import { T } from '../../../_components/theme'
+import { FormBadges, RatingTrend, LastDelta } from '../../../_components/Form'
 
 export default function PlayerPage({ params }: { params: Promise<{ id: string; playerId: string }> }) {
   const { id, playerId } = use(params)
@@ -85,26 +86,41 @@ export default function PlayerPage({ params }: { params: Promise<{ id: string; p
         )}
       </div>
 
+      <div style={{ background:T.card, border:`1px solid ${T.border}`, borderRadius:14,
+        padding:'18px 18px 12px', marginBottom:14 }}>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
+          <div>
+            <div style={{ fontSize:11, color:T.muted, textTransform:'uppercase',
+              letterSpacing:'1px', fontWeight:600 }}>Rating</div>
+            <div style={{ display:'flex', alignItems:'baseline', gap:9 }}>
+              <span style={{ fontSize:38, fontWeight:900, lineHeight:1.1 }}>{Math.round(me.rating)}</span>
+              <LastDelta player={me} />
+            </div>
+          </div>
+          <RatingTrend history={me.history} start={session.config.rating.start[me.level]} />
+        </div>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center',
+          marginTop:10, paddingTop:10, borderTop:`1px solid ${T.border}` }}>
+          <div style={{ fontSize:11, color:T.muted, textTransform:'uppercase',
+            letterSpacing:'1px', fontWeight:600 }}>Form</div>
+          <FormBadges playerId={playerId} results={session.results} />
+        </div>
+      </div>
+
       <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:12 }}>
         {[
-          { label:'Rating', value: Math.round(me.rating) },
-          { label:'Games',  value: me.games },
-          { label:'Sat out',value: me.sitOuts },
+          { label:'Games',   value: me.games },
+          { label:'Sat out', value: me.sitOuts },
+          { label:'Level',   value: me.level[0].toUpperCase() + me.level.slice(1) },
         ].map(s => (
           <div key={s.label} style={{
             background:T.card, border:`1px solid ${T.border}`, borderRadius:10, padding:'14px 12px',
           }}>
             <div style={{ fontSize:11, color:T.muted, marginBottom:4 }}>{s.label}</div>
-            <div style={{ fontSize:24, fontWeight:800 }}>{s.value}</div>
+            <div style={{ fontSize:22, fontWeight:800 }}>{s.value}</div>
           </div>
         ))}
       </div>
-
-      {me.history.length > 1 && (
-        <div style={{ marginTop:18, color:T.muted, fontSize:13 }}>
-          Rating after each game: {me.history.map(h => Math.round(h)).join(' → ')}
-        </div>
-      )}
     </div>
   )
 }
