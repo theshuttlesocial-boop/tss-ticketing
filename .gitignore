@@ -21,3 +21,6 @@ tss-live/
 
 # TypeScript incremental build info
 *.tsbuildinfo
+
+# Local dev-server preview config (Claude Code)
+.claude/launch.json

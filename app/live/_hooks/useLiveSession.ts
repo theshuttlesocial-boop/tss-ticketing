@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { supabaseBrowser } from './supabaseBrowser'
+import { supabase } from '@/lib/supabase-client'
 import type { Session } from '@/lib/live-session/engine'
 
 /**
@@ -35,14 +35,14 @@ export function useLiveSession(sessionId: string) {
       if (timer.current) clearTimeout(timer.current)
       timer.current = setTimeout(refetch, 150)
     }
-    const channel = supabaseBrowser.channel(`live:${sessionId}`)
+    const channel = supabase.channel(`live:${sessionId}`)
     for (const table of ['live_sessions', 'live_session_players', 'live_games', 'live_rounds']) {
       channel.on('postgres_changes',
         { event: '*', schema: 'public', table, filter: table === 'live_sessions' ? `id=eq.${sessionId}` : `session_id=eq.${sessionId}` },
         nudge)
     }
     channel.subscribe()
-    return () => { if (timer.current) clearTimeout(timer.current); supabaseBrowser.removeChannel(channel) }
+    return () => { if (timer.current) clearTimeout(timer.current); supabase.removeChannel(channel) }
   }, [sessionId, refetch])
 
   return { session, error, loading, refetch }
