@@ -8,7 +8,7 @@ import type { Session } from '@/lib/live-session/engine'
  * change. Refetching beats patching local state: the engine derives ratings
  * from all games in order, so a partial update could disagree with the server.
  */
-export function useLiveSession(sessionId: string) {
+export function useLiveSession(sessionId: string, adminSecret?: string) {
   const [session, setSession] = useState<Session | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -16,7 +16,10 @@ export function useLiveSession(sessionId: string) {
 
   const refetch = useCallback(async () => {
     try {
-      const res = await fetch(`/api/live/${sessionId}`, { cache: 'no-store' })
+      const res = await fetch(`/api/live/${sessionId}`, {
+        cache: 'no-store',
+        headers: adminSecret ? { 'x-admin-secret': adminSecret } : undefined,
+      })
       const json = await res.json()
       if (!res.ok) { setError(json.error ?? 'Could not load session'); return }
       setSession(json.session); setError(null)
@@ -25,7 +28,7 @@ export function useLiveSession(sessionId: string) {
     } finally {
       setLoading(false)
     }
-  }, [sessionId])
+  }, [sessionId, adminSecret])
 
   useEffect(() => { refetch() }, [refetch])
 
@@ -36,7 +39,10 @@ export function useLiveSession(sessionId: string) {
       timer.current = setTimeout(refetch, 150)
     }
     const channel = supabase.channel(`live:${sessionId}`)
-    for (const table of ['live_sessions', 'live_session_players', 'live_games', 'live_rounds']) {
+    // live_session_players is deliberately absent: anon cannot read it any more
+    // (migration 006). Every rating change is caused by a score write, which
+    // touches live_games, so that event still triggers the refetch.
+    for (const table of ['live_sessions', 'live_games', 'live_rounds']) {
       channel.on('postgres_changes',
         { event: '*', schema: 'public', table, filter: table === 'live_sessions' ? `id=eq.${sessionId}` : `session_id=eq.${sessionId}` },
         nudge)

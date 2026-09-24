@@ -29,7 +29,7 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
       <div style={{ display:'flex', alignItems:'baseline', gap:16, marginBottom:22 }}>
         <div style={{ fontSize:44, fontWeight:900, letterSpacing:'-1px' }}>Round {round.index}</div>
         <div style={{ fontSize:20, color:T.muted }}>
-          {Object.keys(session.players).length} players · {round.matches.length} courts
+          {round.matches.length} courts
         </div>
       </div>
 

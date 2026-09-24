@@ -14,7 +14,7 @@ export default function LiveAdminPage({ params }: { params: Promise<{ id: string
   const { id } = use(params)
   const [secret, setSecret] = useState('')
   const [authed, setAuthed] = useState(false)
-  const { session, error, loading, refetch } = useLiveSession(id)
+  const { session, error, loading, refetch } = useLiveSession(id, authed ? secret : undefined)
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
   const [overrideMode, setOverrideMode] = useState(false)

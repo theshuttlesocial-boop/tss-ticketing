@@ -1,30 +1,57 @@
 'use client'
-import { use } from 'react'
-import { useLiveSession } from '../../../_hooks/useLiveSession'
+import { use, useEffect, useState, useCallback } from 'react'
+import { supabase } from '@/lib/supabase-client'
 import { T } from '../../../_components/theme'
 import { FormBadges, RatingTrend, LastDelta } from '../../../_components/Form'
 
+/**
+ * A player's own view. Reads /api/live/[id]/player/[playerId], which returns
+ * this player's rating and form plus the redacted session — no other player's
+ * numbers, no roster size, no game counts.
+ */
 export default function PlayerPage({ params }: { params: Promise<{ id: string; playerId: string }> }) {
   const { id, playerId } = use(params)
-  const { session, error, loading } = useLiveSession(id)
+  const [view, setView] = useState<any>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
 
-  const shell = (msg: string) => (
+  const refetch = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/live/${id}/player/${playerId}`, { cache: 'no-store' })
+      const json = await res.json()
+      if (!res.ok) { setError(json.error ?? 'Could not load'); return }
+      setView(json.player); setError(null)
+    } catch (e) { setError((e as Error).message) } finally { setLoading(false) }
+  }, [id, playerId])
+
+  useEffect(() => { refetch() }, [refetch])
+
+  useEffect(() => {
+    let t: ReturnType<typeof setTimeout> | null = null
+    const nudge = () => { if (t) clearTimeout(t); t = setTimeout(refetch, 150) }
+    const ch = supabase.channel(`live-player:${playerId}`)
+    for (const table of ['live_games', 'live_rounds']) {
+      ch.on('postgres_changes',
+        { event: '*', schema: 'public', table, filter: `session_id=eq.${id}` }, nudge)
+    }
+    ch.subscribe()
+    return () => { if (t) clearTimeout(t); supabase.removeChannel(ch) }
+  }, [id, playerId, refetch])
+
+  const shell = (m: string) => (
     <div style={{ minHeight:'100vh', background:T.bg, color:T.muted, display:'grid',
       placeItems:'center', padding:24, textAlign:'center',
-      fontFamily:'DM Sans, system-ui, sans-serif' }}>{msg}</div>
+      fontFamily:'DM Sans, system-ui, sans-serif' }}>{m}</div>
   )
   if (loading) return shell('Loading…')
-  if (error || !session) return shell(error ?? 'Session not found')
+  if (error || !view) return shell(error ?? 'Not found')
 
-  const me = session.players[playerId]
-  if (!me) return shell('Player not in this session')
-
-  const round = session.rounds[session.rounds.length - 1]
-  const match = round?.matches.find(m =>
+  const round = view.rounds[view.rounds.length - 1]
+  const match = round?.matches.find((m: any) =>
     [m.teamA.a, m.teamA.b, m.teamB.a, m.teamB.b].includes(playerId))
   const sittingNow = round?.sitOuts.includes(playerId) ?? false
+  const nm = (pid: string) => view.players[pid]?.name ?? '—'
 
-  const nm = (pid: string) => session.players[pid]?.name ?? '—'
   let partner: string | null = null
   let opponents: string[] = []
   if (match) {
@@ -44,23 +71,21 @@ export default function PlayerPage({ params }: { params: Promise<{ id: string; p
   )
 
   return (
-    <div style={{
-      minHeight:'100vh', background:T.bg, color:T.text, padding:'28px 20px',
+    <div style={{ minHeight:'100vh', background:T.bg, color:T.text, padding:'28px 20px',
       fontFamily:'DM Sans, system-ui, sans-serif', boxSizing:'border-box',
-      maxWidth:520, margin:'0 auto',
-    }}>
+      maxWidth:520, margin:'0 auto' }}>
       <div style={{ fontSize:13, color:T.muted, letterSpacing:'1px',
         textTransform:'uppercase', fontWeight:600 }}>
         {round ? `Round ${round.index}` : 'Not started'}
       </div>
       <h1 style={{ fontSize:34, fontWeight:900, margin:'4px 0 22px', letterSpacing:'-0.5px' }}>
-        {me.name}
+        {view.name}
       </h1>
 
       <div style={{
         background: sittingNow ? T.infoDim : T.card,
         border:`1px solid ${sittingNow ? T.info : T.accentBorder}`,
-        borderRadius:14, padding:'22px 20px', marginBottom:18,
+        borderRadius:14, padding:'22px 20px', marginBottom:14,
       }}>
         {sittingNow ? (
           <>
@@ -68,7 +93,7 @@ export default function PlayerPage({ params }: { params: Promise<{ id: string; p
               Sitting out
             </div>
             <div style={{ color:T.muted, fontSize:15 }}>
-              You are back on next round. {round!.sitOuts.length - 1} others are resting too.
+              You are back on next round.
             </div>
           </>
         ) : match ? (
@@ -87,39 +112,26 @@ export default function PlayerPage({ params }: { params: Promise<{ id: string; p
       </div>
 
       <div style={{ background:T.card, border:`1px solid ${T.border}`, borderRadius:14,
-        padding:'18px 18px 12px', marginBottom:14 }}>
+        padding:'18px 18px 12px' }}>
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
           <div>
             <div style={{ fontSize:11, color:T.muted, textTransform:'uppercase',
-              letterSpacing:'1px', fontWeight:600 }}>Rating</div>
+              letterSpacing:'1px', fontWeight:600 }}>Your rating</div>
             <div style={{ display:'flex', alignItems:'baseline', gap:9 }}>
-              <span style={{ fontSize:38, fontWeight:900, lineHeight:1.1 }}>{Math.round(me.rating)}</span>
-              <LastDelta player={me} />
+              <span style={{ fontSize:38, fontWeight:900, lineHeight:1.1 }}>
+                {Math.round(view.rating)}
+              </span>
+              <LastDelta player={{ history: view.history } as any} />
             </div>
           </div>
-          <RatingTrend history={me.history} start={session.config.rating.start[me.level]} />
+          <RatingTrend history={view.history} start={view.startRating} />
         </div>
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center',
           marginTop:10, paddingTop:10, borderTop:`1px solid ${T.border}` }}>
           <div style={{ fontSize:11, color:T.muted, textTransform:'uppercase',
-            letterSpacing:'1px', fontWeight:600 }}>Form</div>
-          <FormBadges playerId={playerId} results={session.results} />
+            letterSpacing:'1px', fontWeight:600 }}>Your results</div>
+          <FormBadges playerId={playerId} results={view.results} />
         </div>
-      </div>
-
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:12 }}>
-        {[
-          { label:'Games',   value: me.games },
-          { label:'Sat out', value: me.sitOuts },
-          { label:'Level',   value: me.level[0].toUpperCase() + me.level.slice(1) },
-        ].map(s => (
-          <div key={s.label} style={{
-            background:T.card, border:`1px solid ${T.border}`, borderRadius:10, padding:'14px 12px',
-          }}>
-            <div style={{ fontSize:11, color:T.muted, marginBottom:4 }}>{s.label}</div>
-            <div style={{ fontSize:22, fontWeight:800 }}>{s.value}</div>
-          </div>
-        ))}
       </div>
     </div>
   )
