@@ -14,7 +14,7 @@ export default function LiveAdminPage({ params }: { params: Promise<{ id: string
   const { id } = use(params)
   const [secret, setSecret] = useState('')
   const [authed, setAuthed] = useState(false)
-  const { session, error, loading, refetch } = useLiveSession(id, authed ? secret : undefined)
+  const { session, error, loading, refetch, isAdmin } = useLiveSession(id, authed ? secret : undefined)
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
   const [overrideMode, setOverrideMode] = useState(false)
@@ -68,6 +68,25 @@ export default function LiveAdminPage({ params }: { params: Promise<{ id: string
 
   if (loading) return <div style={{ minHeight:'100vh', background:T.bg, color:T.muted, display:'grid', placeItems:'center' }}>Loading…</div>
   if (error || !session) return <div style={{ minHeight:'100vh', background:T.bg, color:T.danger, display:'grid', placeItems:'center' }}>{error}</div>
+
+  // The server returns a redacted session when the secret is wrong. Rendering
+  // it would crash, since redaction strips config.finals — so say so instead.
+  if (isAdmin === false) return (
+    <div style={{ minHeight:'100vh', background:T.bg, display:'grid', placeItems:'center',
+      fontFamily:'DM Sans, system-ui, sans-serif' }}>
+      <div style={{ ...cardStyle, padding:24, width:340, textAlign:'center' }}>
+        <div style={{ color:T.danger, fontSize:16, fontWeight:700, marginBottom:6 }}>
+          That admin secret is not right
+        </div>
+        <p style={{ color:T.muted, fontSize:13, margin:'0 0 14px' }}>
+          The server did not accept it, so the session cannot be shown.
+        </p>
+        <button style={{ ...btn('primary'), width:'100%' }} onClick={() => {
+          sessionStorage.removeItem('tss-admin-secret'); setSecret(''); setAuthed(false)
+        }}>Try again</button>
+      </div>
+    </div>
+  )
 
   const origin = typeof window !== 'undefined' ? window.location.origin : ''
 

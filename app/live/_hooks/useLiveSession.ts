@@ -10,6 +10,7 @@ import type { Session } from '@/lib/live-session/engine'
  */
 export function useLiveSession(sessionId: string, adminSecret?: string) {
   const [session, setSession] = useState<Session | null>(null)
+  const [isAdmin, setIsAdmin] = useState<boolean | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -22,7 +23,7 @@ export function useLiveSession(sessionId: string, adminSecret?: string) {
       })
       const json = await res.json()
       if (!res.ok) { setError(json.error ?? 'Could not load session'); return }
-      setSession(json.session); setError(null)
+      setSession(json.session); setIsAdmin(!!json.admin); setError(null)
     } catch (e) {
       setError((e as Error).message)
     } finally {
@@ -51,5 +52,5 @@ export function useLiveSession(sessionId: string, adminSecret?: string) {
     return () => { if (timer.current) clearTimeout(timer.current); supabase.removeChannel(channel) }
   }, [sessionId, refetch])
 
-  return { session, error, loading, refetch }
+  return { session, error, loading, refetch, isAdmin }
 }
