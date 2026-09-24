@@ -54,7 +54,14 @@ export default function LiveSetupPage() {
   const nCourts = Number(courts) || 4
   const playing = nCourts * 4
   const sitting = Math.max(0, parsed.length - playing)
-  const canSubmit = parsed.length >= 4 && errors.length === 0 && dupes.length === 0 && !!name.trim()
+  // Every reason the button is disabled, so it is never dead with no message.
+  const blockers: string[] = []
+  if (!name.trim()) blockers.push('Give the session a name')
+  if (parsed.length === 0) blockers.push('Add your players')
+  else if (parsed.length < 4) blockers.push(`Add at least 4 players (you have ${parsed.length})`)
+  if (errors.length > 0) blockers.push(`Fix ${errors.length} bad line${errors.length > 1 ? 's' : ''}`)
+  if (dupes.length > 0) blockers.push(`Make duplicate names unique: ${[...new Set(dupes)].join(', ')}`)
+  const canSubmit = blockers.length === 0
 
   const create = async () => {
     setBusy(true); setMsg(null)
@@ -107,8 +114,11 @@ export default function LiveSetupPage() {
 
       <section style={{ ...cardStyle, padding:16 }}>
         <div style={{ display:'grid', gridTemplateColumns:'2fr 1fr 1fr', gap:12, marginBottom:14 }}>
-          <label><span style={{ fontSize:11, color:T.muted, display:'block', marginBottom:4 }}>Session name</span>
-            <input style={inp()} value={name} onChange={e => setName(e.target.value)} placeholder="Thursday Harrow" /></label>
+          <label><span style={{ fontSize:11, color:T.muted, display:'block', marginBottom:4 }}>
+              Session name {!name.trim() && <span style={{ color:T.warning }}>· required</span>}
+            </span>
+            <input style={inp(!name.trim() ? { borderColor: T.warning } : undefined)}
+              value={name} onChange={e => setName(e.target.value)} placeholder="Thursday Harrow" /></label>
           <label><span style={{ fontSize:11, color:T.muted, display:'block', marginBottom:4 }}>Courts</span>
             <input style={inp()} inputMode="numeric" value={courts} onChange={e => setCourts(e.target.value)} /></label>
           <label><span style={{ fontSize:11, color:T.muted, display:'block', marginBottom:4 }}>Seed</span>
@@ -134,9 +144,16 @@ export default function LiveSetupPage() {
           </div>
         )}
 
-        <button style={{ ...btn('primary'), marginTop:14 }} disabled={!canSubmit || busy} onClick={create}>
-          {busy ? 'Creating…' : `Create session with ${parsed.length} players`}
-        </button>
+        <div style={{ display:'flex', gap:14, alignItems:'center', flexWrap:'wrap', marginTop:14 }}>
+          <button style={btn('primary')} disabled={!canSubmit || busy} onClick={create}>
+            {busy ? 'Creating…' : `Create session with ${parsed.length} players`}
+          </button>
+          {blockers.length > 0 && (
+            <div style={{ fontSize:13, color:T.warning }}>
+              {blockers.map((b, i) => <div key={i}>• {b}</div>)}
+            </div>
+          )}
+        </div>
       </section>
     </div>
   )
