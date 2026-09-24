@@ -172,8 +172,12 @@ export async function undoLastRound(sessionId: string) {
 
 /** Create a session and seed its roster. */
 export async function createLiveSession(
-  name: string, roster: { name: string; level: Level }[], seed = 1, config = DEFAULT_CONFIG,
+  name: string, roster: { name: string; level: Level }[], seed = 1,
+  config = DEFAULT_CONFIG, courts?: number,
 ) {
+  if (courts && courts !== config.rotation.courts) {
+    config = { ...config, rotation: { ...config.rotation, courts } };
+  }
   const { data: s, error } = await supabaseAdmin
     .from('live_sessions')
     .insert({ name, config, seed, status: 'setup' })
