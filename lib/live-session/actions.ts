@@ -206,3 +206,98 @@ export async function createLiveSession(
   if (pErr) throw new LiveSessionError(pErr.message);
   return s.id as string;
 }
+
+/** Add a player to a running session. They start at their level's rating. */
+export async function addPlayer(sessionId: string, name: string, level: Level) {
+  const session = await loadSession(sessionId);
+  const clean = name.trim();
+  if (!clean) throw new LiveSessionError('name required');
+  if (Object.values(session.players).some((p) => p.name.toLowerCase() === clean.toLowerCase()))
+    throw new LiveSessionError(`${clean} is already in this session`);
+
+  const start = session.config.rating.start[level];
+  const { error } = await supabaseAdmin.from('live_session_players').insert({
+    session_id: sessionId,
+    name: clean,
+    level,
+    rating: start,
+    games: 0,
+    // Joining late should not push them straight to the front of the sit-out
+    // queue, nor make them instantly "due" a rest. Match the lowest sit-out
+    // count already in the session.
+    sit_outs: Math.min(...Object.values(session.players).map((p) => p.sitOuts), 0),
+    sat_last_round: false,
+    beginner: level === 'beginner',
+    above_median_streak: 0,
+    history: [],
+  });
+  if (error) throw new LiveSessionError(error.message);
+}
+
+/**
+ * Change a player's name or level.
+ *
+ * Changing level changes their starting rating, and ratings are recomputed
+ * from all games, so a correction applies retroactively — which is what you
+ * want when someone was entered at the wrong level.
+ */
+export async function updatePlayer(
+  sessionId: string, playerId: string, patch: { name?: string; level?: Level },
+) {
+  const session = await loadSession(sessionId);
+  if (!session.players[playerId]) throw new LiveSessionError('player not in this session');
+
+  const update: Record<string, any> = {};
+  if (patch.name !== undefined) {
+    const clean = patch.name.trim();
+    if (!clean) throw new LiveSessionError('name cannot be empty');
+    if (Object.values(session.players).some(
+      (p) => p.id !== playerId && p.name.toLowerCase() === clean.toLowerCase()))
+      throw new LiveSessionError(`${clean} is already in this session`);
+    update.name = clean;
+  }
+  if (patch.level !== undefined) {
+    update.level = patch.level;
+    update.beginner = patch.level === 'beginner';
+  }
+  if (Object.keys(update).length === 0) throw new LiveSessionError('nothing to update');
+
+  const { error } = await supabaseAdmin
+    .from('live_session_players').update(update).eq('id', playerId);
+  if (error) throw new LiveSessionError(error.message);
+
+  // Level drives the starting rating, so re-derive everything.
+  if (patch.level !== undefined) {
+    const reloaded = await loadSession(sessionId);
+    await persistDerivedPlayers(recomputeRatings(reloaded));
+  }
+}
+
+/**
+ * Remove a player (dropped out).
+ *
+ * Refused while they are in the current round's assignments — deleting them
+ * would leave a court with a blank slot. Undo the round first, or use
+ * overrideSlot to swap someone in.
+ */
+export async function removePlayer(sessionId: string, playerId: string) {
+  const session = await loadSession(sessionId);
+  if (!session.players[playerId]) throw new LiveSessionError('player not in this session');
+
+  const current = session.rounds[session.rounds.length - 1];
+  if (current) {
+    const onCourt = current.matches.some((m) =>
+      [m.teamA.a, m.teamA.b, m.teamB.a, m.teamB.b].includes(playerId));
+    if (onCourt) {
+      throw new LiveSessionError(
+        `${session.players[playerId].name} is on court this round — ` +
+        'swap them out with Override slots, or undo the round first');
+    }
+  }
+
+  // Their past games stay in live_games so other players' ratings are
+  // unaffected; the row is what goes.
+  const { error } = await supabaseAdmin
+    .from('live_session_players').delete().eq('id', playerId);
+  if (error) throw new LiveSessionError(error.message);
+}

@@ -20,6 +20,7 @@ export default function LiveAdminPage({ params }: { params: Promise<{ id: string
   const [overrideMode, setOverrideMode] = useState(false)
   const [scores, setScores] = useState<Record<string, { a: string; b: string }>>({})
   const [showQr, setShowQr] = useState(false)
+  const [showRoster, setShowRoster] = useState(false)
 
   useEffect(() => {
     const saved = sessionStorage.getItem('tss-admin-secret')
@@ -102,6 +103,7 @@ export default function LiveAdminPage({ params }: { params: Promise<{ id: string
         </div>
         <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
           <a href={`/live/${id}/board`} target="_blank" rel="noreferrer" style={{ ...btn(), textDecoration:'none' }}>Open board</a>
+          <button style={btn()} onClick={() => setShowRoster(v => !v)}>{showRoster ? 'Hide' : 'Edit'} roster</button>
           <button style={btn()} onClick={() => setShowQr(v => !v)}>{showQr ? 'Hide' : 'Show'} QR codes</button>
         </div>
       </div>
@@ -193,6 +195,16 @@ export default function LiveAdminPage({ params }: { params: Promise<{ id: string
               {round && !complete && <span style={{ fontSize:12, color:T.muted }}>Enter all scores to unlock</span>}
             </div>
           </section>
+
+          {showRoster && (
+            <RosterPanel session={session} busy={busy}
+              onAdd={(name, level) => call(`/api/live/${id}/players`, {
+                method:'POST', body: JSON.stringify({ name, level }) })}
+              onLevel={(playerId, level) => call(`/api/live/${id}/players`, {
+                method:'PATCH', body: JSON.stringify({ player_id: playerId, level }) })}
+              onRemove={(playerId) => call(`/api/live/${id}/players?player_id=${playerId}`, {
+                method:'DELETE' })} />
+          )}
 
           {showQr && <SessionQr sessionId={id} origin={origin} />}
         </div>
@@ -380,6 +392,82 @@ function TuningPanel({ config, onApply, busy }: {
           </p>
         </div>
       </details>
+    </section>
+  )
+}
+
+
+const LEVELS = ['beginner', 'standard', 'strong'] as const
+
+/**
+ * Roster editing during a session: people drop out, replacements turn up, and
+ * levels get entered wrong. Editing in place beats rebuilding the session,
+ * which would throw away every game already played.
+ */
+function RosterPanel({ session, busy, onAdd, onLevel, onRemove }: {
+  session: any
+  busy: boolean
+  onAdd: (name: string, level: string) => void
+  onLevel: (playerId: string, level: string) => void
+  onRemove: (playerId: string) => void
+}) {
+  const [newName, setNewName] = useState('')
+  const [newLevel, setNewLevel] = useState<string>('standard')
+
+  const players = Object.values(session.players as Record<string, any>)
+    .sort((a, b) => a.name.localeCompare(b.name))
+
+  const round = session.rounds[session.rounds.length - 1]
+  const onCourt = (pid: string) => round
+    ? round.matches.some((m: any) => [m.teamA.a, m.teamA.b, m.teamB.a, m.teamB.b].includes(pid))
+    : false
+
+  return (
+    <section style={{ ...cardStyle, padding:16 }}>
+      <h2 style={{ fontSize:16, margin:'0 0 4px' }}>Roster · {players.length} players</h2>
+      <p style={{ color:T.muted, fontSize:13, margin:'0 0 12px' }}>
+        Changing a level changes that player&apos;s starting rating and recomputes
+        every rating from the scores, so a correction applies retroactively.
+      </p>
+
+      <div style={{ display:'flex', gap:8, marginBottom:14, flexWrap:'wrap' }}>
+        <input style={inp({ flex:'1 1 180px' })} placeholder="Add a player…" value={newName}
+          onChange={e => setNewName(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter' && newName.trim()) { onAdd(newName, newLevel); setNewName('') } }} />
+        <select style={inp({ width:130 })} value={newLevel} onChange={e => setNewLevel(e.target.value)}>
+          {LEVELS.map(l => <option key={l} value={l}>{l[0].toUpperCase() + l.slice(1)}</option>)}
+        </select>
+        <button style={btn('primary')} disabled={busy || !newName.trim()}
+          onClick={() => { onAdd(newName, newLevel); setNewName('') }}>Add</button>
+      </div>
+
+      <div style={{ display:'grid', gap:6 }}>
+        {players.map(p => (
+          <div key={p.id} style={{
+            display:'flex', alignItems:'center', gap:10, padding:'7px 10px',
+            background:T.card2, border:`1px solid ${T.border}`, borderRadius:8,
+          }}>
+            <span style={{ flex:1, fontSize:14, fontWeight:600 }}>
+              {p.name}
+              {onCourt(p.id) && <span style={{ color:T.accent, fontSize:11, marginLeft:8 }}>on court</span>}
+            </span>
+            <span style={{ fontSize:12, color:T.muted, minWidth:56, textAlign:'right' }}>
+              {Math.round(p.rating)}
+            </span>
+            <select style={inp({ width:120, padding:'5px 8px', fontSize:12 })}
+              value={p.level} disabled={busy}
+              onChange={e => onLevel(p.id, e.target.value)}>
+              {LEVELS.map(l => <option key={l} value={l}>{l[0].toUpperCase() + l.slice(1)}</option>)}
+            </select>
+            <button style={{ ...btn('danger'), padding:'5px 10px', fontSize:12 }}
+              disabled={busy || onCourt(p.id)}
+              title={onCourt(p.id) ? 'On court this round — swap them out or undo the round first' : 'Remove'}
+              onClick={() => { if (confirm(`Remove ${p.name} from this session?`)) onRemove(p.id) }}>
+              Remove
+            </button>
+          </div>
+        ))}
+      </div>
     </section>
   )
 }
