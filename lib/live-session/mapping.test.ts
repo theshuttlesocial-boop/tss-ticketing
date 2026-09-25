@@ -9,7 +9,7 @@ import {
 const uuid = (n: number) => `00000000-0000-0000-0000-${String(n).padStart(12, '0')}`;
 
 function roster(n: number) {
-  const levels: Level[] = ['beginner', 'standard', 'strong'];
+  const levels: Level[] = ['beginner', 'standard', 'intermediate', 'strong'];
   return Array.from({ length: n }, (_, i) => ({
     id: uuid(i + 1), name: `P${i + 1}`, level: levels[i % 3],
   }));

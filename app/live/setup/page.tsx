@@ -40,7 +40,7 @@ export default function LiveSetupPage() {
         name: n,
         level: lvl,
         bad: !n ? 'missing name'
-          : !['beginner','standard','strong'].includes(lvl) ? `unknown level "${lvlRaw}"`
+          : !['beginner','standard','intermediate','strong'].includes(lvl) ? `unknown level "${lvlRaw}"`
           : undefined,
       })
     }
@@ -105,7 +105,7 @@ export default function LiveSetupPage() {
       fontFamily:'DM Sans, system-ui, sans-serif', boxSizing:'border-box', maxWidth:760, margin:'0 auto' }}>
       <h1 style={{ fontSize:26, fontWeight:900, margin:'0 0 4px' }}>New live session</h1>
       <p style={{ color:T.muted, fontSize:14, margin:'0 0 18px' }}>
-        One player per line: <code>Name, level</code>. Level is beginner, standard or strong,
+        One player per line: <code>Name, level</code>. Level is beginner, standard, intermediate or strong,
         and defaults to standard if you leave it off.
       </p>
 

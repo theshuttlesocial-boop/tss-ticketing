@@ -11,6 +11,8 @@ import {
   overrideSlot as engineOverrideSlot,
   recomputeRatings,
   roundComplete,
+  standings,
+  grandFinal,
   createSession,
   DEFAULT_CONFIG,
   Level,
@@ -299,5 +301,49 @@ export async function removePlayer(sessionId: string, playerId: string) {
   // unaffected; the row is what goes.
   const { error } = await supabaseAdmin
     .from('live_session_players').delete().eq('id', playerId);
+  if (error) throw new LiveSessionError(error.message);
+}
+
+/**
+ * Generate the grand final as its own round: one match on court 1, everyone
+ * else sitting. Separate from generateNextRound so "Generate next round" can
+ * never accidentally produce the final, or vice versa.
+ */
+export async function generateGrandFinal(sessionId: string) {
+  const session = await loadSession(sessionId);
+
+  const current = session.rounds.length;
+  if (current > 0 && !roundComplete(session, current)) {
+    throw new LiveSessionError(`round ${current} has unscored courts`);
+  }
+
+  const table = standings(session.players, session.results, session.config.finals);
+  const match = grandFinal(table, session.config.finals);
+  if (!match) {
+    throw new LiveSessionError(
+      `not enough players with ${session.config.finals.minGames}+ games for a final`);
+  }
+
+  const index = current + 1;
+  const finalists = new Set([match.teamA.a, match.teamA.b, match.teamB.a, match.teamB.b]);
+  const sitOuts = Object.keys(session.players).filter((id) => !finalists.has(id));
+
+  const { error: gErr } = await supabaseAdmin.from('live_games').insert({
+    session_id: sessionId, round: index, court: 1,
+    team_a: match.teamA, team_b: match.teamB, score_a: null, score_b: null,
+  });
+  if (gErr) throw new LiveSessionError(gErr.message);
+
+  const { error: rErr } = await supabaseAdmin
+    .from('live_rounds').insert({ session_id: sessionId, round: index, sit_outs: sitOuts });
+  if (rErr) throw new LiveSessionError(rErr.message);
+
+  return { round: index, match };
+}
+
+/** Mark the session finished, so /live/latest stops pointing at it. */
+export async function finishSession(sessionId: string) {
+  const { error } = await supabaseAdmin
+    .from('live_sessions').update({ status: 'finished' }).eq('id', sessionId);
   if (error) throw new LiveSessionError(error.message);
 }

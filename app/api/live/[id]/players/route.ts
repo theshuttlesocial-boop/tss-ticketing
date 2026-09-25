@@ -3,7 +3,7 @@ import { checkAdmin } from '@/lib/live-session/auth'
 import { addPlayer, updatePlayer, removePlayer, LiveSessionError } from '@/lib/live-session/actions'
 
 type Ctx = { params: Promise<{ id: string }> }
-const LEVELS = ['beginner', 'standard', 'strong'] as const
+const LEVELS = ['beginner', 'standard', 'intermediate', 'strong'] as const
 
 const fail = (e: unknown) => NextResponse.json(
   { error: (e as Error).message },

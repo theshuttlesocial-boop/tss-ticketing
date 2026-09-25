@@ -2,7 +2,7 @@
 
 export type PlayerId = string;
 
-export type Level = 'beginner' | 'standard' | 'strong';
+export type Level = 'beginner' | 'standard' | 'intermediate' | 'strong';
 
 export interface Player {
   id: PlayerId;
@@ -82,6 +82,13 @@ export interface RotationConfig {
      * by a strong player before the ratings have said anything.
      */
     strongWithBeginner: number;
+    /**
+     * Cost of a registered 'strong' facing a registered 'beginner' across the
+     * net. Lower than the partner penalty: when both are on the same court the
+     * solver cannot avoid one or the other, and being carried is worse for the
+     * beginner than being beaten.
+     */
+    strongVsBeginner: number;
   };
   /** Neighbour-swap: don't widen a court's rating spread past this. */
   maxCourtSpread: number;
@@ -103,7 +110,10 @@ export interface Config {
 
 export const DEFAULT_CONFIG: Config = {
   rating: {
-    start: { beginner: 900, standard: 1000, strong: 1050 },
+    // Four levels, evenly spaced. Wider than the old three-level spread
+    // (900/1000/1050) so the extra rung actually separates people in round 1,
+    // before any result exists to sort them.
+    start: { beginner: 900, standard: 980, intermediate: 1060, strong: 1140 },
     divisor: 1000,
     clip: [0.15, 0.85],
     kSchedule: [300, 300, 220, 220, 160],
@@ -116,7 +126,7 @@ export const DEFAULT_CONFIG: Config = {
     // Game quality first: a 100-point team gap now costs the same as repeating
     // a partner, so the solver buys balance with variety rather than the
     // reverse. per100Gap was 0.5.
-    cost: { repeatPartner: 3, repeatOpponent: 1, per100Gap: 3, strongWithBeginner: 6 },
+    cost: { repeatPartner: 3, repeatOpponent: 1, per100Gap: 3, strongWithBeginner: 6, strongVsBeginner: 2 },
     maxCourtSpread: 150,
   },
   finals: { finalists: 4, minGames: 4, shrink: 2, base: 1000 },

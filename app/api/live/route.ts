@@ -11,7 +11,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'roster needs at least 4 players' }, { status: 400 })
   for (const p of roster) {
     if (!p?.name) return NextResponse.json({ error: 'every player needs a name' }, { status: 400 })
-    if (!['beginner', 'standard', 'strong'].includes(p.level))
+    if (!['beginner', 'standard', 'intermediate', 'strong'].includes(p.level))
       return NextResponse.json({ error: `invalid level for ${p.name}` }, { status: 400 })
   }
 

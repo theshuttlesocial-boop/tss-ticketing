@@ -171,11 +171,21 @@ export function splitCost(court: Player[], teamA: Pair, teamB: Pair, hist: Histo
   const gap = Math.abs((r(teamA.a) + r(teamA.b)) / 2 - (r(teamB.a) + r(teamB.b)) / 2);
   const mismatch =
     (isStrongWithBeginner(court, teamA) ? 1 : 0) + (isStrongWithBeginner(court, teamB) ? 1 : 0);
+  // Strong facing beginner across the net, counted per opposing pairing.
+  const lvl = (id: PlayerId) => court.find((p) => p.id === id)?.level;
+  let facing = 0;
+  for (const x of [teamA.a, teamA.b]) {
+    for (const y of [teamB.a, teamB.b]) {
+      const lx = lvl(x), ly = lvl(y);
+      if ((lx === 'strong' && ly === 'beginner') || (lx === 'beginner' && ly === 'strong')) facing++;
+    }
+  }
   const cost =
     cfg.cost.repeatPartner * partnerRep +
     cfg.cost.repeatOpponent * oppRep +
     cfg.cost.per100Gap * (gap / 100) +
-    (cfg.cost.strongWithBeginner ?? 0) * mismatch;
+    (cfg.cost.strongWithBeginner ?? 0) * mismatch +
+    (cfg.cost.strongVsBeginner ?? 0) * facing;
   return { cost, repeats: partnerRep + oppRep };
 }
 
