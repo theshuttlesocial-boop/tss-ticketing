@@ -3,6 +3,7 @@ import { use, useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase-client'
 import { T } from '../../../_components/theme'
 import { FormBadges, RatingTrend, LastDelta } from '../../../_components/Form'
+import { displayNames } from '@/lib/live-session/displayNames'
 
 /**
  * A player's own view. Reads /api/live/[id]/player/[playerId], which returns
@@ -50,7 +51,8 @@ export default function PlayerPage({ params }: { params: Promise<{ id: string; p
   const match = round?.matches.find((m: any) =>
     [m.teamA.a, m.teamA.b, m.teamB.a, m.teamB.b].includes(playerId))
   const sittingNow = round?.sitOuts.includes(playerId) ?? false
-  const nm = (pid: string) => view.players[pid]?.name ?? '—'
+  const short = displayNames(Object.values(view.players as Record<string, any>).map((p: any) => ({ id: p.id, name: p.name })))
+  const nm = (pid: string) => short[pid] ?? view.players[pid]?.name ?? '—'
 
   let partner: string | null = null
   let opponents: string[] = []

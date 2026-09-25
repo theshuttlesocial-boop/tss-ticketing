@@ -3,6 +3,7 @@ import { use } from 'react'
 import { useLiveSession } from '../../_hooks/useLiveSession'
 import { CourtCard } from '../../_components/CourtCard'
 import { T } from '../../_components/theme'
+import { displayNames } from '@/lib/live-session/displayNames'
 
 export default function BoardPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
@@ -18,6 +19,7 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
   const round = session.rounds[session.rounds.length - 1]
   if (!round) return shell('Waiting for the first round…')
 
+  const short = displayNames(Object.values(session.players).map((p: any) => ({ id: p.id, name: p.name })))
   const scoreOf = (court: number) =>
     session.results.find(r => r.round === round.index && r.court === court)
 
@@ -56,7 +58,7 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
           <div style={{ display:'flex', flexWrap:'wrap', gap:'10px 18px' }}>
             {round.sitOuts.map(pid => (
               <span key={pid} style={{ fontSize:22, fontWeight:600 }}>
-                {session.players[pid]?.name ?? '—'}
+                {short[pid] ?? session.players[pid]?.name ?? '—'}
               </span>
             ))}
           </div>

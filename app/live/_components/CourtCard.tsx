@@ -1,5 +1,6 @@
 'use client'
 import { T } from './theme'
+import { displayNames } from '@/lib/live-session/displayNames'
 import type { Match, Player } from '@/lib/live-session/engine'
 
 export function CourtCard({ match, players, big = false, scoreA, scoreB, children }: {
@@ -10,7 +11,8 @@ export function CourtCard({ match, players, big = false, scoreA, scoreB, childre
   scoreB?: number | null
   children?: React.ReactNode
 }) {
-  const nm = (id: string) => players[id]?.name ?? '—'
+  const short = displayNames(Object.values(players).map(p => ({ id: p.id, name: p.name })))
+  const nm = (id: string) => short[id] ?? players[id]?.name ?? '—'
   const played = scoreA != null && scoreB != null
   const aWon = played && (scoreA as number) > (scoreB as number)
 

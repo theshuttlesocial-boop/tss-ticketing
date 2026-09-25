@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { T, inp, btn } from '../../_components/theme'
+import { displayNames } from '@/lib/live-session/displayNames'
 import type { Match, Player, GameResult } from '@/lib/live-session/engine'
 
 /**
@@ -24,7 +25,8 @@ export function ScoreCard({ match, players, existing, busy, onSave }: {
     setB(existing ? String(existing.scoreB) : '')
   }, [existing?.scoreA, existing?.scoreB])
 
-  const nm = (id: string) => players[id]?.name ?? '—'
+  const short = displayNames(Object.values(players).map(p => ({ id: p.id, name: p.name })))
+  const nm = (id: string) => short[id] ?? players[id]?.name ?? '—'
   const saved = !!existing
   const dirty = saved ? (a !== String(existing!.scoreA) || b !== String(existing!.scoreB)) : (a !== '' && b !== '')
   const aWon = saved && existing!.scoreA > existing!.scoreB

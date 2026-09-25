@@ -8,6 +8,7 @@ import { ScoreCard } from './ScoreCard'
 import { standings, grandFinal, roundComplete } from '@/lib/live-session/engine'
 import type { Config, Level } from '@/lib/live-session/engine'
 import { LEVEL_INFO, LEVELS } from '@/lib/live-session/levels'
+import { displayNames } from '@/lib/live-session/displayNames'
 
 type Tab = 'courts' | 'standings' | 'roster' | 'settings'
 const SLOTS = ['A.a', 'A.b', 'B.a', 'B.b'] as const
@@ -70,7 +71,8 @@ export default function LiveAdminPage({ params }: { params: Promise<{ id: string
   )
 
   const origin = typeof window !== 'undefined' ? window.location.origin : ''
-  const nm = (pid: string) => session.players[pid]?.name ?? '—'
+  const short = displayNames(Object.values(session.players).map((p: any) => ({ id: p.id, name: p.name })))
+  const nm = (pid: string) => short[pid] ?? session.players[pid]?.name ?? '—'
   const scoreOf = (court: number) =>
     round ? session.results.find(r => r.round === round.index && r.court === court) : undefined
 
