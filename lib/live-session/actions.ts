@@ -25,6 +25,14 @@ import {
 
 export class LiveSessionError extends Error {}
 
+/**
+ * Players who left mid-session. Kept in the database (their games still count
+ * toward everyone else's ratings) but excluded from every future draw.
+ * Stored in the config jsonb, so no schema change.
+ */
+export const withdrawnIds = (session: Session): Set<string> =>
+  new Set(((session.config as any)?.withdrawn as string[] | undefined) ?? []);
+
 /** Load all four tables and assemble the engine's Session. */
 export async function loadSession(sessionId: string): Promise<Session> {
   const [s, p, g, r] = await Promise.all([
@@ -70,7 +78,12 @@ export async function generateNextRound(sessionId: string) {
     throw new LiveSessionError(`round ${current} has unscored courts`);
   }
 
-  const next = engineNextRound(session);
+  // Draw from players still here; players who left keep their rows (their
+  // games feed other players' ratings) but are never drawn again.
+  const gone = withdrawnIds(session);
+  const here = Object.fromEntries(Object.entries(session.players).filter(([id]) => !gone.has(id)));
+  const drawn = engineNextRound({ ...session, players: here });
+  const next = { ...drawn, players: { ...session.players, ...drawn.players } };
   const round = next.rounds[next.rounds.length - 1];
 
   const { error: gErr } = await supabaseAdmin
@@ -82,7 +95,7 @@ export async function generateNextRound(sessionId: string) {
   if (rErr) throw new LiveSessionError(rErr.message);
 
   // Only sit_outs / sat_last_round change here; ratings are untouched.
-  await Promise.all(Object.values(next.players).map((pl) =>
+  await Promise.all(Object.values(drawn.players).map((pl) =>
     supabaseAdmin.from('live_session_players')
       .update(playerToRotationRow(pl))
       .eq('id', pl.id)
@@ -338,11 +351,23 @@ export async function removePlayer(sessionId: string, playerId: string) {
     }
   }
 
-  // Their past games stay in live_games so other players' ratings are
-  // unaffected; the row is what goes.
-  const { error } = await supabaseAdmin
-    .from('live_session_players').delete().eq('id', playerId);
-  if (error) throw new LiveSessionError(error.message);
+  // Anyone who has been drawn into a game must keep their row: the games
+  // reference them, and every rating is recomputed from those games. Deleting
+  // such a player left orphaned games and crashed the standings. So they are
+  // marked as left instead; only someone never drawn is actually deleted.
+  const appeared = session.rounds.some((r) =>
+    r.sitOuts.includes(playerId) ||
+    r.matches.some((m) => [m.teamA.a, m.teamA.b, m.teamB.a, m.teamB.b].includes(playerId)));
+  if (appeared) {
+    const gone = withdrawnIds(session); gone.add(playerId);
+    const { error } = await supabaseAdmin.from('live_sessions')
+      .update({ config: { ...(session.config as any), withdrawn: [...gone] } }).eq('id', sessionId);
+    if (error) throw new LiveSessionError(error.message);
+  } else {
+    const { error } = await supabaseAdmin
+      .from('live_session_players').delete().eq('id', playerId);
+    if (error) throw new LiveSessionError(error.message);
+  }
   await nudge(sessionId);
 }
 
@@ -363,7 +388,9 @@ export async function generateGrandFinal(sessionId: string) {
 
   // Hard rule applies to the final too: if the top four would put a flagged
   // beginner with a strong, the beginner steps aside for the next eligible.
-  let table = standings(session.players, session.results, session.config.finals);
+  const gone = withdrawnIds(session);
+  let table = standings(session.players, session.results, session.config.finals)
+    .filter((t) => !gone.has(t.id));
   const top = table.filter((t) => t.eligible).slice(0, session.config.finals.finalists);
   const hasStrong = top.some((t) => session.players[t.id]?.level === 'strong');
   if (hasStrong) table = table.filter((t) => !session.players[t.id]?.beginner);
@@ -478,4 +505,17 @@ export async function readScoreLog(sessionId: string) {
     .from('live_score_log').select('*').eq('session_id', sessionId).order('created_at', { ascending: false });
   if (error) return { log: [], unavailable: error.message };
   return { log: data ?? [], unavailable: null as string | null };
+}
+
+
+/** Undo a withdrawal: the player rejoins the rotation from the next round. */
+export async function rejoinPlayer(sessionId: string, playerId: string) {
+  const session = await loadSession(sessionId);
+  const gone = withdrawnIds(session);
+  if (!gone.has(playerId)) throw new LiveSessionError('that player has not left');
+  gone.delete(playerId);
+  const { error } = await supabaseAdmin.from('live_sessions')
+    .update({ config: { ...(session.config as any), withdrawn: [...gone] } }).eq('id', sessionId);
+  if (error) throw new LiveSessionError(error.message);
+  await nudge(sessionId);
 }

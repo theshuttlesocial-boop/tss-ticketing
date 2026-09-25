@@ -39,7 +39,12 @@ export async function PATCH(req: Request, { params }: Ctx) {
   if (body.name !== undefined) update.name = body.name
   if (body.config !== undefined) {
     const meta = await loadMeta(id).catch(() => null)
-    update.config = { ...body.config, registrationOpen: body.config.registrationOpen ?? meta?.registrationOpen ?? true }
+    // Server-owned keys in config must survive a tuning save from an older copy of the page.
+    const { data: cur } = await supabaseAdmin.from('live_sessions').select('config').eq('id', id).single()
+    const c: any = cur?.config ?? {}
+    update.config = { ...body.config,
+      registrationOpen: body.config.registrationOpen ?? meta?.registrationOpen ?? true,
+      withdrawn: c.withdrawn ?? [], ...(c.finalRound ? { finalRound: c.finalRound } : {}) }
   }
   if (body.seed !== undefined) update.seed = body.seed
   if (body.status !== undefined) {

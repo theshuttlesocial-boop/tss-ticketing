@@ -68,12 +68,18 @@ export default function LiveAdminPage({ params }: { params: Promise<{ id: string
   const finalAt = (session?.config as any)?.finalRound as number | undefined
   const inFinal = !!finalAt && !!round && round.index >= finalAt
   const complete = session && round ? roundComplete(session, round.index) : false
-  const table = useMemo(
-    () => session ? standings(session.players, session.results, session.config.finals) : [],
-    [session])
-  const final = useMemo(
-    () => table.length && session ? grandFinal(table, session.config.finals) : null,
-    [table, session])
+  const gone = useMemo(() => new Set<string>(((session?.config as any)?.withdrawn as string[]) ?? []), [session])
+  // Never let the standings take the whole admin page down: if the data is
+  // ever inconsistent, show a message in that panel instead of a blank page.
+  const { table, tableError } = useMemo(() => {
+    if (!session) return { table: [], tableError: null as string | null }
+    try { return { table: standings(session.players, session.results, session.config.finals), tableError: null } }
+    catch (e) { return { table: [], tableError: (e as Error).message } }
+  }, [session])
+  const final = useMemo(() => {
+    if (!table.length || !session) return null
+    try { return grandFinal(table.filter((t) => !gone.has(t.id)), session.config.finals) } catch { return null }
+  }, [table, session, gone])
 
   if (!authed) return <Gate secret={secret} setSecret={setSecret} setAuthed={setAuthed} />
   if (loading) return <Centre>Loading…</Centre>
@@ -119,7 +125,8 @@ export default function LiveAdminPage({ params }: { params: Promise<{ id: string
             style={{ color:T.muted, fontSize:13, textDecoration:'none' }}>Board ↗</a>
         </div>
         <div style={{ color:T.muted, fontSize:13, marginTop:2 }}>
-          {Object.keys(session.players).length} players · {session.config.rotation.courts} courts
+          {Object.keys(session.players).length - gone.size} players · {session.config.rotation.courts} courts
+          {gone.size > 0 && ` · ${gone.size} left`}
           {round && ` · round ${round.index}`}
           {meta && (
             <span style={{ marginLeft:8, fontSize:11, fontWeight:700, padding:'2px 8px', borderRadius:20,
@@ -197,7 +204,7 @@ export default function LiveAdminPage({ params }: { params: Promise<{ id: string
                                 e.target.value = ''
                               }}>
                               <option value="">{slot}</option>
-                              {Object.values(session.players).map((p: any) =>
+                              {Object.values(session.players).filter((p: any) => !gone.has(p.id)).map((p: any) =>
                                 <option key={p.id} value={p.id}>{p.name}</option>)}
                             </select>
                           ))}
@@ -271,6 +278,7 @@ export default function LiveAdminPage({ params }: { params: Promise<{ id: string
           <>
             <section style={{ ...cardStyle, padding:14 }}>
               <h2 style={{ fontSize:15, margin:'0 0 10px' }}>Standings</h2>
+              {tableError && <p style={{ color:T.warning, fontSize:13 }}>Standings unavailable: {tableError}</p>}
               <div style={{ overflowX:'auto' }}>
                 <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13 }}>
                   <thead><tr style={{ color:T.muted, textAlign:'left' }}>
@@ -285,7 +293,8 @@ export default function LiveAdminPage({ params }: { params: Promise<{ id: string
                       <tr key={s.id} style={{ borderTop:`1px solid ${T.border}`,
                         background: i < session.config.finals.finalists && s.eligible ? T.accentDim : 'transparent' }}>
                         <td style={{ padding:'7px 6px', color:T.muted }}>{i+1}</td>
-                        <td style={{ padding:'7px 6px', fontWeight:600 }}>{s.name}</td>
+                        <td style={{ padding:'7px 6px', fontWeight:600, color: gone.has(s.id) ? T.muted : T.text }}>
+                          {s.name}{gone.has(s.id) && <span style={{ fontWeight:400, fontSize:11 }}> · left</span>}</td>
                         <td style={{ padding:'7px 6px', textAlign:'right' }}>{Math.round(s.rating)}</td>
                         <td style={{ padding:'7px 6px', textAlign:'right', color:T.muted }}>{s.games}</td>
                         <td style={{ padding:'7px 6px' }}>
@@ -326,7 +335,7 @@ export default function LiveAdminPage({ params }: { params: Promise<{ id: string
           <section style={{ ...cardStyle, padding:14 }}>
             <h2 style={{ fontSize:15, margin:'0 0 10px' }}>Roster</h2>
             <RosterEditor
-              players={Object.values(session.players) as any}
+              players={Object.values(session.players).filter((p: any) => !gone.has(p.id)) as any}
               onCourtIds={new Set(round ? round.matches.flatMap((m) => [m.teamA.a, m.teamA.b, m.teamB.a, m.teamB.b]) : [])}
               busy={busy}
               onAdd={(name, level) => call(`/api/live/${id}/players`, { method:'POST', body: JSON.stringify({ name, level }) })}
@@ -334,6 +343,22 @@ export default function LiveAdminPage({ params }: { params: Promise<{ id: string
               onLevel={(pid, level) => call(`/api/live/${id}/players`, { method:'PATCH', body: JSON.stringify({ player_id: pid, level }) })}
               onRemove={(pid) => call(`/api/live/${id}/players?player_id=${pid}`, { method:'DELETE' })}
               playerLink={(pid) => `${origin}/live/${id}/player/${pid}`} />
+            {gone.size > 0 && (
+              <div style={{ marginTop:14 }}>
+                <div style={{ fontSize:12, color:T.muted, marginBottom:6 }}>
+                  Left the session — their games still count, they won&apos;t be drawn again
+                </div>
+                {Object.values(session.players).filter((p: any) => gone.has(p.id)).map((p: any) => (
+                  <div key={p.id} style={{ display:'flex', alignItems:'center', gap:8, padding:'7px 10px',
+                    background:T.card2, border:`1px solid ${T.border}`, borderRadius:10, marginBottom:6 }}>
+                    <span style={{ flex:1, color:T.muted }}>{p.name}</span>
+                    <button style={{ ...btn(), padding:'5px 10px', fontSize:12 }} disabled={busy}
+                      onClick={() => call(`/api/live/${id}/players`, { method:'PATCH', body: JSON.stringify({ player_id: p.id, rejoin: true }) })}>
+                      Bring back</button>
+                  </div>
+                ))}
+              </div>
+            )}
           </section>
         )}
 
@@ -594,7 +619,7 @@ function RegistrationView({ id, origin, session, meta, busy, msg, onToggle, onAd
       <SessionQr sessionId={id} origin={origin} />
       <section style={{ ...cardStyle, padding:14 }}>
         <h2 style={{ fontSize:15, margin:'0 0 10px' }}>Players</h2>
-        <RosterEditor players={Object.values(session.players)} onCourtIds={new Set()} busy={busy} arrivalOrder
+        <RosterEditor players={Object.values(session.players).filter((p: any) => !(((session.config as any)?.withdrawn ?? []) as string[]).includes(p.id)) as any} onCourtIds={new Set()} busy={busy} arrivalOrder
           onAdd={onAdd} onRename={onRename} onLevel={onLevel} onRemove={onRemove} />
       </section>
       <button style={{ ...btn('primary'), width:'100%', padding:'15px', fontSize:16 }}

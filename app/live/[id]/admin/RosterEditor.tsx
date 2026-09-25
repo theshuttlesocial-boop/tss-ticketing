@@ -148,7 +148,7 @@ function Row({ p, busy, onCourt, fresh, onRename, onLevel, onRemove, link }: {
           disabled={busy || onCourt}
           title={onCourt ? 'On court — swap them out or undo the round first' : 'Remove'}
           aria-label={`Remove ${p.name}`}
-          onClick={() => { if (confirm(`Remove ${p.name}?`)) onRemove(p.id) }}>Remove</button>
+          onClick={() => { if (confirm(`Remove ${p.name}? If they have already played, they are marked as left: their games still count and they are not drawn again.`)) onRemove(p.id) }}>Remove</button>
       </div>
     </div>
   )
