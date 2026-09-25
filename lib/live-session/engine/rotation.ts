@@ -200,6 +200,210 @@ export function chooseSplit(court: Player[], hist: History, cfg: RotationConfig)
 }
 
 /* ------------------------------------------------------------------ */
+/* Hard rule — a strong never shares a court with a beginner            */
+/* ------------------------------------------------------------------ */
+
+/**
+ * "Beginner" here is the beginner FLAG, not the registered level: the same flag
+ * the court ceiling uses. It clears on promotion (rating above the session
+ * median for `promotionRounds` rounds), after which the player has shown they
+ * belong on a normal court.
+ */
+const isStrong = (p: Player) => p.level === 'strong';
+const isBeg = (p: Player) => p.beginner;
+const isMiddle = (p: Player) => !isStrong(p) && !isBeg(p);
+
+/** True when a court holds both a strong and a flagged beginner. */
+export function courtViolates(court: Player[]): boolean {
+  return court.some(isStrong) && court.some(isBeg);
+}
+
+/**
+ * Can the active players be laid out with every beginner on a strong-free
+ * court? Beginners need ceil(b/4) strong-free courts, and those courts must be
+ * filled from beginners plus middle (standard/intermediate) players.
+ */
+export function separable(active: Player[]): boolean {
+  const b = active.filter(isBeg).length;
+  if (b === 0) return true;
+  const n = active.filter(isMiddle).length;
+  return b + n >= 4 * Math.ceil(b / 4);
+}
+
+/**
+ * Break sit-out TIES so strong + intermediate players fill whole courts.
+ *
+ * chooseSitOuts ranks by sit-outs so far and breaks ties at random. Among the
+ * players tied at the cut-off, WHICH of them sits is arbitrary — so choosing
+ * them to make the strong+intermediate count a multiple of four costs nothing
+ * in fairness, and removes the court that would otherwise have to mix strongs
+ * with standards.
+ */
+export function alignUpperGroup(players: Player[], sitOuts: PlayerId[], courts: number): PlayerId[] {
+  const sit = new Set(sitOuts);
+  const upper = (p: Player) => (p.level === 'strong' || p.level === 'intermediate') && !p.beginner;
+  const eligible = players.filter((p) => !p.satLastRound);
+  if (!sit.size) return sitOuts;
+  // The cut-off is the highest sit-out count among those chosen to sit fairly.
+  const cutoff = Math.max(...[...sit].map((id) => players.find((p) => p.id === id)!.sitOuts));
+  const tied = eligible.filter((p) => p.sitOuts === cutoff);
+  const upperOn = players.filter((p) => !sit.has(p.id) && upper(p)).length;
+  const r = upperOn % 4;
+  if (r === 0 || upperOn >= courts * 4) return sitOuts;
+
+  const playingUpper = tied.filter((p) => !sit.has(p.id) && upper(p));
+  const playingLower = tied.filter((p) => !sit.has(p.id) && !upper(p) && !p.beginner);
+  const sittingUpper = tied.filter((p) => sit.has(p.id) && upper(p));
+  const sittingLower = tied.filter((p) => sit.has(p.id) && !upper(p) && !p.beginner);
+
+  // Commit to one direction that can FINISH, preferring the one with fewer
+  // swaps. A half-done alignment gains nothing, so do neither if neither fits.
+  const canDown = playingUpper.length >= r && sittingLower.length >= r;
+  const canUp = sittingUpper.length >= 4 - r && playingLower.length >= 4 - r;
+  const down = canDown && (!canUp || r <= 4 - r);
+  if (!down && !canUp) return sitOuts;
+  const n = down ? r : 4 - r;
+  for (let i = 0; i < n; i++) {
+    const out = down ? playingUpper[i] : playingLower[i];
+    const inn = down ? sittingLower[i] : sittingUpper[i];
+    sit.delete(inn.id); sit.add(out.id);
+  }
+  return [...sit];
+}
+
+/** How many more middle-or-beginner players the beginners' courts still need. */
+export function separationDeficit(active: Player[]): number {
+  const b = active.filter(isBeg).length;
+  if (b === 0) return 0;
+  const n = active.filter(isMiddle).length;
+  return Math.max(0, 4 * Math.ceil(b / 4) - (b + n));
+}
+
+/**
+ * Adjust sit-outs so the hard rule is achievable on court.
+ *
+ * Runs only when the fair sit-out choice leaves the beginners without enough
+ * standard/intermediate players to fill a strong-free court. Tries swaps in
+ * order of least disruption, applying the first that shrinks the deficit:
+ *
+ *   1. a sitting middle player comes on, a strong sits
+ *   2. a sitting beginner comes on, a strong sits — two beginners can share
+ *      one strong-free court with just two middles
+ *   3. a playing beginner sits, a sitting non-beginner comes on
+ *   4-5. as 1-3 but allowing someone to sit twice in a row. Only reached when
+ *      the roster has almost no standard/intermediate players; the strong /
+ *      beginner rule is treated as the harder of the two.
+ */
+export function repairSitOutsForSeparation(players: Player[], sitOuts: PlayerId[]): PlayerId[] {
+  const sit = new Set(sitOuts);
+  const active = () => players.filter((p) => !sit.has(p.id));
+  const sitting = () => players.filter((p) => sit.has(p.id));
+  const mostSat = (xs: Player[]) => [...xs].sort((a, b) => b.sitOuts - a.sitOuts);
+  const leastSat = (xs: Player[]) => [...xs].sort((a, b) => a.sitOuts - b.sitOuts);
+
+  const tryMove = (incoming: Player[], outgoing: Player[]): boolean => {
+    const before = separationDeficit(active());
+    for (const inP of incoming) {
+      for (const outP of outgoing) {
+        sit.delete(inP.id); sit.add(outP.id);
+        if (separationDeficit(active()) < before) return true;
+        sit.add(inP.id); sit.delete(outP.id);
+      }
+    }
+    return false;
+  };
+
+  let guard = 0;
+  while (separationDeficit(active()) > 0 && guard++ < players.length) {
+    const fresh = (xs: Player[]) => xs.filter((p) => !p.satLastRound);
+    const strongsOn = leastSat(active().filter(isStrong));
+    const begsOn = leastSat(active().filter(isBeg));
+    if (tryMove(mostSat(sitting().filter(isMiddle)), fresh(strongsOn))) continue;
+    if (tryMove(mostSat(sitting().filter(isBeg)), fresh(strongsOn))) continue;
+    if (tryMove(mostSat(sitting().filter((p) => !isBeg(p))), fresh(begsOn))) continue;
+    if (tryMove(mostSat(sitting().filter((p) => !isStrong(p))), strongsOn)) continue;
+    if (tryMove(mostSat(sitting().filter((p) => !isBeg(p))), begsOn)) continue;
+    break; // roster cannot satisfy the rule; enforceSeparation reports it
+  }
+  return [...sit];
+}
+
+/**
+ * Move players between courts until no court holds both a strong and a
+ * beginner. Beginners stay on their courts wherever possible (the ceiling
+ * already placed them); strongs are swapped out for the middle player whose
+ * rating is closest, so both courts change as little as possible.
+ */
+export function enforceSeparation(courts: Player[][], cfg: RotationConfig): { courts: Player[][]; violations: number } {
+  const out = courts.map((c) => [...c]);
+  const allowed = new Set(cfg.beginnerCourts.map((c) => c - 1));
+  let guard = 0;
+  while (guard++ < 64) {
+    const ci = out.findIndex(courtViolates);
+    if (ci < 0) break;
+    const strong = out[ci].filter(isStrong).sort((a, b) => a.rating - b.rating)[0];
+
+    // Move A: swap the strong with a middle player from a beginner-free court.
+    let best: { cj: number; pj: number; gap: number } | null = null;
+    for (let cj = 0; cj < out.length; cj++) {
+      if (cj === ci || out[cj].some(isBeg)) continue;
+      out[cj].forEach((q, pj) => {
+        if (!isMiddle(q)) return;
+        const gap = Math.abs(q.rating - strong.rating);
+        if (!best || gap < best.gap) best = { cj, pj, gap };
+      });
+    }
+    if (best) {
+      const { cj, pj } = best as { cj: number; pj: number };
+      const si = out[ci].indexOf(strong);
+      out[ci][si] = out[cj][pj];
+      out[cj][pj] = strong;
+      continue;
+    }
+
+    // Move B: move a beginner off this court onto a strong-free allowed court,
+    // swapping with a middle player there.
+    const beg = out[ci].find(isBeg)!;
+    let moved = false;
+    for (let cj = 0; cj < out.length && !moved; cj++) {
+      if (cj === ci || !allowed.has(cj) || out[cj].some(isStrong)) continue;
+      const pj = out[cj].findIndex(isMiddle);
+      if (pj < 0) continue;
+      const bi = out[ci].indexOf(beg);
+      out[ci][bi] = out[cj][pj];
+      out[cj][pj] = beg;
+      moved = true;
+    }
+    if (!moved) break;
+  }
+  let result = out;
+  // The greedy swaps above keep changes minimal but can dead-end — e.g. two
+  // beginners on two different courts, each alongside strongs, with no
+  // strong-free court to consolidate into. When the layout is achievable,
+  // build it directly instead.
+  if (result.some(courtViolates) && separable(result.flat())) result = constructSeparated(result);
+  const violations = result.filter(courtViolates).length;
+  return { courts: result.map((c) => c.sort((a, b) => b.rating - a.rating)), violations };
+}
+
+/**
+ * Direct construction used only when greedy repair fails: beginners plus the
+ * lowest-rated middle players fill the bottom ceil(b/4) courts; everyone else
+ * fills the courts above in rating order. Always valid when separable().
+ */
+export function constructSeparated(courts: Player[][]): Player[][] {
+  const all = courts.flat();
+  const begs = all.filter(isBeg);
+  const mids = all.filter(isMiddle).sort((a, b) => a.rating - b.rating);
+  const k = Math.ceil(begs.length / 4);
+  const fill = 4 * k - begs.length;
+  const bottom = [...begs, ...mids.slice(0, fill)].sort((a, b) => b.rating - a.rating);
+  const rest = [...all.filter(isStrong), ...mids.slice(fill)].sort((a, b) => b.rating - a.rating);
+  const chunk = (xs: Player[]) => { const o: Player[][] = []; for (let i = 0; i < xs.length; i += 4) o.push(xs.slice(i, i + 4)); return o; };
+  return [...chunk(rest), ...chunk(bottom)];
+}
+
+/* ------------------------------------------------------------------ */
 /* Step 5 — neighbour-swap pass                                        */
 /* ------------------------------------------------------------------ */
 
@@ -223,6 +427,7 @@ export function neighbourSwap(courts: Player[][], hist: History, cfg: RotationCo
           const upper = out[ci].map((x, k) => (k === i ? q : x));
           const lower = out[ci + 1].map((x, k) => (k === j ? p : x));
           if (spread(upper) > cfg.maxCourtSpread || spread(lower) > cfg.maxCourtSpread) continue;
+          if (courtViolates(upper) || courtViolates(lower)) continue;
           const after = repeatsOf(upper) + repeatsOf(lower);
           if (after < before && (!bestSwap || after < bestSwap.after)) bestSwap = { i, j, after };
         }
@@ -246,6 +451,8 @@ export interface SolveResult {
   round: Round;
   /** Diagnostics for the admin page. */
   courts: { court: number; players: Player[]; split: SplitChoice }[];
+  /** Courts still holding a strong and a beginner (only if the roster makes it unavoidable). */
+  separationViolations: number;
 }
 
 /**
@@ -261,7 +468,14 @@ export function solveRound(
   const players = Object.values(playersMap);
   const hist = new History(previousRounds);
 
-  const sitOuts = chooseSitOuts(players, cfg.courts, rand);
+  // Never more courts than there are full fours. With 13-15 players and 4
+  // courts the old code built a court of 1-3 players and crashed.
+  const courtsUsed = Math.min(cfg.courts, Math.floor(players.length / 4));
+  if (courtsUsed < 1) throw new Error('need at least 4 players to draw a round');
+
+  const fair = chooseSitOuts(players, courtsUsed, rand);
+  const aligned = alignUpperGroup(players, fair, courtsUsed);
+  const sitOuts = repairSitOutsForSeparation(players, aligned);
   const sitSet = new Set(sitOuts);
   const active = players.filter((p) => !sitSet.has(p.id));
 
@@ -270,8 +484,11 @@ export function solveRound(
   courts = applyMovementCap(courts, hist, cfg);
   courts = applyBeginnerCeiling(courts, cfg); // cap pass must not undo the ceiling
   courts = neighbourSwap(courts, hist, cfg);
+  // Hard rule last, so no later pass can undo it.
+  const sep = enforceSeparation(courts, cfg);
+  courts = sep.courts;
 
   const diag = courts.map((c, i) => ({ court: i + 1, players: c, split: chooseSplit(c, hist, cfg) }));
   const matches: Match[] = diag.map((d) => ({ court: d.court, teamA: d.split.teamA, teamB: d.split.teamB }));
-  return { round: { index: previousRounds.length + 1, matches, sitOuts }, courts: diag };
+  return { round: { index: previousRounds.length + 1, matches, sitOuts }, courts: diag, separationViolations: sep.violations };
 }

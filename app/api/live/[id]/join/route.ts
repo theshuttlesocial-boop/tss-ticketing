@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
-import { loadSession, addPlayer, LiveSessionError } from '@/lib/live-session/actions'
+import { loadSession, loadMeta, addPlayer, LiveSessionError } from '@/lib/live-session/actions'
 import { LEVELS } from '@/lib/live-session/levels'
 
 type Ctx = { params: Promise<{ id: string }> }
@@ -26,16 +25,25 @@ export async function POST(req: Request, { params }: Ctx) {
   if (!LEVELS.includes(level)) return NextResponse.json({ error: 'Pick a level' }, { status: 400 })
 
   try {
-    const session = await loadSession(id)
+    const [session, meta] = await Promise.all([loadSession(id), loadMeta(id)])
+    if (meta.status === 'finished')
+      return NextResponse.json({ error: 'This session has finished' }, { status: 409 })
 
     const existing = Object.values(session.players)
       .find((p) => p.name.toLowerCase() === clean.toLowerCase())
-    if (existing) return NextResponse.json({ player_id: existing.id, existing: true })
+    if (existing) {
+      // Re-entry by name lets a player on a new phone get back to their page —
+      // but it would also let anyone open anyone's page (and rating) just by
+      // typing their name. So it only works before the session starts, when
+      // ratings are still just starting levels. After that, the organiser
+      // hands out the player's own link from the Roster tab.
+      if (meta.status === 'setup') return NextResponse.json({ player_id: existing.id, existing: true })
+      return NextResponse.json(
+        { error: `${existing.name} is already registered — ask the organiser for your link` }, { status: 409 })
+    }
 
-    const { data: row } = await supabaseAdmin
-      .from('live_sessions').select('status').eq('id', id).single()
-    if (row?.status === 'finished')
-      return NextResponse.json({ error: 'This session has finished' }, { status: 409 })
+    if (!meta.registrationOpen)
+      return NextResponse.json({ error: 'Registration is closed — ask the organiser to add you' }, { status: 403 })
 
     await addPlayer(id, clean, level)
 

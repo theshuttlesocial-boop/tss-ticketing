@@ -11,12 +11,14 @@ import type { Match, Player, GameResult } from '@/lib/live-session/engine'
  * "which one is A?" step. That ambiguity is what produced a reversed score
  * last session.
  */
-export function ScoreCard({ match, players, existing, busy, onSave }: {
+export function ScoreCard({ match, players, existing, busy, onSave, edits = 0 }: {
   match: Match
   players: Record<string, Player>
   existing?: GameResult
   busy: boolean
   onSave: (a: number, b: number) => void
+  /** How many times this score was changed after first entry (from the log). */
+  edits?: number
 }) {
   const [a, setA] = useState(existing ? String(existing.scoreA) : '')
   const [b, setB] = useState(existing ? String(existing.scoreB) : '')
@@ -62,7 +64,9 @@ export function ScoreCard({ match, players, existing, busy, onSave }: {
     }}>
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:9 }}>
         <span style={{ fontSize:12, color:T.muted, textTransform:'uppercase',
-          letterSpacing:'1px', fontWeight:700 }}>Court {match.court}</span>
+          letterSpacing:'1px', fontWeight:700 }}>Court {match.court}
+          {edits > 0 && <span style={{ color:T.warning, marginLeft:8, textTransform:'none', letterSpacing:0 }}>
+            edited {edits}×</span>}</span>
         {saved && !dirty && <span style={{ fontSize:12, color: drawn ? T.warning : T.accent, fontWeight:600 }}>{drawn ? '= draw saved' : '✓ saved'}</span>}
       </div>
 

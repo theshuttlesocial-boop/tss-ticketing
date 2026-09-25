@@ -20,6 +20,7 @@ export default function JoinPage({ params }: { params: Promise<{ id: string }> }
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [checked, setChecked] = useState(false)
+  const [closed, setClosed] = useState<string | null>(null)
 
   // Already registered on this phone? Straight through.
   useEffect(() => {
@@ -27,7 +28,15 @@ export default function JoinPage({ params }: { params: Promise<{ id: string }> }
       const saved = localStorage.getItem(`tss-live-player:${id}`)
       if (saved) { router.replace(`/live/${id}/player/${saved}`); return }
     } catch { /* private mode */ }
-    setChecked(true)
+    // Say up front if registration is closed, rather than after they type.
+    fetch(`/api/live/${id}`, { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((j) => {
+        if (j.meta?.status === 'finished') setClosed('This session has finished.')
+        else if (j.meta && !j.meta.registrationOpen) setClosed('Registration is closed. Ask the organiser to add you.')
+      })
+      .catch(() => {})
+      .finally(() => setChecked(true))
   }, [id, router])
 
   const submit = async (lv: Level) => {
@@ -58,6 +67,15 @@ export default function JoinPage({ params }: { params: Promise<{ id: string }> }
     fontFamily:'DM Sans, system-ui, sans-serif', boxSizing:'border-box',
     maxWidth:520, margin:'0 auto',
   }
+
+  if (closed) return (
+    <div style={{ ...wrap, display:'grid', placeItems:'center', textAlign:'center' }}>
+      <div>
+        <h1 style={{ fontSize:24, fontWeight:900, margin:'0 0 8px' }}>Can&apos;t register right now</h1>
+        <p style={{ color:T.muted, fontSize:15, margin:0 }}>{closed}</p>
+      </div>
+    </div>
+  )
 
   if (step === 'name') return (
     <div style={wrap}>

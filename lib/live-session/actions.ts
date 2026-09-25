@@ -60,6 +60,10 @@ async function persistDerivedPlayers(session: Session) {
  */
 export async function generateNextRound(sessionId: string) {
   const session = await loadSession(sessionId);
+  const finalAt = (session.config as any).finalRound as number | undefined;
+  if (finalAt && finalAt <= session.rounds.length) {
+    throw new LiveSessionError('the grand final has been drawn — undo it first to play another round');
+  }
 
   const current = session.rounds.length;
   if (current > 0 && !roundComplete(session, current)) {
@@ -106,6 +110,7 @@ export async function recordScore(
   }
 
   const session = await loadSession(sessionId);
+  const prev = session.results.find((g) => g.round === round && g.court === court);
   const updated = engineRecordScore(session, round, court, scoreA, scoreB);
 
   const { error } = await supabaseAdmin
@@ -115,6 +120,18 @@ export async function recordScore(
   if (error) throw new LiveSessionError(error.message);
 
   await persistDerivedPlayers(updated);
+
+  if (!prev || prev.scoreA !== scoreA || prev.scoreB !== scoreB) {
+    const m = session.rounds[round - 1]?.matches.find((x) => x.court === court);
+    await logScoreEvent({
+      session_id: sessionId, round, court, event: 'score',
+      old_a: prev?.scoreA ?? null, old_b: prev?.scoreB ?? null, new_a: scoreA, new_b: scoreB,
+      detail: m ? {
+        teamA: [session.players[m.teamA.a]?.name, session.players[m.teamA.b]?.name],
+        teamB: [session.players[m.teamB.a]?.name, session.players[m.teamB.b]?.name],
+      } : {},
+    });
+  }
   return updated;
 }
 
@@ -126,6 +143,9 @@ export async function overrideSlot(
   const session = await loadSession(sessionId);
   if (!session.players[playerId]) throw new LiveSessionError(`player ${playerId} not in session`);
 
+  const before = session.rounds[round - 1]?.matches.find((m) => m.court === court);
+  const [t, pos] = slot.split('.') as ['A' | 'B', 'a' | 'b'];
+  const replacedId = before ? (t === 'A' ? before.teamA : before.teamB)[pos] : undefined;
   const moved = engineOverrideSlot(session, round, court, slot, playerId);
   const match = moved.rounds[round - 1]?.matches.find((m) => m.court === court);
   if (!match) throw new LiveSessionError(`court ${court} not in round ${round}`);
@@ -139,6 +159,13 @@ export async function overrideSlot(
   // The override may have changed who played a scored game, so ratings shift.
   const rerated = recomputeRatings(moved);
   await persistDerivedPlayers(rerated);
+  const scored = session.results.find((g) => g.round === round && g.court === court);
+  await logScoreEvent({
+    session_id: sessionId, round, court, event: 'override',
+    old_a: scored?.scoreA ?? null, old_b: scored?.scoreB ?? null,
+    new_a: scored?.scoreA ?? null, new_b: scored?.scoreB ?? null,
+    detail: { slot, from: replacedId ? session.players[replacedId]?.name : null, to: session.players[playerId]?.name },
+  });
   return rerated;
 }
 
@@ -148,10 +175,21 @@ export async function undoLastRound(sessionId: string) {
   const last = session.rounds.length;
   if (last === 0) throw new LiveSessionError('no rounds to undo');
 
+  for (const g of session.results.filter((x) => x.round === last)) {
+    await logScoreEvent({
+      session_id: sessionId, round: last, court: g.court, event: 'undo',
+      old_a: g.scoreA, old_b: g.scoreB, new_a: null, new_b: null,
+    });
+  }
   await supabaseAdmin.from('live_games').delete()
     .eq('session_id', sessionId).eq('round', last);
   await supabaseAdmin.from('live_rounds').delete()
     .eq('session_id', sessionId).eq('round', last);
+
+  if ((session.config as any).finalRound === last) {
+    const { finalRound: _f, ...rest } = session.config as any;
+    await supabaseAdmin.from('live_sessions').update({ config: rest }).eq('id', sessionId);
+  }
 
   const reloaded = await loadSession(sessionId);
   const rerated = recomputeRatings(reloaded);
@@ -191,6 +229,7 @@ export async function createLiveSession(
   const seeded = createSession(
     roster.map((r, i) => ({ id: String(i), name: r.name, level: r.level })), config, seed,
   );
+  if (roster.length === 0) return s.id as string;
   const rows = Object.values(seeded.players).map((p) => ({
     session_id: s.id,
     name: p.name,
@@ -234,6 +273,7 @@ export async function addPlayer(sessionId: string, name: string, level: Level) {
     history: [],
   });
   if (error) throw new LiveSessionError(error.message);
+  await nudge(sessionId);
 }
 
 /**
@@ -273,6 +313,7 @@ export async function updatePlayer(
     const reloaded = await loadSession(sessionId);
     await persistDerivedPlayers(recomputeRatings(reloaded));
   }
+  await nudge(sessionId);
 }
 
 /**
@@ -302,6 +343,7 @@ export async function removePlayer(sessionId: string, playerId: string) {
   const { error } = await supabaseAdmin
     .from('live_session_players').delete().eq('id', playerId);
   if (error) throw new LiveSessionError(error.message);
+  await nudge(sessionId);
 }
 
 /**
@@ -311,13 +353,20 @@ export async function removePlayer(sessionId: string, playerId: string) {
  */
 export async function generateGrandFinal(sessionId: string) {
   const session = await loadSession(sessionId);
+  const already = (session.config as any).finalRound as number | undefined;
+  if (already && already <= session.rounds.length) throw new LiveSessionError('the grand final is already drawn');
 
   const current = session.rounds.length;
   if (current > 0 && !roundComplete(session, current)) {
     throw new LiveSessionError(`round ${current} has unscored courts`);
   }
 
-  const table = standings(session.players, session.results, session.config.finals);
+  // Hard rule applies to the final too: if the top four would put a flagged
+  // beginner with a strong, the beginner steps aside for the next eligible.
+  let table = standings(session.players, session.results, session.config.finals);
+  const top = table.filter((t) => t.eligible).slice(0, session.config.finals.finalists);
+  const hasStrong = top.some((t) => session.players[t.id]?.level === 'strong');
+  if (hasStrong) table = table.filter((t) => !session.players[t.id]?.beginner);
   const match = grandFinal(table, session.config.finals);
   if (!match) {
     throw new LiveSessionError(
@@ -338,6 +387,11 @@ export async function generateGrandFinal(sessionId: string) {
     .from('live_rounds').insert({ session_id: sessionId, round: index, sit_outs: sitOuts });
   if (rErr) throw new LiveSessionError(rErr.message);
 
+  // Mark the final in config (no schema change) so the UI and
+  // generateNextRound both know no ordinary round follows it.
+  await supabaseAdmin.from('live_sessions')
+    .update({ config: { ...(session.config as any), finalRound: index } }).eq('id', sessionId);
+
   return { round: index, match };
 }
 
@@ -346,4 +400,77 @@ export async function finishSession(sessionId: string) {
   const { error } = await supabaseAdmin
     .from('live_sessions').update({ status: 'finished' }).eq('id', sessionId);
   if (error) throw new LiveSessionError(error.message);
+}
+
+/* ── Session metadata, registration, nudges, score log ─────────────────── */
+
+export interface SessionMeta {
+  name: string;
+  status: 'setup' | 'live' | 'finished';
+  registrationOpen: boolean;
+}
+
+/** Name, status and registration state — kept out of the engine's Session. */
+export async function loadMeta(sessionId: string): Promise<SessionMeta> {
+  const { data, error } = await supabaseAdmin
+    .from('live_sessions').select('name,status,config').eq('id', sessionId).single();
+  if (error || !data) throw new LiveSessionError(`session not found: ${error?.message ?? sessionId}`);
+  return {
+    name: data.name,
+    status: data.status,
+    // Stored in the config jsonb so no schema change is needed. Absent = open,
+    // which is how every session created before this change behaves.
+    registrationOpen: (data.config as any)?.registrationOpen !== false,
+  };
+}
+
+export async function setRegistrationOpen(sessionId: string, open: boolean) {
+  const { data, error } = await supabaseAdmin
+    .from('live_sessions').select('config').eq('id', sessionId).single();
+  if (error || !data) throw new LiveSessionError(error?.message ?? 'session not found');
+  const { error: uErr } = await supabaseAdmin
+    .from('live_sessions').update({ config: { ...(data.config as any), registrationOpen: open } }).eq('id', sessionId);
+  if (uErr) throw new LiveSessionError(uErr.message);
+}
+
+/**
+ * Touch the session row so realtime subscribers refetch.
+ *
+ * Browsers cannot subscribe to live_session_players (anon has no read access
+ * since migration 006), so a new registration would otherwise be invisible to
+ * the admin page until something else changed. An UPDATE on live_sessions —
+ * which anon can read — fires the event without exposing player data.
+ */
+export async function nudge(sessionId: string) {
+  const { data } = await supabaseAdmin.from('live_sessions').select('status').eq('id', sessionId).single();
+  if (data) await supabaseAdmin.from('live_sessions').update({ status: data.status }).eq('id', sessionId);
+}
+
+export type LogEvent = 'score' | 'undo' | 'override';
+
+/**
+ * Append to the score-edit log. Never throws: a logging failure must not stop
+ * a score being saved mid-session. If the table is missing (migration 008 not
+ * yet run) the entry is dropped and the reason is returned.
+ */
+export async function logScoreEvent(entry: {
+  session_id: string; round: number; court: number; event: LogEvent;
+  old_a?: number | null; old_b?: number | null; new_a?: number | null; new_b?: number | null;
+  detail?: Record<string, unknown>;
+}): Promise<string | null> {
+  try {
+    const { error } = await supabaseAdmin.from('live_score_log').insert(entry);
+    if (error) { console.error('[score-log]', error.message); return error.message; }
+    return null;
+  } catch (e) {
+    console.error('[score-log]', (e as Error).message);
+    return (e as Error).message;
+  }
+}
+
+export async function readScoreLog(sessionId: string) {
+  const { data, error } = await supabaseAdmin
+    .from('live_score_log').select('*').eq('session_id', sessionId).order('created_at', { ascending: false });
+  if (error) return { log: [], unavailable: error.message };
+  return { log: data ?? [], unavailable: null as string | null };
 }

@@ -5,6 +5,8 @@ import { T, inp, cardStyle, btn } from '../../_components/theme'
 import { FormBadges } from '../../_components/Form'
 import { RoundTimer } from '../../_components/RoundTimer'
 import { ScoreCard } from './ScoreCard'
+import { RosterEditor } from './RosterEditor'
+import { ScoreLog, LogRow } from './ScoreLog'
 import { standings, grandFinal, roundComplete } from '@/lib/live-session/engine'
 import type { Config, Level } from '@/lib/live-session/engine'
 import { LEVEL_INFO, LEVELS } from '@/lib/live-session/levels'
@@ -17,18 +19,36 @@ export default function LiveAdminPage({ params }: { params: Promise<{ id: string
   const { id } = use(params)
   const [secret, setSecret] = useState('')
   const [authed, setAuthed] = useState(false)
-  const { session, error, loading, refetch, isAdmin } =
+  const { session, meta, error, loading, refetch, isAdmin } =
     useLiveSession(id, authed ? secret : undefined, authed)
   const [tab, setTab] = useState<Tab>('courts')
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
   const [overrideMode, setOverrideMode] = useState(false)
   const [review, setReview] = useState(false)
+  const [log, setLog] = useState<LogRow[]>([])
+  const [logUnavailable, setLogUnavailable] = useState<string | null>(null)
 
   useEffect(() => {
     const s = sessionStorage.getItem('tss-admin-secret')
     if (s) { setSecret(s); setAuthed(true) }
   }, [])
+
+  // During registration, also poll: realtime is the fast path, this is the
+  // safety net if a websocket drops on a phone.
+  useEffect(() => {
+    if (!authed || meta?.status !== 'setup') return
+    const t = setInterval(() => refetch(), 4000)
+    return () => clearInterval(t)
+  }, [authed, meta?.status, refetch])
+
+  useEffect(() => {
+    if (!authed || isAdmin !== true) return
+    fetch(`/api/live/${id}/log`, { headers: { 'x-admin-secret': secret }, cache: 'no-store' })
+      .then((r) => r.json())
+      .then((j) => { setLog(j.log ?? []); setLogUnavailable(j.unavailable ?? null) })
+      .catch(() => {})
+  }, [authed, isAdmin, id, secret, session])
 
   const call = async (path: string, init: RequestInit = {}) => {
     setBusy(true); setMsg(null)
@@ -45,6 +65,8 @@ export default function LiveAdminPage({ params }: { params: Promise<{ id: string
   }
 
   const round = session?.rounds[session.rounds.length - 1]
+  const finalAt = (session?.config as any)?.finalRound as number | undefined
+  const inFinal = !!finalAt && !!round && round.index >= finalAt
   const complete = session && round ? roundComplete(session, round.index) : false
   const table = useMemo(
     () => session ? standings(session.players, session.results, session.config.finals) : [],
@@ -92,16 +114,36 @@ export default function LiveAdminPage({ params }: { params: Promise<{ id: string
       {/* header */}
       <div style={{ padding:'14px 14px 0', maxWidth:760, margin:'0 auto' }}>
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', gap:10 }}>
-          <h1 style={{ fontSize:20, fontWeight:900, margin:0 }}>{(session as any).name ?? 'Live session'}</h1>
+          <h1 style={{ fontSize:20, fontWeight:900, margin:0 }}>{meta?.name ?? 'Live session'}</h1>
           <a href={`/live/${id}/board`} target="_blank" rel="noreferrer"
             style={{ color:T.muted, fontSize:13, textDecoration:'none' }}>Board ↗</a>
         </div>
         <div style={{ color:T.muted, fontSize:13, marginTop:2 }}>
           {Object.keys(session.players).length} players · {session.config.rotation.courts} courts
           {round && ` · round ${round.index}`}
+          {meta && (
+            <span style={{ marginLeft:8, fontSize:11, fontWeight:700, padding:'2px 8px', borderRadius:20,
+              color: meta.registrationOpen ? T.accent : T.muted,
+              border:`1px solid ${meta.registrationOpen ? T.accentBorder : T.border}` }}>
+              registration {meta.registrationOpen ? 'open' : 'closed'}
+            </span>
+          )}
         </div>
       </div>
 
+      {meta?.status === 'setup' && (
+        <RegistrationView
+          id={id} origin={origin} session={session} meta={meta} busy={busy} msg={msg}
+          onToggle={(open: boolean) => call(`/api/live/${id}`, { method:'PATCH', body: JSON.stringify({ registrationOpen: open }) })}
+          onAdd={(name: string, level: string) => call(`/api/live/${id}/players`, { method:'POST', body: JSON.stringify({ name, level }) })}
+          onRename={(pid: string, name: string) => call(`/api/live/${id}/players`, { method:'PATCH', body: JSON.stringify({ player_id: pid, name }) })}
+          onLevel={(pid: string, level: string) => call(`/api/live/${id}/players`, { method:'PATCH', body: JSON.stringify({ player_id: pid, level }) })}
+          onRemove={(pid: string) => call(`/api/live/${id}/players?player_id=${pid}`, { method:'DELETE' })}
+          onStart={async () => { const ok = await call(`/api/live/${id}`, { method:'PATCH', body: JSON.stringify({ status:'live' }) }); if (ok) setTab('courts') }}
+        />
+      )}
+
+      {meta?.status !== 'setup' && <>
       {/* tabs */}
       <div style={{
         display:'flex', gap:4, padding:'12px 14px 0', maxWidth:760, margin:'0 auto',
@@ -136,6 +178,7 @@ export default function LiveAdminPage({ params }: { params: Promise<{ id: string
                   <div key={m.court}>
                     <ScoreCard match={m} players={session.players as any}
                       existing={scoreOf(m.court)} busy={busy}
+                      edits={log.filter((l) => l.event === 'score' && l.round === round.index && l.court === m.court && l.old_a != null).length}
                       onSave={(a, b) => call(`/api/live/${id}/score`, {
                         method:'POST',
                         body: JSON.stringify({ round: round.index, court: m.court, score_a: a, score_b: b }),
@@ -181,14 +224,22 @@ export default function LiveAdminPage({ params }: { params: Promise<{ id: string
               </div>
             )}
 
+            {inFinal && (
+              <div style={{ marginTop:14, background:T.card, border:`1px solid ${T.warning}`, borderRadius:12,
+                padding:'12px 14px', fontSize:14 }}>
+                🏆 <strong>Grand final in progress.</strong> Enter its score, then finish the session in Settings.
+                Undo the round if the final was drawn by mistake.
+              </div>
+            )}
+
             {/* actions */}
             <div style={{ display:'grid', gap:8, marginTop:16 }}>
-              <button style={{ ...btn('primary'), padding:'14px', fontSize:15 }}
+              {!inFinal && <button style={{ ...btn('primary'), padding:'14px', fontSize:15 }}
                 disabled={busy || (!!round && !complete)}
                 onClick={() => { if (round) setReview(true); else call(`/api/live/${id}/round`, { method:'POST' }) }}>
                 {round ? 'Review scores & generate next round' : 'Generate first round'}
-              </button>
-              {round && !complete && (
+              </button>}
+              {round && !complete && !inFinal && (
                 <div style={{ fontSize:13, color:T.warning, textAlign:'center' }}>
                   Enter every score to unlock
                 </div>
@@ -203,14 +254,14 @@ export default function LiveAdminPage({ params }: { params: Promise<{ id: string
                   Undo round
                 </button>
               </div>
-              <button style={{ ...btn(), borderColor:T.warning, color:T.warning }}
+              {!inFinal && <button style={{ ...btn(), borderColor:T.warning, color:T.warning }}
                 disabled={busy || (!!round && !complete)}
                 onClick={() => {
                   if (confirm('Generate the GRAND FINAL? This ends the normal rounds.'))
                     call(`/api/live/${id}/final`, { method:'POST' })
                 }}>
                 🏆 Generate grand final
-              </button>
+              </button>}
             </div>
           </>
         )}
@@ -268,19 +319,29 @@ export default function LiveAdminPage({ params }: { params: Promise<{ id: string
           </>
         )}
 
+        {tab === 'standings' && <ScoreLog log={log} unavailable={logUnavailable} />}
+
         {/* ── ROSTER ───────────────────────────────────────────── */}
         {tab === 'roster' && (
-          <RosterPanel session={session} busy={busy}
-            onAdd={(name, level) => call(`/api/live/${id}/players`, {
-              method:'POST', body: JSON.stringify({ name, level }) })}
-            onLevel={(pid, level) => call(`/api/live/${id}/players`, {
-              method:'PATCH', body: JSON.stringify({ player_id: pid, level }) })}
-            onRemove={(pid) => call(`/api/live/${id}/players?player_id=${pid}`, { method:'DELETE' })} />
+          <section style={{ ...cardStyle, padding:14 }}>
+            <h2 style={{ fontSize:15, margin:'0 0 10px' }}>Roster</h2>
+            <RosterEditor
+              players={Object.values(session.players) as any}
+              onCourtIds={new Set(round ? round.matches.flatMap((m) => [m.teamA.a, m.teamA.b, m.teamB.a, m.teamB.b]) : [])}
+              busy={busy}
+              onAdd={(name, level) => call(`/api/live/${id}/players`, { method:'POST', body: JSON.stringify({ name, level }) })}
+              onRename={(pid, name) => call(`/api/live/${id}/players`, { method:'PATCH', body: JSON.stringify({ player_id: pid, name }) })}
+              onLevel={(pid, level) => call(`/api/live/${id}/players`, { method:'PATCH', body: JSON.stringify({ player_id: pid, level }) })}
+              onRemove={(pid) => call(`/api/live/${id}/players?player_id=${pid}`, { method:'DELETE' })}
+              playerLink={(pid) => `${origin}/live/${id}/player/${pid}`} />
+          </section>
         )}
 
         {/* ── SETTINGS ─────────────────────────────────────────── */}
         {tab === 'settings' && (
           <>
+            <RegistrationToggle open={!!meta?.registrationOpen} busy={busy}
+              onToggle={(open) => call(`/api/live/${id}`, { method:'PATCH', body: JSON.stringify({ registrationOpen: open }) })} />
             <SessionQr sessionId={id} origin={origin} />
             <TuningPanel config={session.config} busy={busy}
               onApply={cfg => call(`/api/live/${id}`, { method:'PATCH', body: JSON.stringify({ config: cfg }) })} />
@@ -297,6 +358,8 @@ export default function LiveAdminPage({ params }: { params: Promise<{ id: string
           </>
         )}
       </div>
+
+      </>}
 
       {/* review-before-generate */}
       {review && round && (
@@ -436,60 +499,6 @@ function SessionQr({ sessionId, origin }: { sessionId: string; origin: string })
   )
 }
 
-function RosterPanel({ session, busy, onAdd, onLevel, onRemove }: any) {
-  const [newName, setNewName] = useState('')
-  const [newLevel, setNewLevel] = useState<string>('standard')
-  const players = Object.values(session.players as Record<string, any>)
-    .sort((a, b) => a.name.localeCompare(b.name))
-  const round = session.rounds[session.rounds.length - 1]
-  const onCourt = (pid: string) => round
-    ? round.matches.some((m: any) => [m.teamA.a, m.teamA.b, m.teamB.a, m.teamB.b].includes(pid))
-    : false
-
-  return (
-    <section style={{ ...cardStyle, padding:14 }}>
-      <h2 style={{ fontSize:15, margin:'0 0 4px' }}>Roster · {players.length} players</h2>
-      <p style={{ color:T.muted, fontSize:13, margin:'0 0 12px' }}>
-        Changing a level recomputes every rating from the scores, so a correction
-        applies retroactively.
-      </p>
-      <div style={{ display:'grid', gap:8, marginBottom:14 }}>
-        <input style={inp()} placeholder="Add a player…" value={newName}
-          onChange={e => setNewName(e.target.value)} />
-        <div style={{ display:'grid', gridTemplateColumns:'1fr auto', gap:8 }}>
-          <select style={inp()} value={newLevel} onChange={e => setNewLevel(e.target.value)}>
-            {LEVELS.map(l => <option key={l} value={l}>{l[0].toUpperCase()+l.slice(1)}</option>)}
-          </select>
-          <button style={btn('primary')} disabled={busy || !newName.trim()}
-            onClick={() => { onAdd(newName, newLevel); setNewName('') }}>Add</button>
-        </div>
-      </div>
-      <div style={{ display:'grid', gap:6 }}>
-        {players.map((p: any) => (
-          <div key={p.id} style={{ background:T.card2, border:`1px solid ${T.border}`,
-            borderRadius:10, padding:'9px 11px' }}>
-            <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:7 }}>
-              <span style={{ flex:1, fontSize:15, fontWeight:700 }}>{p.name}</span>
-              <span style={{ fontSize:12, color:T.muted }}>{Math.round(p.rating)}</span>
-              {onCourt(p.id) && <span style={{ color:T.accent, fontSize:11 }}>on court</span>}
-            </div>
-            <div style={{ display:'grid', gridTemplateColumns:'1fr auto', gap:8 }}>
-              <select style={inp({ padding:'7px 9px', fontSize:13 })} value={p.level} disabled={busy}
-                onChange={e => onLevel(p.id, e.target.value)}>
-                {LEVELS.map(l => <option key={l} value={l}>{l[0].toUpperCase()+l.slice(1)}</option>)}
-              </select>
-              <button style={{ ...btn('danger'), padding:'7px 12px', fontSize:13 }}
-                disabled={busy || onCourt(p.id)}
-                title={onCourt(p.id) ? 'On court — swap them out or undo the round first' : 'Remove'}
-                onClick={() => { if (confirm(`Remove ${p.name}?`)) onRemove(p.id) }}>Remove</button>
-            </div>
-          </div>
-        ))}
-      </div>
-    </section>
-  )
-}
-
 function TuningPanel({ config, onApply, busy }: {
   config: Config; onApply: (c: Config) => void; busy: boolean
 }) {
@@ -551,5 +560,53 @@ function TuningPanel({ config, onApply, busy }: {
         </div>
       </details>
     </section>
+  )
+}
+
+
+function RegistrationToggle({ open, busy, onToggle }: { open: boolean; busy: boolean; onToggle: (open: boolean) => void }) {
+  return (
+    <section style={{ ...cardStyle, padding:14 }}>
+      <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+        <div style={{ flex:1 }}>
+          <div style={{ fontSize:15, fontWeight:700 }}>Registration {open ? 'open' : 'closed'}</div>
+          <div style={{ fontSize:12, color:T.muted, marginTop:2 }}>
+            {open ? 'Anyone with the QR code can add themselves.' : 'The QR code shows “registration closed”. You can still add people here.'}
+          </div>
+        </div>
+        <button style={btn(open ? 'danger' : 'primary')} disabled={busy} onClick={() => onToggle(!open)}>
+          {open ? 'Close' : 'Open'}
+        </button>
+      </div>
+    </section>
+  )
+}
+
+/** Shown while the session is in 'setup': live registrations, then Start. */
+function RegistrationView({ id, origin, session, meta, busy, msg, onToggle, onAdd, onRename, onLevel, onRemove, onStart }: any) {
+  const n = Object.keys(session.players).length
+  const courts = session.config.rotation.courts
+  return (
+    <div style={{ padding:'14px', maxWidth:760, margin:'0 auto' }}>
+      {msg && <div style={{ background:T.dangerDim, border:`1px solid ${T.danger}`, color:T.danger,
+        padding:'10px 14px', borderRadius:8, marginBottom:12, fontSize:14 }}>{msg}</div>}
+      <RegistrationToggle open={meta.registrationOpen} busy={busy} onToggle={onToggle} />
+      <SessionQr sessionId={id} origin={origin} />
+      <section style={{ ...cardStyle, padding:14 }}>
+        <h2 style={{ fontSize:15, margin:'0 0 10px' }}>Players</h2>
+        <RosterEditor players={Object.values(session.players)} onCourtIds={new Set()} busy={busy} arrivalOrder
+          onAdd={onAdd} onRename={onRename} onLevel={onLevel} onRemove={onRemove} />
+      </section>
+      <button style={{ ...btn('primary'), width:'100%', padding:'15px', fontSize:16 }}
+        disabled={busy || n < 4}
+        onClick={() => { if (confirm(`Start the session with ${n} players?`)) onStart() }}>
+        {n < 4 ? `Need at least 4 players (${n} so far)` : `Start session with ${n} players`}
+      </button>
+      {n >= 4 && n < courts * 4 && (
+        <p style={{ color:T.muted, fontSize:12, textAlign:'center', marginTop:8 }}>
+          {n} players fills {Math.floor(n / 4)} of {courts} courts; {n % 4} will sit out each round.
+        </p>
+      )}
+    </div>
   )
 }

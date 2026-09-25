@@ -1,26 +1,20 @@
 'use client'
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { T, inp, cardStyle, btn } from '../_components/theme'
 
 /**
- * Roster entry. Replaces having to POST /api/live by hand.
- * Any roster size works — the engine fills 4 courts and rotates the rest
- * through sit-outs, keeping sit-out counts within one of each other.
+ * Step 1 of a session: name it and open registration. Players then add
+ * themselves via the QR and appear live on the session's admin page, where
+ * the organiser can correct names and levels, add anyone who could not
+ * register, and start the session.
  */
-const EXAMPLE = `Saranya, standard
-Arjun, strong
-Priya, beginner
-Daniel, standard`
-
 export default function LiveSetupPage() {
   const router = useRouter()
   const [secret, setSecret] = useState('')
   const [authed, setAuthed] = useState(false)
   const [name, setName] = useState('')
   const [courts, setCourts] = useState('4')
-  const [seed, setSeed] = useState('1')
-  const [text, setText] = useState('')
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
 
@@ -29,132 +23,67 @@ export default function LiveSetupPage() {
     if (s) { setSecret(s); setAuthed(true) }
   }, [])
 
-  const parsed = useMemo(() => {
-    const rows: { name: string; level: string; bad?: string }[] = []
-    for (const raw of text.split('\n')) {
-      const line = raw.trim()
-      if (!line) continue
-      const [n, lvlRaw] = line.split(',').map(x => x?.trim())
-      const lvl = (lvlRaw || 'standard').toLowerCase()
-      rows.push({
-        name: n,
-        level: lvl,
-        bad: !n ? 'missing name'
-          : !['beginner','standard','intermediate','strong'].includes(lvl) ? `unknown level "${lvlRaw}"`
-          : undefined,
-      })
-    }
-    return rows
-  }, [text])
-
-  const errors = parsed.filter(p => p.bad)
-  const dupes = parsed
-    .map(p => p.name?.toLowerCase())
-    .filter((n, i, a) => n && a.indexOf(n) !== i)
-  const nCourts = Number(courts) || 4
-  const playing = nCourts * 4
-  const sitting = Math.max(0, parsed.length - playing)
-  // Every reason the button is disabled, so it is never dead with no message.
-  const blockers: string[] = []
-  if (!name.trim()) blockers.push('Give the session a name')
-  if (parsed.length === 0) blockers.push('Add your players')
-  else if (parsed.length < 4) blockers.push(`Add at least 4 players (you have ${parsed.length})`)
-  if (errors.length > 0) blockers.push(`Fix ${errors.length} bad line${errors.length > 1 ? 's' : ''}`)
-  if (dupes.length > 0) blockers.push(`Make duplicate names unique: ${[...new Set(dupes)].join(', ')}`)
-  const canSubmit = blockers.length === 0
-
   const create = async () => {
     setBusy(true); setMsg(null)
     try {
       const res = await fetch('/api/live', {
         method: 'POST',
         headers: { 'Content-Type':'application/json', 'x-admin-secret': secret },
-        body: JSON.stringify({
-          name: name.trim(),
-          seed: Number(seed) || 1,
-          courts: nCourts,
-          roster: parsed.map(p => ({ name: p.name, level: p.level })),
-        }),
+        body: JSON.stringify({ name: name.trim(), courts: Number(courts) || 4, roster: [] }),
       })
       const json = await res.json()
+      if (res.status === 401) { setMsg('That admin secret is not right'); sessionStorage.removeItem('tss-admin-secret'); setAuthed(false); return }
       if (!res.ok) { setMsg(json.error ?? 'Could not create session'); return }
       router.push(`/live/${json.id}/admin`)
-    } catch (e) {
-      setMsg((e as Error).message)
-    } finally { setBusy(false) }
+    } catch (e) { setMsg((e as Error).message) } finally { setBusy(false) }
   }
 
+  const unlock = () => { if (secret) { sessionStorage.setItem('tss-admin-secret', secret); setAuthed(true) } }
+  const wrap: React.CSSProperties = { minHeight:'100vh', background:T.bg, color:T.text, padding:'24px 16px',
+    fontFamily:'DM Sans, system-ui, sans-serif', boxSizing:'border-box' }
+
   if (!authed) return (
-    <div style={{ minHeight:'100vh', background:T.bg, display:'grid', placeItems:'center',
-      fontFamily:'DM Sans, system-ui, sans-serif' }}>
-      <div style={{ ...cardStyle, padding:24, width:320 }}>
-        <h1 style={{ color:T.text, fontSize:20, margin:'0 0 14px' }}>New live session</h1>
-        <input type="password" placeholder="Admin secret" style={inp()} value={secret}
-          onChange={e => setSecret(e.target.value)}
-          onKeyDown={e => { if (e.key==='Enter' && secret) { sessionStorage.setItem('tss-admin-secret', secret); setAuthed(true) } }} />
-        <button style={{ ...btn('primary'), width:'100%', marginTop:12 }}
-          onClick={() => { if (secret) { sessionStorage.setItem('tss-admin-secret', secret); setAuthed(true) } }}>
-          Unlock
-        </button>
+    <div style={{ ...wrap, display:'grid', placeItems:'center' }}>
+      <div style={{ ...cardStyle, padding:22, width:'100%', maxWidth:340 }}>
+        <h1 style={{ fontSize:20, margin:'0 0 14px' }}>New live session</h1>
+        {msg && <div style={{ color:T.danger, fontSize:13, marginBottom:10 }}>{msg}</div>}
+        <input type="password" placeholder="Admin secret" style={inp({ fontSize:16, padding:'13px' })}
+          value={secret} onChange={e => setSecret(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') unlock() }} />
+        <button style={{ ...btn('primary'), width:'100%', marginTop:12, padding:'13px' }} onClick={unlock}>Unlock</button>
       </div>
     </div>
   )
 
   return (
-    <div style={{ minHeight:'100vh', background:T.bg, color:T.text, padding:'26px 20px',
-      fontFamily:'DM Sans, system-ui, sans-serif', boxSizing:'border-box', maxWidth:760, margin:'0 auto' }}>
-      <h1 style={{ fontSize:26, fontWeight:900, margin:'0 0 4px' }}>New live session</h1>
-      <p style={{ color:T.muted, fontSize:14, margin:'0 0 18px' }}>
-        One player per line: <code>Name, level</code>. Level is beginner, standard, intermediate or strong,
-        and defaults to standard if you leave it off.
-      </p>
-
-      {msg && <div style={{ background:T.dangerDim, border:`1px solid ${T.danger}`, color:T.danger,
-        padding:'10px 14px', borderRadius:8, marginBottom:14, fontSize:14 }}>{msg}</div>}
-
-      <section style={{ ...cardStyle, padding:16 }}>
-        <div style={{ display:'grid', gridTemplateColumns:'2fr 1fr 1fr', gap:12, marginBottom:14 }}>
-          <label><span style={{ fontSize:11, color:T.muted, display:'block', marginBottom:4 }}>
+    <div style={wrap}>
+      <div style={{ maxWidth:520, margin:'0 auto' }}>
+        <h1 style={{ fontSize:26, fontWeight:900, margin:'0 0 4px' }}>New live session</h1>
+        <p style={{ color:T.muted, fontSize:14, margin:'0 0 18px' }}>
+          Create the session, then show the QR code. Players register themselves with their
+          name and level, and appear on the next screen as they finish. You can correct
+          anyone&apos;s name or level, add people who can&apos;t register, then start.
+        </p>
+        {msg && <div style={{ background:T.dangerDim, border:`1px solid ${T.danger}`, color:T.danger,
+          padding:'10px 14px', borderRadius:8, marginBottom:14, fontSize:14 }}>{msg}</div>}
+        <section style={{ ...cardStyle, padding:16 }}>
+          <label style={{ display:'block', marginBottom:12 }}>
+            <span style={{ fontSize:12, color:T.muted, display:'block', marginBottom:5 }}>
               Session name {!name.trim() && <span style={{ color:T.warning }}>· required</span>}
             </span>
-            <input style={inp(!name.trim() ? { borderColor: T.warning } : undefined)}
-              value={name} onChange={e => setName(e.target.value)} placeholder="Thursday Harrow" /></label>
-          <label><span style={{ fontSize:11, color:T.muted, display:'block', marginBottom:4 }}>Courts</span>
-            <input style={inp()} inputMode="numeric" value={courts} onChange={e => setCourts(e.target.value)} /></label>
-          <label><span style={{ fontSize:11, color:T.muted, display:'block', marginBottom:4 }}>Seed</span>
-            <input style={inp()} inputMode="numeric" value={seed} onChange={e => setSeed(e.target.value)} /></label>
-        </div>
-
-        <textarea style={inp({ minHeight:260, fontFamily:'ui-monospace, monospace', fontSize:13, lineHeight:1.6 })}
-          value={text} onChange={e => setText(e.target.value)} placeholder={EXAMPLE} />
-
-        <div style={{ display:'flex', gap:16, flexWrap:'wrap', alignItems:'center', marginTop:12, fontSize:13 }}>
-          <span><strong style={{ fontSize:20 }}>{parsed.length}</strong> <span style={{ color:T.muted }}>players</span></span>
-          <span style={{ color:T.muted }}>{playing} on court · {sitting} sitting each round</span>
-          {parsed.length > 0 && parsed.length < 4 &&
-            <span style={{ color:T.warning }}>Need at least 4</span>}
-          {sitting > 0 && parsed.length >= 4 &&
-            <span style={{ color:T.muted }}>≈{Math.round(sitting / parsed.length * 100)}% resting</span>}
-        </div>
-
-        {(errors.length > 0 || dupes.length > 0) && (
-          <div style={{ marginTop:10, fontSize:13, color:T.danger }}>
-            {errors.slice(0,4).map((e,i) => <div key={i}>Line “{e.name || '(blank)'}”: {e.bad}</div>)}
-            {dupes.length > 0 && <div>Duplicate name: {[...new Set(dupes)].join(', ')}</div>}
-          </div>
-        )}
-
-        <div style={{ display:'flex', gap:14, alignItems:'center', flexWrap:'wrap', marginTop:14 }}>
-          <button style={btn('primary')} disabled={!canSubmit || busy} onClick={create}>
-            {busy ? 'Creating…' : `Create session with ${parsed.length} players`}
+            <input style={inp({ fontSize:16, padding:'12px' })} value={name}
+              onChange={e => setName(e.target.value)} placeholder="Thursday Harrow" />
+          </label>
+          <label style={{ display:'block', marginBottom:16 }}>
+            <span style={{ fontSize:12, color:T.muted, display:'block', marginBottom:5 }}>Courts</span>
+            <input style={inp({ fontSize:16, padding:'12px' })} inputMode="numeric" value={courts}
+              onChange={e => setCourts(e.target.value.replace(/[^0-9]/g, ''))} />
+          </label>
+          <button style={{ ...btn('primary'), width:'100%', padding:'14px', fontSize:15 }}
+            disabled={busy || !name.trim()} onClick={create}>
+            {busy ? 'Creating…' : 'Create session & open registration'}
           </button>
-          {blockers.length > 0 && (
-            <div style={{ fontSize:13, color:T.warning }}>
-              {blockers.map((b, i) => <div key={i}>• {b}</div>)}
-            </div>
-          )}
-        </div>
-      </section>
+        </section>
+      </div>
     </div>
   )
 }
