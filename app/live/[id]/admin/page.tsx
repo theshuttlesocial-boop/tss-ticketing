@@ -337,6 +337,7 @@ function TuningPanel({ config, onApply, busy }: {
   const [cap, setCap] = useState(config.rotation.movementCap == null ? '' : String(config.rotation.movementCap))
   const [begCourts, setBegCourts] = useState(config.rotation.beginnerCourts.join(','))
   const [cost, setCost] = useState([config.rotation.cost.repeatPartner, config.rotation.cost.repeatOpponent, config.rotation.cost.per100Gap].join(','))
+  const [swb, setSwb] = useState(String(config.rotation.cost.strongWithBeginner ?? 6))
   const [spread, setSpread] = useState(String(config.rotation.maxCourtSpread))
 
   const nums = (s: string) => s.split(',').map(x => Number(x.trim())).filter(n => !Number.isNaN(n))
@@ -358,7 +359,7 @@ function TuningPanel({ config, onApply, busy }: {
         ...config.rotation,
         movementCap: cap.trim() === '' ? null : Number(cap),
         beginnerCourts: nums(begCourts),
-        cost: { repeatPartner: rp, repeatOpponent: ro, per100Gap: pg },
+        cost: { repeatPartner: rp, repeatOpponent: ro, per100Gap: pg, strongWithBeginner: Number(swb) },
         maxCourtSpread: Number(spread),
       },
     })
@@ -382,7 +383,8 @@ function TuningPanel({ config, onApply, busy }: {
           <Field label="Promotion rounds above median" value={promo} set={setPromo} />
           <Field label="Movement cap (blank = none)" value={cap} set={setCap} />
           <Field label="Beginner courts" value={begCourts} set={setBegCourts} />
-          <Field label="Cost: partner / opponent / per 100 pts" value={cost} set={setCost} />
+          <Field label="Cost: repeat partner / repeat opponent / per 100 pts gap" value={cost} set={setCost} />
+          <Field label="Cost: strong paired with beginner" value={swb} set={setSwb} />
           <Field label="Max court spread for swaps" value={spread} set={setSpread} />
           <button style={{ ...btn('primary'), width:'100%' }} disabled={busy} onClick={apply}>
             Apply &amp; recompute

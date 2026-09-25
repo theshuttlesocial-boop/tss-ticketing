@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  makePlayer, chooseSitOuts, cutIntoCourts, applyBeginnerCeiling, chooseSplit, History, rng,
+  makePlayer, chooseSitOuts, cutIntoCourts, applyBeginnerCeiling, chooseSplit, History, rng, isStrongWithBeginner, splitCost,
   DEFAULT_CONFIG, Player, Round, solveRound, splitsOf,
 } from './engine';
 
@@ -71,4 +71,64 @@ test('splitsOf lists exactly the three splits, balanced first', () => {
   const court = [mk('a', 4), mk('b', 3), mk('c', 2), mk('d', 1)];
   assert.equal(splitsOf(court).length, 3);
   assert.deepEqual(splitsOf(court)[0], [{ a: 'a', b: 'd' }, { a: 'b', b: 'c' }]);
+});
+
+// ── strong/beginner pairing + balance priority ────────────────────────────────
+
+test('pair split: a strong is not partnered with a beginner when avoidable', () => {
+  // Two strong, one standard, one beginner — all on their starting ratings,
+  // as in round 1 before any result exists.
+  const court = [
+    mk('s1', 1050, { level: 'strong' }),
+    mk('s2', 1050, { level: 'strong' }),
+    mk('t1', 1000, { level: 'standard' }),
+    mk('b1', 900,  { level: 'beginner', beginner: true }),
+  ];
+  const s = chooseSplit(court, new History([]), cfg);
+  const pairs = [s.teamA, s.teamB];
+  const strongWithBeginner = pairs.some(
+    (p) => isStrongWithBeginner(court, p));
+  assert.equal(strongWithBeginner, false,
+    'beginner should be paired with the standard, not carried by a strong');
+});
+
+test('isStrongWithBeginner detects the pairing in both orders', () => {
+  const court = [
+    mk('s1', 1050, { level: 'strong' }),
+    mk('b1', 900, { level: 'beginner', beginner: true }),
+    mk('t1', 1000, { level: 'standard' }),
+    mk('t2', 1000, { level: 'standard' }),
+  ];
+  assert.equal(isStrongWithBeginner(court, { a: 's1', b: 'b1' }), true);
+  assert.equal(isStrongWithBeginner(court, { a: 'b1', b: 's1' }), true);
+  assert.equal(isStrongWithBeginner(court, { a: 's1', b: 't1' }), false);
+  assert.equal(isStrongWithBeginner(court, { a: 'b1', b: 't1' }), false);
+});
+
+test('balance now outranks variety: a big team gap costs more than a repeat partner', () => {
+  // Compare the two cost terms directly. With the same four players every
+  // split shares most opponent repeats, so comparing whole splits confounds
+  // the thing under test.
+  const court = [mk('a', 1200), mk('b', 1190), mk('c', 810), mk('d', 800)];
+  const empty = new History([]);
+  const repeated = new History([
+    { index: 1, sitOuts: [], matches: [{ court: 1, teamA: { a: 'a', b: 'd' }, teamB: { a: 'b', b: 'c' } }] },
+  ]);
+
+  // Balanced split (gap 0) carrying one repeated partnership.
+  const balancedRepeat = splitCost(court, { a: 'a', b: 'd' }, { a: 'b', b: 'c' }, repeated, cfg);
+  // Lopsided split (gap 390) with no repeats at all.
+  const lopsidedFresh = splitCost(court, { a: 'a', b: 'b' }, { a: 'c', b: 'd' }, empty, cfg);
+
+  assert.ok(lopsidedFresh.cost > balancedRepeat.cost,
+    `a 390-point mismatch (${lopsidedFresh.cost.toFixed(1)}) should cost more than ` +
+    `a repeated partnership (${balancedRepeat.cost.toFixed(1)})`);
+
+  // And under the ORIGINAL weighting it was the other way round, which is
+  // exactly the behaviour change.
+  const oldCfg = { ...cfg, cost: { ...cfg.cost, per100Gap: 0.5 } };
+  const oldLopsided = splitCost(court, { a: 'a', b: 'b' }, { a: 'c', b: 'd' }, empty, oldCfg);
+  const oldBalanced = splitCost(court, { a: 'a', b: 'd' }, { a: 'b', b: 'c' }, repeated, oldCfg);
+  assert.ok(oldLopsided.cost < oldBalanced.cost,
+    'with per100Gap 0.5 the lopsided split was the cheaper option');
 });

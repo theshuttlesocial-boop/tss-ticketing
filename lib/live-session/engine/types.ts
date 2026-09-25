@@ -69,12 +69,19 @@ export interface RotationConfig {
   beginnerCourts: number[];
   /** Max courts a player may move between consecutive rounds; null = uncapped. */
   movementCap: number | null;
-  /** Pair-split cost weights. */
+  /** Pair-split cost weights. Higher = the solver avoids it harder. */
   cost: {
     repeatPartner: number;
     repeatOpponent: number;
     /** Cost per 100 rating points between the two teams. */
     per100Gap: number;
+    /**
+     * Cost of putting a registered 'strong' and a registered 'beginner' in the
+     * same pair. Levels, not ratings: in the first rounds everyone still sits
+     * on their starting rating, so this is what stops a beginner being carried
+     * by a strong player before the ratings have said anything.
+     */
+    strongWithBeginner: number;
   };
   /** Neighbour-swap: don't widen a court's rating spread past this. */
   maxCourtSpread: number;
@@ -106,7 +113,10 @@ export const DEFAULT_CONFIG: Config = {
     courts: 4,
     beginnerCourts: [3, 4],
     movementCap: 2,
-    cost: { repeatPartner: 3, repeatOpponent: 1, per100Gap: 0.5 },
+    // Game quality first: a 100-point team gap now costs the same as repeating
+    // a partner, so the solver buys balance with variety rather than the
+    // reverse. per100Gap was 0.5.
+    cost: { repeatPartner: 3, repeatOpponent: 1, per100Gap: 3, strongWithBeginner: 6 },
     maxCourtSpread: 150,
   },
   finals: { finalists: 4, minGames: 4, shrink: 2, base: 1000 },

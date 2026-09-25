@@ -156,13 +156,26 @@ export function splitsOf(c: Player[]): [Pair, Pair][] {
   ];
 }
 
+/** True when a pair puts a registered 'strong' alongside a registered 'beginner'. */
+export function isStrongWithBeginner(court: Player[], pair: Pair): boolean {
+  const lvl = (id: PlayerId) => court.find((p) => p.id === id)?.level;
+  const a = lvl(pair.a), b = lvl(pair.b);
+  return (a === 'strong' && b === 'beginner') || (a === 'beginner' && b === 'strong');
+}
+
 export function splitCost(court: Player[], teamA: Pair, teamB: Pair, hist: History, cfg: RotationConfig): { cost: number; repeats: number } {
   const r = (id: PlayerId) => court.find((p) => p.id === id)!.rating;
   const partnerRep = hist.partnerRepeats(teamA.a, teamA.b) + hist.partnerRepeats(teamB.a, teamB.b);
   let oppRep = 0;
   for (const x of [teamA.a, teamA.b]) for (const y of [teamB.a, teamB.b]) oppRep += hist.opponentRepeats(x, y);
   const gap = Math.abs((r(teamA.a) + r(teamA.b)) / 2 - (r(teamB.a) + r(teamB.b)) / 2);
-  const cost = cfg.cost.repeatPartner * partnerRep + cfg.cost.repeatOpponent * oppRep + cfg.cost.per100Gap * (gap / 100);
+  const mismatch =
+    (isStrongWithBeginner(court, teamA) ? 1 : 0) + (isStrongWithBeginner(court, teamB) ? 1 : 0);
+  const cost =
+    cfg.cost.repeatPartner * partnerRep +
+    cfg.cost.repeatOpponent * oppRep +
+    cfg.cost.per100Gap * (gap / 100) +
+    (cfg.cost.strongWithBeginner ?? 0) * mismatch;
   return { cost, repeats: partnerRep + oppRep };
 }
 
