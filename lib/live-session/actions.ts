@@ -169,8 +169,48 @@ export async function overrideSlot(
     .eq('session_id', sessionId).eq('round', round).eq('court', court);
   if (error) throw new LiveSessionError(error.message);
 
+  // If the incoming player was listed as sitting out that round, they did not
+  // sit — they played. Correct the sit-out record, otherwise they are treated
+  // as rested (can't sit next round, sit-out count one too high) and end up
+  // with an extra game later. The player they replaced sat out instead, unless
+  // they have left the session.
+  const r = session.rounds[round - 1];
+  if (r && r.sitOuts.includes(playerId)) {
+    const gone = withdrawnIds(session);
+    const stillOnCourt = moved.rounds[round - 1].matches.some((m) =>
+      [m.teamA.a, m.teamA.b, m.teamB.a, m.teamB.b].includes(replacedId ?? ''));
+    const replacedSits = !!replacedId && !gone.has(replacedId) && !stillOnCourt;
+    const sitOuts = r.sitOuts.filter((id) => id !== playerId).concat(replacedSits ? [replacedId!] : []);
+    const { error: sErr } = await supabaseAdmin.from('live_rounds')
+      .update({ sit_outs: sitOuts }).eq('session_id', sessionId).eq('round', round);
+    if (sErr) throw new LiveSessionError(sErr.message);
+
+    const latest = round === session.rounds.length;
+    const inc = session.players[playerId];
+    await supabaseAdmin.from('live_session_players').update({
+      sit_outs: Math.max(0, inc.sitOuts - 1),
+      ...(latest ? { sat_last_round: false } : {}),
+    }).eq('id', playerId);
+    if (replacedSits) {
+      const out = session.players[replacedId!];
+      await supabaseAdmin.from('live_session_players').update({
+        sit_outs: out.sitOuts + 1,
+        ...(latest ? { sat_last_round: true } : {}),
+      }).eq('id', replacedId!);
+    }
+  }
+
   // The override may have changed who played a scored game, so ratings shift.
-  const rerated = recomputeRatings(moved);
+  // The engine's override only edits the draw; the stored result carries its
+  // own copy of the teams, so update that too — otherwise a swap made after
+  // the score was entered credits the game to the wrong person until the next
+  // score is saved.
+  const withTeams = {
+    ...moved,
+    results: moved.results.map((g) =>
+      g.round === round && g.court === court ? { ...g, teamA: match.teamA, teamB: match.teamB } : g),
+  };
+  const rerated = recomputeRatings(withTeams);
   await persistDerivedPlayers(rerated);
   const scored = session.results.find((g) => g.round === round && g.court === court);
   await logScoreEvent({
