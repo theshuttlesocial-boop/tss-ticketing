@@ -21,7 +21,10 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'courts must be a whole number between 1 and 12' }, { status: 400 })
 
   try {
-    const id = await createLiveSession(name, roster ?? [], seed ?? 1, config, courts)
+    // A fixed default seed made every week's round 1 identical for the same
+    // regulars (same people sat out first, same pairings). Random per session.
+    const sessionSeed = Number.isInteger(seed) ? seed : Math.floor(Math.random() * 1_000_000_000)
+    const id = await createLiveSession(name, roster ?? [], sessionSeed, config, courts)
     return NextResponse.json({ id }, { status: 201 })
   } catch (e) {
     const status = e instanceof LiveSessionError ? 400 : 500

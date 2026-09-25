@@ -442,8 +442,13 @@ export async function setRegistrationOpen(sessionId: string, open: boolean) {
  * which anon can read — fires the event without exposing player data.
  */
 export async function nudge(sessionId: string) {
-  const { data } = await supabaseAdmin.from('live_sessions').select('status').eq('id', sessionId).single();
-  if (data) await supabaseAdmin.from('live_sessions').update({ status: data.status }).eq('id', sessionId);
+  // Conditional no-op writes: "set status = X where status = X". Atomic, so it
+  // can never overwrite a status change made in between — a read-then-write
+  // here could revert a session to 'setup' if someone registered at the moment
+  // the organiser pressed Start.
+  for (const st of ['setup', 'live', 'finished'] as const) {
+    await supabaseAdmin.from('live_sessions').update({ status: st }).eq('id', sessionId).eq('status', st);
+  }
 }
 
 export type LogEvent = 'score' | 'undo' | 'override';
