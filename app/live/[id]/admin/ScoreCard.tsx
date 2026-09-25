@@ -29,6 +29,7 @@ export function ScoreCard({ match, players, existing, busy, onSave }: {
   const nm = (id: string) => short[id] ?? players[id]?.name ?? '—'
   const saved = !!existing
   const dirty = saved ? (a !== String(existing!.scoreA) || b !== String(existing!.scoreB)) : (a !== '' && b !== '')
+  const drawn = saved && existing!.scoreA === existing!.scoreB
   const aWon = saved && existing!.scoreA > existing!.scoreB
 
   const row = (pair: { a: string; b: string }, val: string, set: (v: string) => void, won: boolean) => (
@@ -62,20 +63,25 @@ export function ScoreCard({ match, players, existing, busy, onSave }: {
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:9 }}>
         <span style={{ fontSize:12, color:T.muted, textTransform:'uppercase',
           letterSpacing:'1px', fontWeight:700 }}>Court {match.court}</span>
-        {saved && !dirty && <span style={{ fontSize:12, color:T.accent, fontWeight:600 }}>✓ saved</span>}
+        {saved && !dirty && <span style={{ fontSize:12, color: drawn ? T.warning : T.accent, fontWeight:600 }}>{drawn ? '= draw saved' : '✓ saved'}</span>}
       </div>
 
       <div style={{ display:'grid', gap:7 }}>
         {row(match.teamA, a, setA, aWon)}
-        {row(match.teamB, b, setB, saved && !aWon)}
+        {row(match.teamB, b, setB, saved && !aWon && !drawn)}
       </div>
 
       {dirty && (
         <button
           style={{ ...btn('primary'), width:'100%', marginTop:9, padding:'12px' }}
-          disabled={busy || a === '' || b === '' || a === b}
-          onClick={() => onSave(Number(a), Number(b))}>
-          {a === b && a !== '' ? 'Scores cannot be equal' : saved ? 'Update score' : 'Save score'}
+          disabled={busy || a === '' || b === ''}
+          onClick={() => {
+            // Timed rounds can end level, so a draw is allowed — but confirm it,
+            // since 13-13 is also what a mistyped score looks like.
+            if (a === b && !confirm(`Save as a draw, ${a}-${b}?`)) return
+            onSave(Number(a), Number(b))
+          }}>
+          {a === b && a !== '' ? `Save draw ${a}-${b}` : saved ? 'Update score' : 'Save score'}
         </button>
       )}
     </div>

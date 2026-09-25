@@ -18,7 +18,7 @@ export default function LiveAdminPage({ params }: { params: Promise<{ id: string
   const [secret, setSecret] = useState('')
   const [authed, setAuthed] = useState(false)
   const { session, error, loading, refetch, isAdmin } =
-    useLiveSession(id, authed ? secret : undefined)
+    useLiveSession(id, authed ? secret : undefined, authed)
   const [tab, setTab] = useState<Tab>('courts')
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
@@ -363,15 +363,21 @@ function ReviewSheet({ round, session, nm, onCancel, onConfirm }: any) {
           {round.matches.map((m: any) => {
             const r = session.results.find((x: any) => x.round === round.index && x.court === m.court)
             if (!r) return null
+            const drawn = r.scoreA === r.scoreB
             const aWon = r.scoreA > r.scoreB
             const win = aWon ? m.teamA : m.teamB
             const lose = aWon ? m.teamB : m.teamA
             return (
-              <div key={m.court} style={{ background:T.card2, border:`1px solid ${T.border}`,
+              <div key={m.court} style={{ background:T.card2, border:`1px solid ${drawn ? T.warning : T.border}`,
                 borderRadius:10, padding:'11px 12px', fontSize:14, color:T.text }}>
                 <div style={{ fontSize:11, color:T.muted, marginBottom:3 }}>Court {m.court}</div>
-                <strong style={{ color:T.accent }}>{nm(win.a)} &amp; {nm(win.b)}</strong> beat{' '}
-                {nm(lose.a)} &amp; {nm(lose.b)}
+                {drawn ? (
+                  <>{nm(m.teamA.a)} &amp; {nm(m.teamA.b)} <strong style={{ color:T.warning }}>drew with</strong>{' '}
+                  {nm(m.teamB.a)} &amp; {nm(m.teamB.b)}</>
+                ) : (
+                  <><strong style={{ color:T.accent }}>{nm(win.a)} &amp; {nm(win.b)}</strong> beat{' '}
+                  {nm(lose.a)} &amp; {nm(lose.b)}</>
+                )}
                 <strong style={{ marginLeft:6 }}>
                   {Math.max(r.scoreA, r.scoreB)}–{Math.min(r.scoreA, r.scoreB)}
                 </strong>

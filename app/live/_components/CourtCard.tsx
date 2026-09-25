@@ -43,7 +43,7 @@ export function CourtCard({ match, players, big = false, scoreA, scoreB, childre
       </div>
       {side(match.teamA, aWon, scoreA)}
       <div style={{ textAlign:'center', color:T.muted, fontSize: big ? 12 : 10, margin:'3px 0' }}>v</div>
-      {side(match.teamB, played && !aWon, scoreB)}
+      {side(match.teamB, played && !aWon && scoreA !== scoreB, scoreB)}
       {children}
     </div>
   )

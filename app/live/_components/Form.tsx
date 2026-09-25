@@ -12,6 +12,7 @@ export function FormBadges({ playerId, results, max = 5 }: {
     .slice(-max)
     .map(g => {
       const onA = g.teamA.a === playerId || g.teamA.b === playerId
+      if (g.scoreA === g.scoreB) return 'D'
       return (onA ? g.scoreA > g.scoreB : g.scoreB > g.scoreA) ? 'W' : 'L'
     })
 

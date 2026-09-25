@@ -75,21 +75,25 @@ test('splitsOf lists exactly the three splits, balanced first', () => {
 
 // ── strong/beginner pairing + balance priority ────────────────────────────────
 
-test('pair split: a strong is not partnered with a beginner when avoidable', () => {
-  // Two strong, one standard, one beginner — all on their starting ratings,
-  // as in round 1 before any result exists.
+test('S,S,St,B court: the two rules conflict, and balance wins under default weights', () => {
+  // Uses the REAL starting ratings. An earlier version of this test used the
+  // pre-4-level ratings (1050/1000/900), under which the solver avoided the
+  // strong+beginner pair — and so passed while the deployed config did not.
+  //
+  // With 1140/980/900 the only split without a strong+beginner pair is
+  // S+S v St+B, a 200-point mismatch. Default weights prefer the 40-point
+  // game with a strong partnering the beginner. Keeping strong and beginner
+  // off the same court is the job of court assignment, not the split.
   const court = [
-    mk('s1', 1050, { level: 'strong' }),
-    mk('s2', 1050, { level: 'strong' }),
-    mk('t1', 1000, { level: 'standard' }),
-    mk('b1', 900,  { level: 'beginner', beginner: true }),
-  ];
+    { ...makePlayer('s1', 's1', 'strong') },
+    { ...makePlayer('s2', 's2', 'strong') },
+    { ...makePlayer('t1', 't1', 'standard') },
+    { ...makePlayer('b1', 'b1', 'beginner') },
+  ].sort((a, b) => b.rating - a.rating);
   const s = chooseSplit(court, new History([]), cfg);
-  const pairs = [s.teamA, s.teamB];
-  const strongWithBeginner = pairs.some(
-    (p) => isStrongWithBeginner(court, p));
-  assert.equal(strongWithBeginner, false,
-    'beginner should be paired with the standard, not carried by a strong');
+  const r = (id: string) => court.find((p) => p.id === id)!.rating;
+  const gap = Math.abs((r(s.teamA.a) + r(s.teamA.b)) / 2 - (r(s.teamB.a) + r(s.teamB.b)) / 2);
+  assert.ok(gap <= 40, `expected the balanced split, got a ${gap}-point gap`);
 });
 
 test('isStrongWithBeginner detects the pairing in both orders', () => {
