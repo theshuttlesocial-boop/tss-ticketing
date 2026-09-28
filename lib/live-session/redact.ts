@@ -6,8 +6,9 @@
  * three pages.
  *
  * Public: names, court assignments, scores, who is sitting out.
- * Private: ratings, rating history, levels, games played, sit-out counts,
- *          promotion state, and the session's tuning config.
+ * Private: ratings, rating history, levels (current, starting, registered,
+ *          level history, lock), games played, sit-out counts, and the
+ *          session's tuning config and level-review state.
  */
 import type { Player, Session } from './engine';
 
@@ -44,7 +45,7 @@ export function playerView(s: Session, playerId: string) {
     name: me.name,
     rating: me.rating,
     history: me.history,
-    startRating: s.config.rating.start[me.level],
+    startRating: s.config.rating.start[me.startLevel ?? me.level],
     ...redactSession(s),
     players: Object.fromEntries(
       Object.values(s.players).map((p) => [p.id, { id: p.id, name: p.name }]),
