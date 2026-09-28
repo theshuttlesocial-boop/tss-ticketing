@@ -6,6 +6,9 @@ export async function createPaymentIntent({ amountPence, sessionId, holdToken, b
   return stripe.paymentIntents.create({
     amount: amountPence, currency: 'gbp', receipt_email: customerEmail,
     metadata: { session_id: sessionId, hold_token: holdToken, booking_ref: bookingRef, customer_name: customerName, ...(extraMetadata ?? {}) },
-    automatic_payment_methods: { enabled: true },
+    // Explicit method list keeps card + Apple Pay + Google Pay (wallets ride on
+    // 'card') and Link, and deliberately EXCLUDES Klarna / pay-later methods.
+    // (Replaces automatic_payment_methods, which would surface every enabled method.)
+    payment_method_types: ['card', 'link'],
   })
 }

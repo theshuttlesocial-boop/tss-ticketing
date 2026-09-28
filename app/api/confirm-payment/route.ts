@@ -3,6 +3,7 @@ import { stripe } from '@/lib/stripe'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendBookingConfirmation, sendAdminBookingNotification, sendApologyRefundEmail } from '@/lib/email'
 import { settleRelease } from '@/lib/settlement'
+import { consumeCredits } from '@/lib/credits'
 
 export async function POST(req: Request) {
   console.log('[webhook] POST received')
@@ -50,12 +51,12 @@ export async function POST(req: Request) {
     //    This guards against expired holds that freed a slot which was re-sold.
     const [sessionRes, bookedRes] = await Promise.all([
       supabaseAdmin.from('sessions').select('capacity,title,label,date,time,venue,description').eq('id', session_id).single(),
-      supabaseAdmin.from('bookings').select('quantity').eq('session_id', session_id).eq('stripe_status', 'succeeded'),
+      supabaseAdmin.from('bookings').select('quantity,spaces_released').eq('session_id', session_id).in('stripe_status', ['succeeded','partially_refunded']),
     ])
 
     const session = sessionRes.data
     const capacity = session?.capacity ?? 0
-    const alreadyBooked = (bookedRes.data ?? []).reduce((a: number, b: any) => a + b.quantity, 0)
+    const alreadyBooked = (bookedRes.data ?? []).reduce((a: number, b: any) => a + (b.quantity - (b.spaces_released ?? 0)), 0)
 
     console.log(`[webhook] capacity check: capacity=${capacity}, alreadyBooked=${alreadyBooked}, thisQty=${pendingBooking.quantity}`)
 
@@ -130,6 +131,14 @@ export async function POST(req: Request) {
     // ── 4. Mark hold as used (if it still exists — it may have expired) ──────
     await supabaseAdmin.from('seat_holds').update({ used: true }).eq('hold_token', hold_token)
     console.log('[webhook] seat hold marked used (or was already expired)')
+
+    // ── 4a. Consume any credit applied at checkout (runs once per booking) ───
+    if (pi.metadata?.credit_applied) {
+      const amt = parseInt(pi.metadata.credit_applied, 10)
+      if (amt > 0) {
+        await consumeCredits(booking.email, amt, booking.id).catch(err => console.error('[webhook] credit consume failed:', err))
+      }
+    }
 
     // ── 4b. Waitlist claim resolution (this booking came from a claim link) ──
     //    Marks only the claimed waitlist row; the person's other entries stay

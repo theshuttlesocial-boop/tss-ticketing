@@ -46,14 +46,15 @@ export async function GET() {
   const openIds = openSessions.map(s => s.id)
   const [bookingsRes, holdsRes] = openIds.length > 0
     ? await Promise.all([
-        supabaseAdmin.from('bookings').select('session_id,quantity').in('session_id', openIds).eq('stripe_status', 'succeeded'),
+        supabaseAdmin.from('bookings').select('session_id,quantity,spaces_released').in('session_id', openIds).in('stripe_status', ['succeeded','partially_refunded']),
         supabaseAdmin.from('seat_holds').select('session_id,quantity').in('session_id', openIds).eq('used', false).gt('expires_at', now.toISOString()),
       ])
-    : [{ data: [] as {session_id:string;quantity:number}[] }, { data: [] as {session_id:string;quantity:number}[] }]
+    : [{ data: [] as {session_id:string;quantity:number;spaces_released:number}[] }, { data: [] as {session_id:string;quantity:number}[] }]
 
   const bookedBy: Record<string,number> = {}
   const heldBy:   Record<string,number> = {}
-  ;(bookingsRes.data ?? []).forEach(b => { bookedBy[b.session_id] = (bookedBy[b.session_id] ?? 0) + b.quantity })
+  // Net of released spaces: a released spot reads as available.
+  ;(bookingsRes.data ?? []).forEach(b => { bookedBy[b.session_id] = (bookedBy[b.session_id] ?? 0) + (b.quantity - ((b as any).spaces_released ?? 0)) })
   ;(holdsRes.data   ?? []).forEach(h => { heldBy[h.session_id]   = (heldBy[h.session_id]   ?? 0) + h.quantity })
 
   const enriched = [

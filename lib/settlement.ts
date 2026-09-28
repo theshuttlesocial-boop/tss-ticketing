@@ -1,13 +1,85 @@
-// ============================================================================
-// settleRelease — pay out the releaser once a replacement has actually paid.
-//
-// PHASE 3 SCOPE (this file): a no-op stub so the claim success path has a real
-// function to call. It performs NO money movement and does NOT mark the release
-// settled (resolved_at stays null), so Phase 4 can still settle it for real.
-//
-// PHASE 4 replaces the body with the credit/card settlement logic, guarded on
-// releases.resolved_at for idempotency under duplicate webhooks. Signature stable.
-// ============================================================================
+import { supabaseAdmin } from '@/lib/supabase'
+import { stripe } from '@/lib/stripe'
+import { computeRefundQuote } from '@/lib/release'
+import { sendCreditIssued, sendCardRefundIssued } from '@/lib/email'
+import { logAudit } from '@/lib/audit'
+
+const CREDIT_EXPIRY_DAYS = 90
+
+// Count this email's fulfilled CARD refunds in the 90 days BEFORE a moment,
+// excluding a given release. Credits and name-changes never appear here because
+// only refund_preference='card' AND outcome='replaced' rows are counted — which
+// is exactly why the credit route never accrues the fee ladder.
+async function priorCardRefundCount(email: string, beforeIso: string, excludeReleaseId: string): Promise<number> {
+  const windowStart = new Date(new Date(beforeIso).getTime() - CREDIT_EXPIRY_DAYS * 86_400_000).toISOString()
+  // Bookings for this email (case-insensitive; ilike may over-match, tighten in JS).
+  const { data: bookings } = await supabaseAdmin.from('bookings').select('id,email').ilike('email', email)
+  const ids = (bookings ?? []).filter(b => (b.email ?? '').toLowerCase() === email.toLowerCase()).map(b => b.id)
+  if (!ids.length) return 0
+  const { data: rels } = await supabaseAdmin
+    .from('releases').select('id,released_at')
+    .in('booking_id', ids).eq('refund_preference', 'card').eq('outcome', 'replaced')
+    .gte('released_at', windowStart).lt('released_at', beforeIso)
+  return (rels ?? []).filter(r => r.id !== excludeReleaseId).length
+}
+
+// Pay out the releaser once a replacement has paid. Called ONLY from the claim
+// success path. Idempotent: an atomic "claim" of resolved_at means duplicate
+// webhooks no-op; card refunds also carry a Stripe idempotency key.
 export async function settleRelease(releaseId: string): Promise<void> {
-  console.log('[settlement] settleRelease called (Phase 4 will pay out):', releaseId)
+  // Atomically take ownership: only the first caller flips resolved_at.
+  const { data: claimed } = await supabaseAdmin
+    .from('releases')
+    .update({ resolved_at: new Date().toISOString() })
+    .eq('id', releaseId).is('resolved_at', null)
+    .select('id,booking_id,spaces,refund_preference,released_at')
+    .maybeSingle()
+  if (!claimed) { console.log('[settlement] already settled, skipping', releaseId); return }
+
+  const { data: booking } = await supabaseAdmin
+    .from('bookings')
+    .select('id,email,phone,total_pence,quantity,stripe_payment_intent_id,booking_ref')
+    .eq('id', claimed.booking_id).single()
+  if (!booking) { console.error('[settlement] booking missing for release', releaseId); return }
+
+  const firstName = (booking.email ?? '').split('@')[0]
+  const pricePerSpace = Math.round(booking.total_pence / booking.quantity)
+  const spaces = claimed.spaces
+
+  if (claimed.refund_preference === 'credit') {
+    const amount = pricePerSpace * spaces
+    const expiresAt = new Date(Date.now() + CREDIT_EXPIRY_DAYS * 86_400_000).toISOString()
+    await supabaseAdmin.from('credits').insert({
+      email: (booking.email ?? '').toLowerCase(), phone: booking.phone ?? null,
+      amount_pence: amount, source_booking_id: booking.id, expires_at: expiresAt,
+    })
+    await logAudit('settlement', { releaseId, kind: 'credit', amountPence: amount, email: booking.email }, releaseId)
+    sendCreditIssued({ to: booking.email, name: firstName, amountPence: amount, expiresAt, bookingRef: booking.booking_ref })
+      .catch(err => console.error('[settlement] credit email failed:', err))
+    return
+  }
+
+  // Card refund.
+  const priorCard = await priorCardRefundCount(booking.email, claimed.released_at, releaseId)
+  const quote = computeRefundQuote(pricePerSpace, spaces, priorCard)
+
+  try {
+    if (booking.stripe_payment_intent_id && quote.refundPence > 0) {
+      await stripe.refunds.create(
+        { payment_intent: booking.stripe_payment_intent_id, amount: quote.refundPence },
+        { idempotencyKey: `release-refund-${releaseId}` },
+      )
+    }
+  } catch (err) {
+    console.error('[settlement] stripe refund failed (resolved_at set; needs admin retry):', err)
+  }
+
+  await supabaseAdmin.from('releases').update({ admin_fee_pence: quote.feePence }).eq('id', releaseId)
+  // Fully released -> refunded; some spaces kept -> partially_refunded (still occupies seats).
+  const newStatus = spaces >= booking.quantity ? 'refunded' : 'partially_refunded'
+  await supabaseAdmin.from('bookings').update({ stripe_status: newStatus }).eq('id', booking.id)
+
+  await logAudit('settlement', { releaseId, kind: 'card', amountPence: quote.refundPence, feePence: quote.feePence, email: booking.email }, releaseId)
+  sendCardRefundIssued({ to: booking.email, name: firstName, amountPence: quote.refundPence, feePence: quote.feePence, bookingRef: booking.booking_ref })
+    .catch(err => console.error('[settlement] refund email failed:', err))
 }

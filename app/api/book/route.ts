@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { createPaymentIntent, stripe } from '@/lib/stripe'
 import { nanoid } from 'nanoid'
+import { availableCreditPence, consumeCredits } from '@/lib/credits'
+import { sendBookingConfirmation, sendAdminBookingNotification } from '@/lib/email'
 
 export async function POST(req: Request) {
   const body = await req.json()
@@ -99,12 +101,56 @@ export async function POST(req: Request) {
 
   const totalPence = session.price_pence * quantity
 
+  // ── Credit redemption (not for waitlist claims) ─────────────────────────────
+  // Apply available credit to reduce (or fully cover) the charge. Never negative,
+  // never more than the order total.
+  let creditToApply = 0
+  if (!claim_token && body.apply_credit) {
+    const available = await availableCreditPence(email)
+    creditToApply = Math.min(available, totalPence)
+  }
+  const chargePence = totalPence - creditToApply
+
+  // Full cover: no Stripe. Create the booking as succeeded, consume credit, email.
+  if (chargePence <= 0 && creditToApply > 0) {
+    const additionalJson = additional_attendees ? JSON.stringify(additional_attendees) : null
+    const { data: newBooking, error: insErr } = await supabaseAdmin.from('bookings').insert({
+      session_id, name, email, phone: phone ?? null,
+      quantity, total_pence: totalPence, stripe_status: 'succeeded', booking_ref: bookingRef,
+      additional_attendees: additionalJson,
+    }).select('id').single()
+    if (insErr) {
+      await supabaseAdmin.from('seat_holds').delete().eq('hold_token', holdToken)
+      // Capacity trigger or other failure.
+      return NextResponse.json({ error: 'Could not complete booking' }, { status: 409 })
+    }
+    await consumeCredits(email, creditToApply, newBooking.id)
+    await supabaseAdmin.from('seat_holds').update({ used: true }).eq('hold_token', holdToken)
+
+    const extras = additional_attendees ? additional_attendees.map((a: any) => a.name ?? a) : undefined
+    sendBookingConfirmation({
+      to: email, name, bookingRef, sessionTitle: session.title, sessionLabel: session.label,
+      sessionDate: session.date, sessionTime: session.time, venue: session.venue,
+      description: session.description, quantity, totalPence, additionalAttendees: extras,
+    }).catch(err => console.error('[book] confirmation email failed:', err))
+    sendAdminBookingNotification({
+      name, email, phone: phone ?? undefined, bookingRef, sessionTitle: session.title,
+      sessionDate: session.date, sessionTime: session.time, venue: session.venue, quantity, totalPence,
+      additionalAttendees: extras,
+    }).catch(err => console.error('[book] admin email failed:', err))
+
+    return NextResponse.json({ fullyCovered: true, bookingRef, creditApplied: creditToApply, totalPence })
+  }
+
   let paymentIntent
   try {
     paymentIntent = await createPaymentIntent({
-      amountPence: totalPence, sessionId: session_id, holdToken, bookingRef,
+      amountPence: chargePence, sessionId: session_id, holdToken, bookingRef,
       customerEmail: email, customerName: name,
-      extraMetadata: waitlistId ? { waitlist_id: waitlistId, claim: 'true' } : undefined,
+      extraMetadata: {
+        ...(waitlistId ? { waitlist_id: waitlistId, claim: 'true' } : {}),
+        ...(creditToApply > 0 ? { credit_applied: String(creditToApply) } : {}),
+      },
     })
   } catch (err: any) {
     await supabaseAdmin.from('seat_holds').delete().eq('hold_token', holdToken)
@@ -122,6 +168,6 @@ export async function POST(req: Request) {
 
   return NextResponse.json({
     clientSecret: paymentIntent.client_secret, holdToken, bookingRef,
-    expiresAt: holdResult.expires_at, totalPence,
+    expiresAt: holdResult.expires_at, totalPence, chargePence, creditApplied: creditToApply,
   })
 }

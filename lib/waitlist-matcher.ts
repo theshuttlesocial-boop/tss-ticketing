@@ -11,7 +11,7 @@ export async function openSpotsFor(sessionId: string): Promise<number> {
   const nowIso = new Date().toISOString()
   const [sessionRes, bookingsRes, holdsRes] = await Promise.all([
     supabaseAdmin.from('sessions').select('capacity').eq('id', sessionId).single(),
-    supabaseAdmin.from('bookings').select('quantity,spaces_released').eq('session_id', sessionId).eq('stripe_status', 'succeeded'),
+    supabaseAdmin.from('bookings').select('quantity,spaces_released').eq('session_id', sessionId).in('stripe_status', ['succeeded','partially_refunded']),
     supabaseAdmin.from('seat_holds').select('quantity').eq('session_id', sessionId).eq('used', false).gt('expires_at', nowIso),
   ])
   const capacity = sessionRes.data?.capacity ?? 0
@@ -22,7 +22,7 @@ export async function openSpotsFor(sessionId: string): Promise<number> {
 
 // Offer freed spaces to the waitlist. Idempotent-ish and safe to re-run (the cron
 // calls it every 2 min); the seat hold at claim time is the real oversell gate.
-export async function runCascade(sessionId: string): Promise<{ openSpots: number; offered: number }> {
+export async function runCascade(sessionId: string, opts?: { ignoreTier?: boolean }): Promise<{ openSpots: number; offered: number }> {
   const now = new Date()
   const nowIso = now.toISOString()
 
@@ -43,9 +43,11 @@ export async function runCascade(sessionId: string): Promise<{ openSpots: number
   const { data: releases } = await supabaseAdmin
     .from('releases').select('released_at').eq('session_id', sessionId).is('resolved_at', null)
     .order('released_at', { ascending: false }).limit(1)
-  const windowActive = (releases?.length ?? 0) > 0
-    ? isTierWindowActive(session.date, new Date(releases![0].released_at), now)
-    : false
+  const windowActive = opts?.ignoreTier
+    ? false
+    : (releases?.length ?? 0) > 0
+      ? isTierWindowActive(session.date, new Date(releases![0].released_at), now)
+      : false
 
   // 4. Candidates: this session's waiting rows.
   const { data: waitingRows } = await supabaseAdmin

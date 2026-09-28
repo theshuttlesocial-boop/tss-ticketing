@@ -393,6 +393,58 @@ export async function sendReleaseConfirmation({ to, name, bookingRef, sessionTit
   })
 }
 
+// ── Settlement: store credit issued (someone took the released spot) ─────────
+export async function sendCreditIssued({ to, name, amountPence, expiresAt, bookingRef }: {
+  to: string; name: string; amountPence: number; expiresAt: string; bookingRef: string
+}) {
+  if (!resend) return
+  const fmt = (p: number) => `£${(p/100).toFixed(2)}`
+  const fmtDate = (d: string) => new Date(d).toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'})
+  await resend.emails.send({
+    from: process.env.EMAIL_FROM ?? 'bookings@theshuttlesocial.com',
+    to,
+    subject: `Your ${fmt(amountPence)} credit is ready`,
+    html: emailWrap(`
+      <div style="color:${brandColor};font-size:24px;font-weight:900;margin-bottom:4px;">Someone took your spot</div>
+      <div style="color:${muted};font-size:14px;margin-bottom:20px;">Your credit is now available for a future session.</div>
+      <div style="background:${card};border:1px solid #1e3220;border-radius:12px;padding:20px;margin-bottom:16px;text-align:center;">
+        <div style="font-size:40px;font-weight:900;color:${brandColor};">${fmt(amountPence)}</div>
+        <div style="color:${muted};font-size:13px;">credit · use by ${fmtDate(expiresAt)}</div>
+      </div>
+      <div style="color:${muted};font-size:13px;line-height:1.8;">
+        Hi <strong style="color:${text};">${name}</strong>, thanks for releasing your spot (ref ${bookingRef}). Your credit applies automatically at checkout next time you book with this email - just look for the "apply credit" option.
+      </div>
+    `)
+  })
+}
+
+// ── Settlement: card refund issued ───────────────────────────────────────────
+export async function sendCardRefundIssued({ to, name, amountPence, feePence, bookingRef }: {
+  to: string; name: string; amountPence: number; feePence: number; bookingRef: string
+}) {
+  if (!resend) return
+  const fmt = (p: number) => `£${(p/100).toFixed(2)}`
+  await resend.emails.send({
+    from: process.env.EMAIL_FROM ?? 'bookings@theshuttlesocial.com',
+    to,
+    subject: `Refund issued: ${fmt(amountPence)} - Ref ${bookingRef}`,
+    html: emailWrap(`
+      <div style="color:${brandColor};font-size:24px;font-weight:900;margin-bottom:4px;">Someone took your spot</div>
+      <div style="color:${muted};font-size:14px;margin-bottom:20px;">We've refunded your card.</div>
+      <div style="background:${card};border:1px solid #1e3220;border-radius:12px;padding:20px;margin-bottom:16px;">
+        <table style="width:100%;border-collapse:collapse;">
+          ${infoRow('Booking ref', bookingRef, true)}
+          ${infoRow('Refunded to card', fmt(amountPence), true)}
+          ${feePence > 0 ? infoRow('Admin fee', fmt(feePence)) : ''}
+        </table>
+      </div>
+      <div style="color:${muted};font-size:13px;line-height:1.8;">
+        Hi <strong style="color:${text};">${name}</strong>, your refund of <strong style="color:${brandColor};">${fmt(amountPence)}</strong> will appear in your account within 5-10 business days.${feePence > 0 ? ' A small admin fee applied as this was a repeat card refund - choosing credit avoids it next time.' : ''}
+      </div>
+    `)
+  })
+}
+
 // ── Release went unfilled: no replacement found by session start ─────────────
 export async function sendReleaseUnfilled({ to, name, bookingRef, sessionTitle, sessionDate, spaces }: {
   to: string; name: string; bookingRef: string; sessionTitle: string; sessionDate: string; spaces: number

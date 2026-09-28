@@ -373,11 +373,25 @@ function BookingModal({session,termsText,onClose}:{session:Session;termsText:str
   const [loading,setLoading]=useState(false); const [error,setError]=useState('')
   const [clientSecret,setCs]=useState(''); const [bookingRef,setRef]=useState(''); const [expiresAt,setExpires]=useState('')
   const [done,setDone]=useState(false); const [hasSavedUser,setHasSavedUser]=useState(false)
+  const [creditAvailable,setCreditAvailable]=useState(0); const [applyCredit,setApplyCredit]=useState(true)
 
   const maxQty=session.availability==='limited'
     ?Math.min(session.max_tickets_per_order??4,session.spotsRemaining??1)
     :session.max_tickets_per_order??4
   const total=session.price_pence*qty
+  const creditApplied=applyCredit?Math.min(creditAvailable,total):0
+  const duePence=total-creditApplied
+
+  // Look up available credit once a plausible email is entered.
+  useEffect(()=>{
+    if(clientSecret)return
+    const e=email.trim()
+    if(!e||!e.includes('@')){setCreditAvailable(0);return}
+    const t=setTimeout(()=>{
+      fetch(`/api/credits?email=${encodeURIComponent(e)}`).then(r=>r.json()).then(d=>setCreditAvailable(d.availablePence??0)).catch(()=>{})
+    },400)
+    return()=>clearTimeout(t)
+  },[email,clientSecret])
 
   // Pre-fill details from localStorage for returning customers
   useEffect(()=>{
@@ -400,10 +414,12 @@ function BookingModal({session,termsText,onClose}:{session:Session;termsText:str
     setLoading(true);setError('')
     try{
       const res=await fetch('/api/book',{method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({session_id:session.id,quantity:qty,name,email,phone,additional_attendees:additionalNames.filter(Boolean).map(n=>({name:n}))})})
+        body:JSON.stringify({session_id:session.id,quantity:qty,name,email,phone,apply_credit:applyCredit&&creditAvailable>0,additional_attendees:additionalNames.filter(Boolean).map(n=>({name:n}))})})
       const d=await res.json()
       if(!res.ok){setError(d.error??'Could not reserve seat');return}
       try{localStorage.setItem('tss_user',JSON.stringify({name,email,phone}))}catch{}
+      // Credit covered the whole order — no payment needed.
+      if(d.fullyCovered){setRef(d.bookingRef);setDone(true);return}
       setCs(d.clientSecret);setRef(d.bookingRef);setExpires(d.expiresAt)
     }catch{setError('Network error — please try again')}
     finally{setLoading(false)}
@@ -512,10 +528,34 @@ function BookingModal({session,termsText,onClose}:{session:Session;termsText:str
           </div>
         </div>
 
-        {/* Dynamic price total — live update as quantity changes */}
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',padding:'12px 0',borderTop:`1px solid ${T.border}`,marginBottom:16}}>
-          <span style={{fontSize:13,color:T.muted}}>{qty} × {fmt(session.price_pence)}</span>
-          <span style={{fontWeight:700,fontSize:20,color:T.accent}}>{fmt(total)}</span>
+        {/* Available credit — apply toggle */}
+        {!clientSecret&&creditAvailable>0&&(
+          <div style={{marginBottom:12,display:'flex',justifyContent:'space-between',alignItems:'center',padding:'10px 12px',background:T.accentDim,border:`1px solid ${T.accentBorder}`,borderRadius:8}}>
+            <label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer'}}>
+              <input type="checkbox" checked={applyCredit} onChange={e=>setApplyCredit(e.target.checked)} style={{width:16,height:16,accentColor:T.accent}}/>
+              <span style={{fontSize:13,color:T.accent}}>You have {fmt(creditAvailable)} credit — apply it?</span>
+            </label>
+          </div>
+        )}
+
+        {/* Dynamic price total — live update as quantity/credit changes */}
+        <div style={{padding:'12px 0',borderTop:`1px solid ${T.border}`,marginBottom:16}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline'}}>
+            <span style={{fontSize:13,color:T.muted}}>{qty} × {fmt(session.price_pence)}</span>
+            <span style={{fontSize:15,color:creditApplied>0?T.muted:T.accent,fontWeight:creditApplied>0?400:700,textDecoration:creditApplied>0?'line-through':'none'}}>{fmt(total)}</span>
+          </div>
+          {creditApplied>0&&(
+            <>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginTop:4}}>
+                <span style={{fontSize:13,color:T.muted}}>Credit applied</span>
+                <span style={{fontSize:13,color:T.accent}}>−{fmt(creditApplied)}</span>
+              </div>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginTop:6,paddingTop:6,borderTop:`1px solid ${T.border}`}}>
+                <span style={{fontSize:13,color:T.text,fontWeight:600}}>{duePence<=0?'Nothing to pay':'To pay'}</span>
+                <span style={{fontWeight:700,fontSize:20,color:T.accent}}>{fmt(duePence)}</span>
+              </div>
+            </>
+          )}
         </div>
 
         {error&&<div style={{marginBottom:12,padding:'10px',background:T.dangerDim,color:T.danger,borderRadius:8,fontSize:13}}>{error}</div>}
@@ -530,7 +570,7 @@ function BookingModal({session,termsText,onClose}:{session:Session;termsText:str
               fontFamily:'inherit',letterSpacing:'-0.2px',
               boxShadow:formComplete&&!loading?`0 4px 24px rgba(111,207,64,0.35)`:'none',
               transition:'box-shadow 0.2s,transform 0.1s'}}>
-            {loading?'Reserving your seat…':'Continue to Payment →'}
+            {loading?'Reserving your seat…':duePence<=0?'Confirm booking →':'Continue to Payment →'}
           </button>
         )}
 
