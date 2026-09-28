@@ -141,3 +141,41 @@ export function StartLevelSheet({ player, busy, onClose, preview, apply }: {
     </Sheet>
   )
 }
+
+/**
+ * A player's own page as a big QR, for someone whose phone never registered
+ * (added by the organiser) or who lost their page: they scan it off your screen.
+ * Optionally shows a PIN just issued, which exists only until this closes.
+ */
+export function PlayerAccessSheet({ name, url, pin, onClose, onShare }: {
+  name: string; url: string; pin?: string | null; onClose: () => void; onShare: () => void
+}) {
+  const [svg, setSvg] = useState('')
+  useEffect(() => {
+    let off = false
+    import('qrcode').then(async (QR) => {
+      const out = await QR.toString(url, { type: 'svg', errorCorrectionLevel: 'M', margin: 2, width: 320 })
+      if (!off) setSvg(out)
+    })
+    return () => { off = true }
+  }, [url])
+  return (
+    <Sheet title={pin ? `New PIN for ${name}` : `${name}'s page`} onClose={onClose}>
+      {pin && (
+        <div style={{ textAlign:'center', marginBottom:14 }}>
+          <div style={{ fontSize:52, fontWeight:900, letterSpacing:'12px', color:T.accent, fontVariantNumeric:'tabular-nums' }}>{pin}</div>
+          <p style={{ color:T.muted, fontSize:13, margin:'4px 0 0' }}>
+            Tell them now — it isn&apos;t stored and won&apos;t be shown again. Their old PIN no longer works.
+          </p>
+        </div>
+      )}
+      <p style={{ color:T.muted, fontSize:14, margin:'0 0 10px' }}>Ask {name.split(' ')[0]} to scan this with their phone camera.</p>
+      <div aria-label={`QR code for ${name}'s page`} style={{ background:'#fff', borderRadius:12, padding:10, lineHeight:0, maxWidth:340, margin:'0 auto 14px' }}
+        dangerouslySetInnerHTML={{ __html: svg }} />
+      <div style={{ display:'grid', gap:8 }}>
+        <button style={{ ...btn('primary'), padding:14, fontSize:15 }} onClick={onShare}>Share link instead</button>
+        <button style={{ ...btn(), padding:12 }} onClick={onClose}>Done</button>
+      </div>
+    </Sheet>
+  )
+}

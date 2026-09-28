@@ -12,6 +12,22 @@ type P = {
 const L = (l?: string) => (l ? l[0].toUpperCase() + l.slice(1) : '?')
 
 /** Mid-session controls. Absent during registration, where edits are simple corrections. */
+/** iOS/Android share sheet (WhatsApp, Messages…); copies the link where there isn't one. */
+export async function sharePlayerLink(name: string, url: string) {
+  const first = name.split(' ')[0]
+  if (navigator.share) {
+    try { await navigator.share({ title: 'Your TSS live page', text: `${first}, here's your page for tonight's session:`, url }); return }
+    catch (e) { if ((e as Error).name === 'AbortError') return }
+  }
+  try { await navigator.clipboard.writeText(url); alert(`${first}'s link copied`) } catch { window.prompt('Copy this link', url) }
+}
+
+/** Per-player QR and PIN, available before and during the session. */
+export type ShareControls = {
+  onQr: (p: P) => void
+  onNewPin: (p: P) => void
+}
+
 export type LiveControls = {
   nextRound: number
   onLeave: (p: P) => void
@@ -34,7 +50,8 @@ function previousLine(h?: PreviousLevel) {
  * watch people register one by one. The server has no join timestamp, so the
  * order is tracked in the page: after a reload it starts alphabetical.
  */
-export function RosterEditor({ players, onCourtIds, busy, arrivalOrder, onAdd, onRename, onLevel, onRemove, playerLink, history = {}, live }: {
+export function RosterEditor({ players, onCourtIds, busy, arrivalOrder, onAdd, onRename, onLevel, onRemove, playerLink, history = {}, live, share }: {
+  share?: ShareControls
   players: P[]
   history?: Record<string, PreviousLevel>
   live?: LiveControls
@@ -94,7 +111,7 @@ export function RosterEditor({ players, onCourtIds, busy, arrivalOrder, onAdd, o
           <Row key={p.id} p={p} busy={busy} onCourt={onCourtIds.has(p.id)}
             fresh={!!seenAt.current[p.id] && Date.now() - seenAt.current[p.id] < 8000}
             onRename={onRename} onLevel={onLevel} onRemove={onRemove} link={playerLink?.(p.id)}
-            prev={previousLine(history[p.id])} live={live} />
+            prev={previousLine(history[p.id])} live={live} share={share} />
         ))}
         {list.length === 0 && (
           <div style={{ color:T.muted, fontSize:14, padding:'14px 0' }}>
@@ -120,9 +137,9 @@ export function RosterEditor({ players, onCourtIds, busy, arrivalOrder, onAdd, o
   )
 }
 
-function Row({ p, busy, onCourt, fresh, onRename, onLevel, onRemove, link, prev, live }: {
+function Row({ p, busy, onCourt, fresh, onRename, onLevel, onRemove, link, prev, live, share }: {
   p: P; busy: boolean; onCourt: boolean; fresh: boolean; link?: string
-  prev: string | null; live?: LiveControls
+  prev: string | null; live?: LiveControls; share?: ShareControls
   onRename: (id: string, name: string) => void
   onLevel: (id: string, level: string) => void
   onRemove: (id: string) => void
@@ -157,9 +174,9 @@ function Row({ p, busy, onCourt, fresh, onRename, onLevel, onRemove, link, prev,
             </button>
             {onCourt && <span style={{ color:T.accent, fontSize:11 }}>on court</span>}
             {link && (
-              <button aria-label={`Copy ${p.name}'s player link`} title="Copy this player's page link"
-                style={{ ...btn(), padding:'4px 9px', fontSize:12 }}
-                onClick={() => { navigator.clipboard?.writeText(link); }}>Link</button>
+              <button aria-label={`Share ${p.name}'s page`} title="Send this player their page"
+                style={{ ...btn(), padding:'8px 12px', fontSize:13, minHeight:40 }}
+                onClick={() => sharePlayerLink(p.name, link)}>Share</button>
             )}
           </>
         )}
@@ -186,6 +203,13 @@ function Row({ p, busy, onCourt, fresh, onRename, onLevel, onRemove, link, prev,
             onClick={() => { if (confirm(`Remove ${p.name}? If they have already played, they are marked as left: their games still count and they are not drawn again.`)) onRemove(p.id) }}>Remove</button>
         )}
       </div>
+      {share && (
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginTop:8 }}>
+          <button style={{ ...btn(), fontSize:13, minHeight:44 }} onClick={() => share.onQr(p)}>QR code</button>
+          <button style={{ ...btn(), fontSize:13, minHeight:44 }} disabled={busy}
+            onClick={() => { if (confirm(`Give ${p.name} a new PIN? Their old PIN stops working.`)) share.onNewPin(p) }}>New PIN</button>
+        </div>
+      )}
       {live && (
         <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginTop:8 }}>
           <button style={{ ...btn(p.levelLocked ? 'primary' : 'ghost'), fontSize:13, minHeight:44 }} disabled={busy}

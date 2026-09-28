@@ -8,7 +8,8 @@ import { ScoreCard } from './ScoreCard'
 import { RosterEditor } from './RosterEditor'
 import { ScoreLog, PastGames, LogRow } from './ScoreLog'
 import { Attention } from './Attention'
-import { LeaveSheet, StartLevelSheet } from './Sheets'
+import { LeaveSheet, StartLevelSheet, PlayerAccessSheet } from './Sheets'
+import { sharePlayerLink } from './RosterEditor'
 import { standings, grandFinal, roundComplete } from '@/lib/live-session/engine'
 import type { Config, Level } from '@/lib/live-session/engine'
 import { LEVEL_INFO, LEVELS } from '@/lib/live-session/levels'
@@ -25,6 +26,7 @@ export default function LiveAdminPage({ params }: { params: Promise<{ id: string
     useLiveSession(id, authed ? secret : undefined, authed)
   const [leaving, setLeaving] = useState<any>(null)
   const [startFix, setStartFix] = useState<any>(null)
+  const [access, setAccess] = useState<{ p: any; pin?: string | null } | null>(null)
   const [tab, setTab] = useState<Tab>('courts')
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
@@ -76,6 +78,14 @@ export default function LiveAdminPage({ params }: { params: Promise<{ id: string
   }
   const post = (sub: string, body: unknown, method = 'POST') =>
     call(`/api/live/${id}${sub}`, { method, body: JSON.stringify(body) })
+  const playerUrl = (pid: string) => `${typeof window !== 'undefined' ? window.location.origin : ''}/live/${id}/player/${pid}`
+  const shareControls = {
+    onQr: (p: any) => setAccess({ p }),
+    onNewPin: async (p: any) => {
+      const r = await post('/players', { player_id: p.id, newPin: true }, 'PATCH')
+      if (r?.pin) setAccess({ p, pin: r.pin })
+    },
+  }
   const finish = () => { if (confirm('Finish this session? Registration closes and the QR code stops opening it.')) post('', { status: 'finished' }, 'PATCH') }
 
   const round = session?.rounds[session.rounds.length - 1]
@@ -163,6 +173,8 @@ export default function LiveAdminPage({ params }: { params: Promise<{ id: string
           onLevel={(pid: string, level: string) => call(`/api/live/${id}/players`, { method:'PATCH', body: JSON.stringify({ player_id: pid, level }) })}
           onRemove={(pid: string) => call(`/api/live/${id}/players?player_id=${pid}`, { method:'DELETE' })}
           onStart={async () => { const ok = await call(`/api/live/${id}`, { method:'PATCH', body: JSON.stringify({ status:'live' }) }); if (ok) setTab('courts') }}
+          share={shareControls}
+          playerLink={playerUrl}
           onUseLatest={() => { if (confirm('Switch this session to the latest default settings?')) post('', { useLatest: true }, 'PATCH') }}
           history={history}
         />
@@ -399,6 +411,7 @@ export default function LiveAdminPage({ params }: { params: Promise<{ id: string
               onRemove={(pid) => call(`/api/live/${id}/players?player_id=${pid}`, { method:'DELETE' })}
               playerLink={(pid) => `${origin}/live/${id}/player/${pid}`}
               history={history}
+              share={shareControls}
               live={{
                 nextRound: session.rounds.length + 1,
                 onLeave: (p) => setLeaving(p),
@@ -461,6 +474,10 @@ export default function LiveAdminPage({ params }: { params: Promise<{ id: string
             const ok = await post('/players', { player_id: leaving.id, leave: true, substitute }, 'PATCH')
             if (ok) setLeaving(null)
           }} />
+      )}
+      {access && (
+        <PlayerAccessSheet name={access.p.name} url={playerUrl(access.p.id)} pin={access.pin}
+          onClose={() => setAccess(null)} onShare={() => sharePlayerLink(access.p.name, playerUrl(access.p.id))} />
       )}
       {startFix && (
         <StartLevelSheet player={startFix} busy={busy} onClose={() => setStartFix(null)}
@@ -747,7 +764,7 @@ function RegistrationToggle({ open, busy, onToggle }: { open: boolean; busy: boo
 }
 
 /** Shown while the session is in 'setup': live registrations, then Start. */
-function RegistrationView({ id, origin, session, meta, busy, msg, onToggle, onAdd, onRename, onLevel, onRemove, onStart, onUseLatest, history }: any) {
+function RegistrationView({ id, origin, session, meta, busy, msg, onToggle, onAdd, onRename, onLevel, onRemove, onStart, onUseLatest, history, share, playerLink }: any) {
   const n = Object.keys(session.players).length
   const courts = session.config.rotation.courts
   return (
@@ -759,7 +776,7 @@ function RegistrationView({ id, origin, session, meta, busy, msg, onToggle, onAd
       <SessionQr sessionId={id} origin={origin} />
       <section style={{ ...cardStyle, padding:14 }}>
         <h2 style={{ fontSize:15, margin:'0 0 10px' }}>Players</h2>
-        <RosterEditor players={Object.values(session.players).filter((p: any) => !(((session.config as any)?.withdrawn ?? []) as string[]).includes(p.id)) as any} onCourtIds={new Set()} busy={busy} arrivalOrder history={history}
+        <RosterEditor players={Object.values(session.players).filter((p: any) => !(((session.config as any)?.withdrawn ?? []) as string[]).includes(p.id)) as any} onCourtIds={new Set()} busy={busy} arrivalOrder history={history} share={share} playerLink={playerLink}
           onAdd={onAdd} onRename={onRename} onLevel={onLevel} onRemove={onRemove} />
       </section>
       <button style={{ ...btn('primary'), width:'100%', padding:'15px', fontSize:16 }}
