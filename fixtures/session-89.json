@@ -215,19 +215,6 @@
    "afterRound": 6
   }
  ],
- "substitutions_TO_CONFIRM_WITH_ORGANISER": [
-  {
-   "round": 6,
-   "court": 3,
-   "playedAs": 26,
-   "note": "Vikaash had left; a substitute played under his name"
-  },
-  {
-   "playedAs": 8,
-   "name": "Kevin Mariyaseelan",
-   "note": "Kevin left with Vikaash; another Strong player played his remaining games under his name. Which rounds (likely 6 and 7) and who the substitute was must be confirmed by the organiser."
-  }
- ],
  "rounds": [
   {
    "round": 1,
@@ -1306,5 +1293,22 @@
   "Level edits not logged and they rewrite rating history",
   "Substitutes recorded under the leaving players' names",
   "Session left 'live' with registration open after the night"
+ ],
+ "substitutions": [
+  {
+   "round": 6,
+   "court": 3,
+   "playedAs": 26,
+   "name": "Vikaash Rasalingam",
+   "status": "left as recorded (organiser's decision)"
+  },
+  {
+   "round": 7,
+   "court": 2,
+   "playedAs": 8,
+   "playedBy": 20,
+   "name": "Kevin Mariyaseelan",
+   "status": "confirmed: sarveshwar sureshkumar played; flagged only, ratings not changed"
+  }
  ]
 }

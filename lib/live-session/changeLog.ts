@@ -54,7 +54,11 @@ export function describe(r: LogRow): { when: string; who: string; what: string }
     case 'left': what = `${d.name} left the session`; break;
     case 'removed': what = `${d.name} removed (had not played)`; break;
     case 'rejoined': what = `${d.name} brought back`; break;
-    case 'substitute': what = `${d.substitute} plays in place of ${d.leaver}`; break;
+    case 'substitute':
+      what = d.recordedOnly
+        ? `${d.substitute} played for ${d.leaver} (recorded afterwards; ratings not changed)`
+        : `${d.substitute} plays in place of ${d.leaver}`;
+      break;
     case 'unknown_substitute':
       what = d.on === false
         ? `${d.name}'s game counts for them again`

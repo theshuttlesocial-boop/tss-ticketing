@@ -110,6 +110,7 @@ summary('   before (25 Sep engine)', noReview(legacySwaps), 0);
 summary('   after (swap limits + lone beginner)', noReview(on), 0);
 console.log('\n2. Level review — 20% picked a level one step off');
 summary('   review off', noReview(on), 0.2);
-summary('   review on (auto-apply)', on, 0.2);
-summary('   review on, nobody mislabelled', on, 0);
+const auto: Config = { ...on, levels: { ...on.levels, autoApply: true } };
+summary('   review on (auto-apply)', auto, 0.2);
+summary('   review on, nobody mislabelled', auto, 0);
 }

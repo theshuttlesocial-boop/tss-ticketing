@@ -16,6 +16,8 @@ test('change log: system moves, scores, substitutes and session events', () => {
     'R3 C2 · Admin · Score changed 21–15 → 15–21');
   assert.equal(describeLine({ round: 6, court: 3, event: 'override', detail: { from: 'Vikaash', to: 'Sam', pastGame: true } }),
     'R6 C3 · Admin · Played by someone else: Sam played for Vikaash');
+  assert.equal(describeLine({ round: 7, court: 2, event: 'substitute', detail: { leaver: 'Kevin', substitute: 'Sarvesh', recordedOnly: true } }),
+    'R7 C2 · Admin · Sarvesh played for Kevin (recorded afterwards; ratings not changed)');
   assert.equal(describeLine({ round: null, court: null, event: 'finish', actor: 'system' }),
     'Session · System · Session finished, registration closed');
 });

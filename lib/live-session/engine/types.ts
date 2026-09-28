@@ -200,7 +200,10 @@ export const DEFAULT_CONFIG: Config = {
     loneBeginnerPairing: true,
   },
   finals: { finalists: 4, minGames: 4, shrink: 2, base: 1000 },
-  levels: { autoApply: true, minGames: 3, roundsInBand: 2, hysteresis: 30, mismatchMargin: 12, mismatchShare: 0.2 },
+  // Suggest-only by default: one night is too few games to move levels
+  // reliably (see scripts/simulate-rotation.ts). Moves down to beginner
+  // still apply on their own.
+  levels: { autoApply: false, minGames: 3, roundsInBand: 2, hysteresis: 30, mismatchMargin: 12, mismatchShare: 0.2 },
 };
 
 /**

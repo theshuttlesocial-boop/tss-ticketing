@@ -14,7 +14,8 @@
 --    from (NULL = before versioning).
 -- 4. live_score_log becomes the change log: more event types, an actor
 --    ('admin' / 'system', later a staff user id), round/court optional.
--- 5. Session 89: record the two level edits made on the night.
+-- 5. Session 89: record the two level edits made on the night, and that
+--    Sarvesh played Kevin's round-7 game (flag only, ratings unchanged).
 -- ============================================================
 
 -- 1. PLAYERS -------------------------------------------------
@@ -96,3 +97,18 @@ SELECT p.session_id, v.before_round, NULL, 'level', 'admin', p.id,
  WHERE p.session_id = '7bcd30af-8b4a-4f16-8faf-5ca13ef13596'
    AND NOT EXISTS (SELECT 1 FROM live_score_log l
                     WHERE l.session_id = p.session_id AND l.event = 'level' AND l.player_id = p.id);
+
+-- Kevin Mariyaseelan left mid-session; the organiser confirmed sarveshwar
+-- sureshkumar played round 7 (court 2, 24-9) under Kevin's name. Flagged only:
+-- the score stays as reference and no rating is recalculated, because ratings
+-- move to the persistent rating system later. Round 6 is left as recorded.
+INSERT INTO live_score_log (session_id, round, court, event, actor, player_id, detail)
+SELECT k.session_id, 7, 2, 'substitute', 'admin', s.id,
+       jsonb_build_object('leaver', k.name, 'substitute', s.name, 'recordedOnly', true,
+                          'note', 'Confirmed by the organiser after the session')
+  FROM live_session_players k
+  JOIN live_session_players s ON s.session_id = k.session_id AND s.name = 'sarveshwar sureshkumar'
+ WHERE k.session_id = '7bcd30af-8b4a-4f16-8faf-5ca13ef13596'
+   AND k.name = 'Kevin Mariyaseelan'
+   AND NOT EXISTS (SELECT 1 FROM live_score_log l
+                    WHERE l.session_id = k.session_id AND l.event = 'substitute' AND l.round = 7 AND l.court = 2);

@@ -12,7 +12,9 @@ import { changeLevel, flagGames, makePlayer, recomputeRatings, reviewLevels, rep
 import { loadFixture, fixtureConfig, fixtureResults, fixtureRounds, levelAt, pid } from '../lib/live-session/fixtures';
 
 const f = loadFixture('session-89.json');
-const cfg = fixtureConfig(f);
+// Auto-apply on, to show every move the review would make (the default is suggest-only).
+const base = fixtureConfig(f);
+const cfg = { ...base, levels: { ...base.levels, autoApply: true } };
 const name = (id: string) => f.players[Number(id.slice(1))].name;
 const players: Record<string, Player> = {};
 f.players.forEach((p, i) => { players[pid(i)] = makePlayer(pid(i), p.name, levelAt(f, i, 1), cfg.rating); });
