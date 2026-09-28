@@ -80,7 +80,7 @@ export default function AdminPage() {
   const [secret,setSecret]=useState(''); const [authed,setAuthed]=useState(false)
   const [sessions,setSessions]=useState<Session[]>([]); const [bookings,setBookings]=useState<Booking[]>([])
   const [waitlist,setWaitlist]=useState<any[]>([]); const [analytics,setAnalytics]=useState<any>(null)
-  const [tab,setTab]=useState<'overview'|'sessions'|'create'|'bookings'|'attendees'|'waitlist'|'analytics'|'settings'|'blocked'>('overview')
+  const [tab,setTab]=useState<'overview'|'sessions'|'create'|'bookings'|'attendees'|'waitlist'|'analytics'|'settings'|'blocked'|'credits'|'releases'|'transfers'>('overview')
   const [loading,setLoading]=useState(false); const [error,setError]=useState(''); const [msg,setMsg]=useState('')
   const [editing,setEditing]=useState<Session|null>(null)
   const [filterSession,setFilterSession]=useState(''); const [filterStatus,setFilterStatus]=useState('')
@@ -91,6 +91,9 @@ export default function AdminPage() {
   const [attendeeSearch,setAttendeeSearch]=useState('')
   const [searchLoading,setSearchLoading]=useState(false)
   const allBookingsRef=useRef<Booking[]>([])
+  const [credits,setCredits]=useState<any[]>([]); const [creditForm,setCreditForm]=useState({email:'',amount:''})
+  const [releasesData,setReleasesData]=useState<{unresolved:any[];resolved:any[];offers:any[]}>({unresolved:[],resolved:[],offers:[]})
+  const [transfers,setTransfers]=useState<any[]>([])
   const [blocked,setBlocked]=useState<{id:string;email:string;reason?:string;created_at:string}[]>([])
   const [blockForm,setBlockForm]=useState({email:'',reason:''})
   const [blockLoading,setBlockLoading]=useState(false)
@@ -183,6 +186,53 @@ export default function AdminPage() {
     loadBlocked();flash('✅ Removed from blocklist')
   }
 
+  // ── Credits ──
+  async function loadCredits(){
+    const res=await fetch('/api/admin/credits',{headers:{'x-admin-secret':secret}})
+    const d=await res.json();setCredits(d.credits??[])
+  }
+  async function issueCredit(){
+    const amountPence=Math.round(parseFloat(creditForm.amount)*100)
+    if(!creditForm.email.trim()||!Number.isFinite(amountPence)||amountPence<=0){flash('❌ Enter a valid email and amount');return}
+    const res=await fetch('/api/admin/credits',{method:'POST',headers:{'Content-Type':'application/json','x-admin-secret':secret},body:JSON.stringify({email:creditForm.email,amountPence})})
+    const d=await res.json()
+    if(!res.ok){flash(`❌ ${d.error??'Failed'}`);return}
+    setCreditForm({email:'',amount:''});loadCredits();flash('✅ Credit issued')
+  }
+  async function voidCredit(id:string){
+    if(!confirm('Void this unused credit? This cannot be undone.'))return
+    const res=await fetch(`/api/admin/credits?id=${id}`,{method:'DELETE',headers:{'x-admin-secret':secret}})
+    const d=await res.json()
+    if(!res.ok){flash(`❌ ${d.error??'Failed'}`);return}
+    loadCredits();flash('✅ Credit voided')
+  }
+
+  // ── Releases ──
+  async function loadReleases(){
+    const res=await fetch('/api/admin/releases',{headers:{'x-admin-secret':secret}})
+    const d=await res.json();setReleasesData({unresolved:d.unresolved??[],resolved:d.resolved??[],offers:d.offers??[]})
+  }
+  async function releaseAll(sessionId:string,title:string){
+    if(!confirm(`Offer all open spots for "${title}" to everyone now (skips the new-player window)?`))return
+    const res=await fetch('/api/admin/releases',{method:'POST',headers:{'Content-Type':'application/json','x-admin-secret':secret},body:JSON.stringify({action:'release_all',session_id:sessionId})})
+    const d=await res.json()
+    if(!res.ok){flash(`❌ ${d.error??'Failed'}`);return}
+    flash(`✅ Offered ${d.offered} · ${d.openSpots} open`);loadReleases()
+  }
+  async function markReplaced(releaseId:string){
+    if(!confirm('Manually mark this release as replaced? Use only if you\'ve sorted the replacement yourself.'))return
+    const res=await fetch('/api/admin/releases',{method:'POST',headers:{'Content-Type':'application/json','x-admin-secret':secret},body:JSON.stringify({action:'mark_replaced',release_id:releaseId})})
+    const d=await res.json()
+    if(!res.ok){flash(`❌ ${d.error??'Failed'}`);return}
+    flash('✅ Marked replaced');loadReleases()
+  }
+
+  // ── Transfers ──
+  async function loadTransfers(){
+    const res=await fetch('/api/admin/transfers',{headers:{'x-admin-secret':secret}})
+    const d=await res.json();setTransfers(d.transfers??[])
+  }
+
   async function refund(bookingId:string,bookingRef:string){
     if(!confirm(`Refund booking ${bookingRef}? This cannot be undone.`))return
     setRefunding(bookingId)
@@ -235,6 +285,9 @@ export default function AdminPage() {
     if(tab==='waitlist')loadWaitlist()
     if(tab==='analytics')loadAnalytics()
     if(tab==='blocked')loadBlocked()
+    if(tab==='credits')loadCredits()
+    if(tab==='releases')loadReleases()
+    if(tab==='transfers')loadTransfers()
   },[authed,tab,filterSession])
 
   // Load all bookings for cross-session attendee search
@@ -286,8 +339,8 @@ export default function AdminPage() {
   )
 
   const base:React.CSSProperties={minHeight:'100vh',background:T.bg,color:T.text,fontFamily:'system-ui,sans-serif'}
-  const tabs=[['overview','📊'],['sessions','📅'],['create','➕'],['bookings','🎟'],['attendees','👥'],['waitlist','📋'],['analytics','📈'],['settings','⚙️'],['blocked','🚫']]
-  const tabLabels:Record<string,string>={overview:'Overview',sessions:'Sessions',create:'New Session',bookings:'Bookings',attendees:'Attendees',waitlist:'Waitlist',analytics:'Analytics',settings:'Settings',blocked:'Blocked'}
+  const tabs=[['overview','📊'],['sessions','📅'],['create','➕'],['bookings','🎟'],['attendees','👥'],['waitlist','📋'],['releases','🔄'],['transfers','↔️'],['credits','💷'],['analytics','📈'],['settings','⚙️'],['blocked','🚫']]
+  const tabLabels:Record<string,string>={overview:'Overview',sessions:'Sessions',create:'New Session',bookings:'Bookings',attendees:'Attendees',waitlist:'Waitlist',releases:'Releases',transfers:'Transfers',credits:'Credits',analytics:'Analytics',settings:'Settings',blocked:'Blocked'}
 
   return(
     <div style={base}>
@@ -710,6 +763,119 @@ export default function AdminPage() {
               </div>
             </>
           ):<div style={{textAlign:'center',padding:40,color:T.muted}}>Loading analytics…</div>
+        )}
+
+        {/* RELEASES */}
+        {tab==='releases'&&(
+          <>
+            <div style={cardStyle}>
+              <div style={{padding:'12px 18px',borderBottom:`1px solid ${T.border}`,fontWeight:600,fontSize:12,color:T.muted,textTransform:'uppercase',letterSpacing:1}}>
+                Unresolved releases ({releasesData.unresolved.length})
+              </div>
+              {releasesData.unresolved.length===0&&<div style={{padding:40,textAlign:'center',color:T.muted}}>No spots awaiting a replacement</div>}
+              {releasesData.unresolved.map((r:any,i:number)=>(
+                <div key={r.id} style={{padding:'13px 18px',borderBottom:i<releasesData.unresolved.length-1?`1px solid #0a140a`:'none',display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:12,flexWrap:'wrap' as const}}>
+                  <div style={{flex:1,minWidth:180}}>
+                    <div style={{fontWeight:600,fontSize:14}}>{r.sessions?.title??'—'} <span style={{fontSize:11,color:T.muted}}>{r.sessions?.date?fmtDate(r.sessions.date):''}</span></div>
+                    <div style={{fontSize:12,color:T.muted,marginTop:2}}>{r.bookings?.name} · {r.bookings?.email} · {r.spaces} space{r.spaces>1?'s':''} · {r.refund_preference}</div>
+                    <div style={{fontSize:11,color:'#2a4a2a',marginTop:2}}>{r.bookings?.booking_ref} · released {new Date(r.released_at).toLocaleString('en-GB')}</div>
+                  </div>
+                  <div style={{display:'flex',gap:8,flexShrink:0}}>
+                    <button onClick={()=>releaseAll(r.session_id, r.sessions?.title??'session')} style={{padding:'6px 10px',background:T.accentDim,color:T.accent,border:`1px solid ${T.accentBorder}`,borderRadius:6,cursor:'pointer',fontSize:11,fontWeight:600,fontFamily:'inherit'}}>Release to everyone</button>
+                    <button onClick={()=>markReplaced(r.id)} style={{padding:'6px 10px',background:'#142014',color:T.muted,border:`1px solid ${T.border}`,borderRadius:6,cursor:'pointer',fontSize:11,fontWeight:600,fontFamily:'inherit'}}>Mark replaced</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div style={cardStyle}>
+              <div style={{padding:'12px 18px',borderBottom:`1px solid ${T.border}`,fontWeight:600,fontSize:12,color:T.muted,textTransform:'uppercase',letterSpacing:1}}>Live offers ({releasesData.offers.length})</div>
+              {releasesData.offers.length===0&&<div style={{padding:24,textAlign:'center',color:T.muted,fontSize:13}}>No offers currently out</div>}
+              {releasesData.offers.map((o:any,i:number)=>(
+                <div key={o.id} style={{padding:'11px 18px',borderBottom:i<releasesData.offers.length-1?`1px solid #0a140a`:'none',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                  <div>
+                    <div style={{fontWeight:600,fontSize:13}}>{o.name} <span style={{fontSize:11,color:T.muted}}>· {o.email}</span></div>
+                    <div style={{fontSize:11,color:T.muted}}>{o.sessions?.title} · {o.claim_spaces} space{o.claim_spaces>1?'s':''} · offered ×{o.times_offered}</div>
+                  </div>
+                  <div style={{fontSize:11,color:T.warning}}>expires {new Date(o.claim_expires_at).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}</div>
+                </div>
+              ))}
+            </div>
+
+            {releasesData.resolved.length>0&&(
+              <div style={cardStyle}>
+                <div style={{padding:'12px 18px',borderBottom:`1px solid ${T.border}`,fontWeight:600,fontSize:12,color:T.muted,textTransform:'uppercase',letterSpacing:1}}>Recently resolved</div>
+                {releasesData.resolved.map((r:any,i:number)=>(
+                  <div key={r.id} style={{padding:'10px 18px',borderBottom:i<releasesData.resolved.length-1?`1px solid #0a140a`:'none',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                    <div style={{fontSize:13}}>{r.sessions?.title} <span style={{fontSize:11,color:T.muted}}>· {r.bookings?.email}</span></div>
+                    <div style={{fontSize:11,color:r.outcome==='replaced'?T.accent:T.muted}}>{r.outcome}{r.admin_fee_pence>0?` · fee ${fmt(r.admin_fee_pence)}`:''}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+
+        {/* TRANSFERS */}
+        {tab==='transfers'&&(
+          <div style={cardStyle}>
+            <div style={{padding:'12px 18px',borderBottom:`1px solid ${T.border}`,fontWeight:600,fontSize:12,color:T.muted,textTransform:'uppercase',letterSpacing:1}}>Name-change transfers ({transfers.length})</div>
+            {transfers.length===0&&<div style={{padding:40,textAlign:'center',color:T.muted}}>No transfers yet</div>}
+            {transfers.map((t:any,i:number)=>{
+              const c=t.status==='confirmed'?T.accent:t.status==='expired'?T.danger:T.warning
+              return(
+                <div key={t.id} style={{padding:'13px 18px',borderBottom:i<transfers.length-1?`1px solid #0a140a`:'none',display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
+                  <div>
+                    <div style={{fontWeight:600,fontSize:14}}>{t.from_name} → {t.to_name}</div>
+                    <div style={{fontSize:12,color:T.muted,marginTop:2}}>{t.to_email}{t.to_phone?` · ${t.to_phone}`:''} · {t.spaces} space{t.spaces>1?'s':''}</div>
+                    <div style={{fontSize:11,color:'#2a4a2a',marginTop:2}}>{t.bookings?.sessions?.title} · {t.bookings?.booking_ref} · requested {new Date(t.requested_at).toLocaleString('en-GB')}</div>
+                  </div>
+                  <div style={{padding:'2px 9px',borderRadius:20,fontSize:11,fontWeight:600,background:`${c}18`,color:c,whiteSpace:'nowrap' as const}}>{t.status}</div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+        {/* CREDITS */}
+        {tab==='credits'&&(
+          <>
+            <div style={{...cardStyle,marginBottom:16}}>
+              <div style={{padding:'12px 18px',borderBottom:`1px solid ${T.border}`,fontWeight:600,fontSize:12,color:T.muted,textTransform:'uppercase',letterSpacing:1}}>Issue a credit</div>
+              <div style={{padding:16,display:'flex',gap:10,flexWrap:'wrap' as const,alignItems:'flex-end'}}>
+                <div style={{flex:'2 1 200px'}}>
+                  <label style={{fontSize:12,color:T.muted,display:'block',marginBottom:5}}>Email *</label>
+                  <input value={creditForm.email} onChange={e=>setCreditForm(f=>({...f,email:e.target.value}))} placeholder="player@email.com" type="email" style={inp()}/>
+                </div>
+                <div style={{flex:'1 1 120px'}}>
+                  <label style={{fontSize:12,color:T.muted,display:'block',marginBottom:5}}>Amount (£) *</label>
+                  <input value={creditForm.amount} onChange={e=>setCreditForm(f=>({...f,amount:e.target.value}))} placeholder="8.00" type="number" step="0.5" min="0" style={inp()}/>
+                </div>
+                <button onClick={issueCredit} disabled={!creditForm.email||!creditForm.amount} style={{padding:'10px 20px',background:T.accent,color:'#080f08',border:'none',borderRadius:8,fontWeight:700,fontSize:13,cursor:'pointer',fontFamily:'inherit',flexShrink:0,opacity:(!creditForm.email||!creditForm.amount)?0.5:1}}>Issue</button>
+              </div>
+            </div>
+            <div style={cardStyle}>
+              <div style={{padding:'12px 18px',borderBottom:`1px solid ${T.border}`,fontWeight:600,fontSize:12,color:T.muted,textTransform:'uppercase',letterSpacing:1}}>Credits ({credits.length})</div>
+              {credits.length===0&&<div style={{padding:40,textAlign:'center',color:T.muted}}>No credits issued</div>}
+              {credits.map((c:any,i:number)=>{
+                const now=new Date()
+                const status=c.used_at?'used':(new Date(c.expires_at)<now?'expired':'active')
+                const col=status==='active'?T.accent:status==='used'?T.muted:T.danger
+                return(
+                  <div key={c.id} style={{padding:'12px 18px',borderBottom:i<credits.length-1?`1px solid #0a140a`:'none',display:'flex',justifyContent:'space-between',alignItems:'center',gap:12}}>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontWeight:600,fontSize:14,color:col}}>{fmt(c.amount_pence)} <span style={{fontSize:12,color:T.muted}}>· {c.email}</span></div>
+                      <div style={{fontSize:11,color:'#2a4a2a',marginTop:2}}>issued {new Date(c.created_at).toLocaleDateString('en-GB')} · expires {new Date(c.expires_at).toLocaleDateString('en-GB')}{c.used_at?` · used ${new Date(c.used_at).toLocaleDateString('en-GB')}`:''}</div>
+                    </div>
+                    <div style={{display:'flex',alignItems:'center',gap:10,flexShrink:0}}>
+                      <span style={{padding:'2px 9px',borderRadius:20,fontSize:11,fontWeight:600,background:`${col}18`,color:col}}>{status}</span>
+                      {status==='active'&&<button onClick={()=>voidCredit(c.id)} style={{padding:'5px 10px',background:T.dangerDim,color:T.danger,border:`1px solid rgba(224,85,85,0.25)`,borderRadius:6,cursor:'pointer',fontSize:11,fontWeight:600,fontFamily:'inherit'}}>Void</button>}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </>
         )}
 
         {/* BLOCKED */}

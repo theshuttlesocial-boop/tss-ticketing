@@ -4,6 +4,7 @@ import { createPaymentIntent, stripe } from '@/lib/stripe'
 import { nanoid } from 'nanoid'
 import { availableCreditPence, consumeCredits } from '@/lib/credits'
 import { sendBookingConfirmation, sendAdminBookingNotification } from '@/lib/email'
+import { logAudit } from '@/lib/audit'
 
 export async function POST(req: Request) {
   const body = await req.json()
@@ -22,6 +23,7 @@ export async function POST(req: Request) {
     }
     waitlistId = offer.id
     quantity = offer.claim_spaces ?? 1   // authoritative: size the order from the offer
+    logAudit('claim_attempt', { waitlistId, sessionId: session_id, spaces: quantity }, offer.id).catch(() => {})
   }
 
   if (!session_id || !quantity || !name || !email || !phone)

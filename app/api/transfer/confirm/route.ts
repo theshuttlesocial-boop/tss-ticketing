@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendTransferComplete } from '@/lib/email'
+import { logAudit } from '@/lib/audit'
 
 async function loadTransfer(token: string) {
   const { data: transfer } = await supabaseAdmin
@@ -74,6 +75,7 @@ export async function POST(req: Request) {
 
   await supabaseAdmin.from('bookings').update(bookingUpdate).eq('id', booking.id)
   await supabaseAdmin.from('ticket_transfers').update({ confirmed_at: new Date().toISOString() }).eq('id', transfer.id)
+  await logAudit('transfer_confirmed', { bookingId: booking.id, toEmail: transfer.to_email }, transfer.id)
 
   sendTransferComplete({
     fromEmail: transfer.from_email, fromName: transfer.from_name,

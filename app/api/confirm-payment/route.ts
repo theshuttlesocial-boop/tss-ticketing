@@ -4,6 +4,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { sendBookingConfirmation, sendAdminBookingNotification, sendApologyRefundEmail } from '@/lib/email'
 import { settleRelease } from '@/lib/settlement'
 import { consumeCredits } from '@/lib/credits'
+import { logAudit } from '@/lib/audit'
 
 export async function POST(req: Request) {
   console.log('[webhook] POST received')
@@ -157,6 +158,7 @@ export async function POST(req: Request) {
             .update({ outcome: 'replaced', replacement_booking_id: booking.id }).eq('id', release.id)
           await supabaseAdmin.from('bookings')
             .update({ release_status: 'replaced' }).eq('id', release.booking_id)
+          await logAudit('claim_success', { waitlistId: pi.metadata.waitlist_id, releaseId: release.id, replacementBookingId: booking.id }, release.id)
           await settleRelease(release.id)   // Phase 4 issues the credit/refund (idempotent on resolved_at)
         } else {
           console.warn('[webhook] claim had no unresolved release for session', session_id)

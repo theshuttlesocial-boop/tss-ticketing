@@ -2,6 +2,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { nanoid } from 'nanoid'
 import { selectOffers, isTierWindowActive, hasLiveOfferConflict, MatchCandidate } from '@/lib/waitlist-alloc'
 import { notify } from '@/lib/notify'
+import { logAudit } from '@/lib/audit'
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://tickets.theshuttlesocial.com'
 
@@ -106,6 +107,9 @@ export async function runCascade(sessionId: string, opts?: { ignoreTier?: boolea
       times_offered: (row.times_offered ?? 0) + 1,
       last_offered_at: nowIso,
     }).eq('id', offer.id)
+
+    logAudit('offer', { email: row.email, sessionId, spaces: offer.claimSpaces, isBackup: offer.isBackup }, offer.id)
+      .catch(() => {})
 
     notify({
       to: { email: row.email, phone: row.phone, firstName: (row.name ?? '').split(' ')[0] || 'there' },

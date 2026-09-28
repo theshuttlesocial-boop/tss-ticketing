@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { getReleasableBookingForEmail, emailForMagicToken } from '@/lib/release-server'
 import { runCascade } from '@/lib/waitlist-matcher'
 import { sendReleaseConfirmation } from '@/lib/email'
+import { logAudit } from '@/lib/audit'
 
 // Routes B (credit) and C (card). Creates the release, opens the spot to the
 // waitlist, and DOES NOT move any money or create any credit here — that only
@@ -45,6 +46,8 @@ export async function POST(req: Request) {
     }
     return NextResponse.json({ error: map[result?.error] ?? 'Could not process the release.' }, { status: 409 })
   }
+
+  await logAudit('release', { bookingId: booking.id, sessionId: booking.session.id, spaces: nSpaces, refundPreference }, result.release_id)
 
   // Open the freed spot(s) to the waitlist. Never let a notify failure 500 the release.
   runCascade(booking.session.id).catch(err => console.error('[release] cascade failed:', err))

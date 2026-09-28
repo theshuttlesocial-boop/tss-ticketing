@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { nanoid } from 'nanoid'
 import { getReleasableBookingForEmail, emailForMagicToken } from '@/lib/release-server'
 import { sendTransferConfirmRequest } from '@/lib/email'
+import { logAudit } from '@/lib/audit'
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://tickets.theshuttlesocial.com'
 
@@ -50,6 +51,8 @@ export async function POST(req: Request) {
     spaces: nSpaces, confirm_token: confirmToken,
   })
   if (error) return NextResponse.json({ error: 'Could not start the transfer. Please try again.' }, { status: 500 })
+
+  await logAudit('transfer_requested', { bookingId: booking.id, toEmail: toEmail.trim().toLowerCase(), spaces: nSpaces }, booking.id)
 
   sendTransferConfirmRequest({
     toEmail: toEmail.trim(), toName: toName.trim(), fromName: booking.name,
