@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { loadSession, loadMeta, addPlayer, LiveSessionError } from '@/lib/live-session/actions'
+import { loadSession, loadMeta, addPlayer, autoFinishIfStale, LiveSessionError } from '@/lib/live-session/actions'
 import { LEVELS } from '@/lib/live-session/levels'
 
 type Ctx = { params: Promise<{ id: string }> }
@@ -25,7 +25,8 @@ export async function POST(req: Request, { params }: Ctx) {
   if (!LEVELS.includes(level)) return NextResponse.json({ error: 'Pick a level' }, { status: 400 })
 
   try {
-    const [session, meta] = await Promise.all([loadSession(id), loadMeta(id)])
+    const meta = await autoFinishIfStale(id, await loadMeta(id))
+    const session = await loadSession(id)
     if (meta.status === 'finished')
       return NextResponse.json({ error: 'This session has finished' }, { status: 409 })
 
@@ -45,12 +46,8 @@ export async function POST(req: Request, { params }: Ctx) {
     if (!meta.registrationOpen)
       return NextResponse.json({ error: 'Registration is closed — ask the organiser to add you' }, { status: 403 })
 
-    await addPlayer(id, clean, level)
-
-    const after = await loadSession(id)
-    const me = Object.values(after.players).find((p) => p.name.toLowerCase() === clean.toLowerCase())
-    if (!me) throw new LiveSessionError('could not add you to the session')
-    return NextResponse.json({ player_id: me.id, existing: false }, { status: 201 })
+    const playerId = await addPlayer(id, clean, level, { actor: 'player' })
+    return NextResponse.json({ player_id: playerId, existing: false }, { status: 201 })
   } catch (e) {
     const status = e instanceof LiveSessionError ? 400 : 500
     return NextResponse.json({ error: (e as Error).message }, { status })

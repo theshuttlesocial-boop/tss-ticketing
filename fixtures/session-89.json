@@ -1,0 +1,1314 @@
+{
+ "session": "Session 89",
+ "sessionId": "7bcd30af-8b4a-4f16-8faf-5ca13ef13596",
+ "date": "2026-09-25",
+ "note": "Rebuilt from the live session for regression tests. Player indices refer to 'players'. 'level' is the level stored at the end of the night. Replaying all results with these levels reproduces every stored rating exactly. Replaying each round's draw with levelHistory (level at draw time) reproduces every court exactly.",
+ "config": {
+  "rating": {
+   "start": {
+    "beginner": 900,
+    "standard": 980,
+    "intermediate": 1060,
+    "strong": 1140
+   },
+   "divisor": 1000,
+   "clip": [
+    0.15,
+    0.85
+   ],
+   "kSchedule": [
+    300,
+    300,
+    220,
+    220,
+    160
+   ],
+   "promotionRounds": 2
+  },
+  "rotation": {
+   "courts": 4,
+   "movementCap": 2,
+   "beginnerCourts": [
+    3,
+    4
+   ],
+   "maxCourtSpread": 150,
+   "cost": {
+    "per100Gap": 3,
+    "repeatPartner": 3,
+    "repeatOpponent": 1,
+    "strongVsBeginner": 2,
+    "strongWithBeginner": 6
+   }
+  }
+ },
+ "players": [
+  {
+   "i": 0,
+   "name": "Abinaya Ramachandran",
+   "level": "standard"
+  },
+  {
+   "i": 1,
+   "name": "Abitha Yoganathan",
+   "level": "standard"
+  },
+  {
+   "i": 2,
+   "name": "Byran Sathananthan",
+   "level": "standard"
+  },
+  {
+   "i": 3,
+   "name": "Divaahar Balachandran",
+   "level": "intermediate"
+  },
+  {
+   "i": 4,
+   "name": "Gowsikan Thavendran",
+   "level": "beginner"
+  },
+  {
+   "i": 5,
+   "name": "Jagatheeswari Manivasakan",
+   "level": "intermediate"
+  },
+  {
+   "i": 6,
+   "name": "Jebarson Ravikumar",
+   "level": "intermediate"
+  },
+  {
+   "i": 7,
+   "name": "Joe Suganthan",
+   "level": "intermediate"
+  },
+  {
+   "i": 8,
+   "name": "Kevin Mariyaseelan",
+   "level": "standard"
+  },
+  {
+   "i": 9,
+   "name": "Khairul binawangsalleh",
+   "level": "intermediate"
+  },
+  {
+   "i": 10,
+   "name": "Lakishan Sivakumar",
+   "level": "beginner"
+  },
+  {
+   "i": 11,
+   "name": "Liyani Siva",
+   "level": "standard"
+  },
+  {
+   "i": 12,
+   "name": "Mithesh Shanmuganathan",
+   "level": "intermediate"
+  },
+  {
+   "i": 13,
+   "name": "Momin Ali",
+   "level": "standard"
+  },
+  {
+   "i": 14,
+   "name": "Nandhithaa Nandakumar",
+   "level": "strong"
+  },
+  {
+   "i": 15,
+   "name": "Nikesh K",
+   "level": "intermediate"
+  },
+  {
+   "i": 16,
+   "name": "Santhosh Dayananthan",
+   "level": "standard"
+  },
+  {
+   "i": 17,
+   "name": "Saran T",
+   "level": "intermediate"
+  },
+  {
+   "i": 18,
+   "name": "Saranya Jeyachandran",
+   "level": "standard"
+  },
+  {
+   "i": 19,
+   "name": "Sarujan Siva",
+   "level": "strong"
+  },
+  {
+   "i": 20,
+   "name": "sarveshwar sureshkumar",
+   "level": "strong"
+  },
+  {
+   "i": 21,
+   "name": "Shiron Shivagumar",
+   "level": "beginner"
+  },
+  {
+   "i": 22,
+   "name": "Sihane Varatharaja",
+   "level": "beginner"
+  },
+  {
+   "i": 23,
+   "name": "Sobi s",
+   "level": "intermediate"
+  },
+  {
+   "i": 24,
+   "name": "Tharshana Manivannan",
+   "level": "standard"
+  },
+  {
+   "i": 25,
+   "name": "Thenu (stevie) Nadarajah",
+   "level": "standard"
+  },
+  {
+   "i": 26,
+   "name": "Vikaash Rasalingam",
+   "level": "standard"
+  },
+  {
+   "i": 27,
+   "name": "Vithuran Skandarajaah",
+   "level": "strong"
+  }
+ ],
+ "levelHistory": [
+  {
+   "player": 15,
+   "name": "Nikesh K",
+   "from": "beginner",
+   "to": "intermediate",
+   "changedBeforeRound": 3,
+   "note": "admin edit; drawn as beginner in R2, as intermediate from R4 (sat out R3)"
+  },
+  {
+   "player": 7,
+   "name": "Joe Suganthan",
+   "from": "standard",
+   "to": "intermediate",
+   "changedBeforeRound": 6,
+   "note": "admin edit; drawn as standard R1-R5"
+  }
+ ],
+ "joinedAtRound": {
+  "10": 2,
+  "11": 2,
+  "17": 2,
+  "18": 2
+ },
+ "withdrawn": [
+  {
+   "player": 26,
+   "name": "Vikaash Rasalingam",
+   "afterRound": 6
+  }
+ ],
+ "rounds": [
+  {
+   "round": 1,
+   "sitOuts": [
+    15,
+    3,
+    6,
+    12,
+    5,
+    9,
+    24,
+    14
+   ],
+   "matches": [
+    {
+     "court": 1,
+     "teamA": [
+      19,
+      23
+     ],
+     "teamB": [
+      20,
+      27
+     ]
+    },
+    {
+     "court": 2,
+     "teamA": [
+      0,
+      7
+     ],
+     "teamB": [
+      1,
+      2
+     ]
+    },
+    {
+     "court": 3,
+     "teamA": [
+      8,
+      25
+     ],
+     "teamB": [
+      13,
+      16
+     ]
+    },
+    {
+     "court": 4,
+     "teamA": [
+      26,
+      22
+     ],
+     "teamB": [
+      4,
+      21
+     ]
+    }
+   ]
+  },
+  {
+   "round": 2,
+   "sitOuts": [
+    13,
+    20,
+    7,
+    23,
+    18,
+    17,
+    0,
+    21,
+    26,
+    1,
+    8,
+    2
+   ],
+   "matches": [
+    {
+     "court": 1,
+     "teamA": [
+      27,
+      19
+     ],
+     "teamB": [
+      14,
+      3
+     ]
+    },
+    {
+     "court": 2,
+     "teamA": [
+      5,
+      12
+     ],
+     "teamB": [
+      6,
+      9
+     ]
+    },
+    {
+     "court": 3,
+     "teamA": [
+      25,
+      16
+     ],
+     "teamB": [
+      11,
+      24
+     ]
+    },
+    {
+     "court": 4,
+     "teamA": [
+      22,
+      4
+     ],
+     "teamB": [
+      10,
+      15
+     ]
+    }
+   ]
+  },
+  {
+   "round": 3,
+   "sitOuts": [
+    16,
+    25,
+    4,
+    11,
+    19,
+    27,
+    10,
+    22,
+    24,
+    12,
+    15,
+    14
+   ],
+   "matches": [
+    {
+     "court": 1,
+     "teamA": [
+      20,
+      9
+     ],
+     "teamB": [
+      6,
+      3
+     ]
+    },
+    {
+     "court": 2,
+     "teamA": [
+      17,
+      0
+     ],
+     "teamB": [
+      23,
+      5
+     ]
+    },
+    {
+     "court": 3,
+     "teamA": [
+      7,
+      18
+     ],
+     "teamB": [
+      8,
+      26
+     ]
+    },
+    {
+     "court": 4,
+     "teamA": [
+      13,
+      2
+     ],
+     "teamB": [
+      1,
+      21
+     ]
+    }
+   ]
+  },
+  {
+   "round": 4,
+   "sitOuts": [
+    23,
+    18,
+    2,
+    7,
+    13,
+    1,
+    9,
+    21,
+    20,
+    17,
+    0,
+    8
+   ],
+   "matches": [
+    {
+     "court": 1,
+     "teamA": [
+      27,
+      6
+     ],
+     "teamB": [
+      19,
+      15
+     ]
+    },
+    {
+     "court": 2,
+     "teamA": [
+      14,
+      25
+     ],
+     "teamB": [
+      26,
+      12
+     ]
+    },
+    {
+     "court": 3,
+     "teamA": [
+      3,
+      4
+     ],
+     "teamB": [
+      5,
+      11
+     ]
+    },
+    {
+     "court": 4,
+     "teamA": [
+      16,
+      24
+     ],
+     "teamB": [
+      22,
+      10
+     ]
+    }
+   ]
+  },
+  {
+   "round": 5,
+   "sitOuts": [
+    10,
+    11,
+    22,
+    16,
+    25,
+    4,
+    3,
+    19,
+    6,
+    5,
+    27,
+    26
+   ],
+   "matches": [
+    {
+     "court": 1,
+     "teamA": [
+      20,
+      17
+     ],
+     "teamB": [
+      9,
+      14
+     ]
+    },
+    {
+     "court": 2,
+     "teamA": [
+      8,
+      12
+     ],
+     "teamB": [
+      0,
+      15
+     ]
+    },
+    {
+     "court": 3,
+     "teamA": [
+      23,
+      2
+     ],
+     "teamB": [
+      13,
+      24
+     ]
+    },
+    {
+     "court": 4,
+     "teamA": [
+      7,
+      1
+     ],
+     "teamB": [
+      18,
+      21
+     ]
+    }
+   ]
+  },
+  {
+   "round": 6,
+   "sitOuts": [
+    1,
+    13,
+    9,
+    18,
+    21,
+    17,
+    12,
+    23,
+    24,
+    2,
+    14,
+    0
+   ],
+   "matches": [
+    {
+     "court": 1,
+     "teamA": [
+      20,
+      6
+     ],
+     "teamB": [
+      27,
+      8
+     ]
+    },
+    {
+     "court": 2,
+     "teamA": [
+      19,
+      3
+     ],
+     "teamB": [
+      15,
+      25
+     ]
+    },
+    {
+     "court": 3,
+     "teamA": [
+      26,
+      5
+     ],
+     "teamB": [
+      16,
+      11
+     ]
+    },
+    {
+     "court": 4,
+     "teamA": [
+      7,
+      22
+     ],
+     "teamB": [
+      4,
+      10
+     ]
+    }
+   ]
+  },
+  {
+   "round": 7,
+   "sitOuts": [
+    10,
+    15,
+    5,
+    27,
+    20,
+    6,
+    3,
+    16,
+    11,
+    25,
+    19
+   ],
+   "matches": [
+    {
+     "court": 1,
+     "teamA": [
+      9,
+      0
+     ],
+     "teamB": [
+      14,
+      17
+     ]
+    },
+    {
+     "court": 2,
+     "teamA": [
+      8,
+      7
+     ],
+     "teamB": [
+      12,
+      23
+     ]
+    },
+    {
+     "court": 3,
+     "teamA": [
+      2,
+      22
+     ],
+     "teamB": [
+      18,
+      1
+     ]
+    },
+    {
+     "court": 4,
+     "teamA": [
+      13,
+      21
+     ],
+     "teamB": [
+      24,
+      4
+     ]
+    }
+   ]
+  },
+  {
+   "round": 8,
+   "sitOuts": [
+    22,
+    7,
+    8,
+    4,
+    12,
+    21,
+    2,
+    18,
+    9,
+    17,
+    14
+   ],
+   "matches": [
+    {
+     "court": 1,
+     "teamA": [
+      27,
+      15
+     ],
+     "teamB": [
+      20,
+      25
+     ]
+    },
+    {
+     "court": 2,
+     "teamA": [
+      0,
+      3
+     ],
+     "teamB": [
+      6,
+      16
+     ]
+    },
+    {
+     "court": 3,
+     "teamA": [
+      19,
+      11
+     ],
+     "teamB": [
+      13,
+      23
+     ]
+    },
+    {
+     "court": 4,
+     "teamA": [
+      24,
+      10
+     ],
+     "teamB": [
+      5,
+      1
+     ]
+    }
+   ]
+  },
+  {
+   "round": 9,
+   "sitOuts": [],
+   "matches": [
+    {
+     "court": 1,
+     "teamA": [
+      20,
+      9
+     ],
+     "teamB": [
+      27,
+      14
+     ]
+    }
+   ]
+  }
+ ],
+ "results": [
+  {
+   "round": 1,
+   "court": 1,
+   "teamA": [
+    19,
+    23
+   ],
+   "teamB": [
+    20,
+    27
+   ],
+   "score": [
+    19,
+    25
+   ]
+  },
+  {
+   "round": 1,
+   "court": 2,
+   "teamA": [
+    0,
+    7
+   ],
+   "teamB": [
+    1,
+    2
+   ],
+   "score": [
+    23,
+    15
+   ]
+  },
+  {
+   "round": 1,
+   "court": 3,
+   "teamA": [
+    8,
+    25
+   ],
+   "teamB": [
+    13,
+    16
+   ],
+   "score": [
+    22,
+    15
+   ]
+  },
+  {
+   "round": 1,
+   "court": 4,
+   "teamA": [
+    26,
+    22
+   ],
+   "teamB": [
+    4,
+    21
+   ],
+   "score": [
+    20,
+    15
+   ]
+  },
+  {
+   "round": 2,
+   "court": 1,
+   "teamA": [
+    27,
+    19
+   ],
+   "teamB": [
+    14,
+    3
+   ],
+   "score": [
+    17,
+    17
+   ]
+  },
+  {
+   "round": 2,
+   "court": 2,
+   "teamA": [
+    5,
+    12
+   ],
+   "teamB": [
+    6,
+    9
+   ],
+   "score": [
+    13,
+    21
+   ]
+  },
+  {
+   "round": 2,
+   "court": 3,
+   "teamA": [
+    25,
+    16
+   ],
+   "teamB": [
+    11,
+    24
+   ],
+   "score": [
+    16,
+    13
+   ]
+  },
+  {
+   "round": 2,
+   "court": 4,
+   "teamA": [
+    22,
+    4
+   ],
+   "teamB": [
+    10,
+    15
+   ],
+   "score": [
+    14,
+    18
+   ]
+  },
+  {
+   "round": 3,
+   "court": 1,
+   "teamA": [
+    20,
+    9
+   ],
+   "teamB": [
+    6,
+    3
+   ],
+   "score": [
+    26,
+    10
+   ]
+  },
+  {
+   "round": 3,
+   "court": 2,
+   "teamA": [
+    17,
+    0
+   ],
+   "teamB": [
+    23,
+    5
+   ],
+   "score": [
+    17,
+    10
+   ]
+  },
+  {
+   "round": 3,
+   "court": 3,
+   "teamA": [
+    7,
+    18
+   ],
+   "teamB": [
+    8,
+    26
+   ],
+   "score": [
+    8,
+    16
+   ]
+  },
+  {
+   "round": 3,
+   "court": 4,
+   "teamA": [
+    13,
+    2
+   ],
+   "teamB": [
+    1,
+    21
+   ],
+   "score": [
+    16,
+    9
+   ]
+  },
+  {
+   "round": 4,
+   "court": 1,
+   "teamA": [
+    27,
+    6
+   ],
+   "teamB": [
+    19,
+    15
+   ],
+   "score": [
+    16,
+    14
+   ]
+  },
+  {
+   "round": 4,
+   "court": 2,
+   "teamA": [
+    14,
+    25
+   ],
+   "teamB": [
+    26,
+    12
+   ],
+   "score": [
+    14,
+    13
+   ]
+  },
+  {
+   "round": 4,
+   "court": 3,
+   "teamA": [
+    3,
+    4
+   ],
+   "teamB": [
+    5,
+    11
+   ],
+   "score": [
+    13,
+    13
+   ]
+  },
+  {
+   "round": 4,
+   "court": 4,
+   "teamA": [
+    16,
+    24
+   ],
+   "teamB": [
+    22,
+    10
+   ],
+   "score": [
+    17,
+    11
+   ]
+  },
+  {
+   "round": 5,
+   "court": 1,
+   "teamA": [
+    20,
+    17
+   ],
+   "teamB": [
+    9,
+    14
+   ],
+   "score": [
+    17,
+    20
+   ]
+  },
+  {
+   "round": 5,
+   "court": 2,
+   "teamA": [
+    8,
+    12
+   ],
+   "teamB": [
+    0,
+    15
+   ],
+   "score": [
+    16,
+    13
+   ]
+  },
+  {
+   "round": 5,
+   "court": 3,
+   "teamA": [
+    23,
+    2
+   ],
+   "teamB": [
+    13,
+    24
+   ],
+   "score": [
+    16,
+    17
+   ]
+  },
+  {
+   "round": 5,
+   "court": 4,
+   "teamA": [
+    7,
+    1
+   ],
+   "teamB": [
+    18,
+    21
+   ],
+   "score": [
+    17,
+    16
+   ]
+  },
+  {
+   "round": 6,
+   "court": 1,
+   "teamA": [
+    20,
+    6
+   ],
+   "teamB": [
+    27,
+    8
+   ],
+   "score": [
+    14,
+    24
+   ]
+  },
+  {
+   "round": 6,
+   "court": 2,
+   "teamA": [
+    19,
+    3
+   ],
+   "teamB": [
+    15,
+    25
+   ],
+   "score": [
+    19,
+    20
+   ]
+  },
+  {
+   "round": 6,
+   "court": 3,
+   "teamA": [
+    26,
+    5
+   ],
+   "teamB": [
+    16,
+    11
+   ],
+   "score": [
+    16,
+    20
+   ]
+  },
+  {
+   "round": 6,
+   "court": 4,
+   "teamA": [
+    7,
+    22
+   ],
+   "teamB": [
+    4,
+    10
+   ],
+   "score": [
+    25,
+    15
+   ]
+  },
+  {
+   "round": 7,
+   "court": 1,
+   "teamA": [
+    9,
+    0
+   ],
+   "teamB": [
+    14,
+    17
+   ],
+   "score": [
+    16,
+    20
+   ]
+  },
+  {
+   "round": 7,
+   "court": 2,
+   "teamA": [
+    8,
+    7
+   ],
+   "teamB": [
+    12,
+    23
+   ],
+   "score": [
+    24,
+    9
+   ]
+  },
+  {
+   "round": 7,
+   "court": 3,
+   "teamA": [
+    2,
+    22
+   ],
+   "teamB": [
+    18,
+    1
+   ],
+   "score": [
+    11,
+    12
+   ]
+  },
+  {
+   "round": 7,
+   "court": 4,
+   "teamA": [
+    13,
+    21
+   ],
+   "teamB": [
+    24,
+    4
+   ],
+   "score": [
+    13,
+    17
+   ]
+  },
+  {
+   "round": 8,
+   "court": 1,
+   "teamA": [
+    27,
+    15
+   ],
+   "teamB": [
+    20,
+    25
+   ],
+   "score": [
+    12,
+    21
+   ]
+  },
+  {
+   "round": 8,
+   "court": 2,
+   "teamA": [
+    0,
+    3
+   ],
+   "teamB": [
+    6,
+    16
+   ],
+   "score": [
+    17,
+    18
+   ]
+  },
+  {
+   "round": 8,
+   "court": 3,
+   "teamA": [
+    19,
+    11
+   ],
+   "teamB": [
+    13,
+    23
+   ],
+   "score": [
+    15,
+    9
+   ]
+  },
+  {
+   "round": 8,
+   "court": 4,
+   "teamA": [
+    24,
+    10
+   ],
+   "teamB": [
+    5,
+    1
+   ],
+   "score": [
+    7,
+    17
+   ]
+  }
+ ],
+ "expectedFinalRatings": {
+  "Abinaya Ramachandran": 1021,
+  "Abitha Yoganathan": 955,
+  "Byran Sathananthan": 975,
+  "Divaahar Balachandran": 1005,
+  "Gowsikan Thavendran": 896,
+  "Jagatheeswari Manivasakan": 989,
+  "Jebarson Ravikumar": 1020,
+  "Joe Suganthan": 1048,
+  "Kevin Mariyaseelan": 1138,
+  "Khairul binawangsalleh": 1154,
+  "Lakishan Sivakumar": 823,
+  "Liyani Siva": 994,
+  "Mithesh Shanmuganathan": 1003,
+  "Momin Ali": 970,
+  "Nandhithaa Nandakumar": 1159,
+  "Nikesh K": 1023,
+  "Santhosh Dayananthan": 1004,
+  "Saran T": 1094,
+  "Saranya Jeyachandran": 952,
+  "Sarujan Siva": 1109,
+  "sarveshwar sureshkumar": 1187,
+  "Shiron Shivagumar": 859,
+  "Sihane Varatharaja": 910,
+  "Sobi s": 953,
+  "Tharshana Manivannan": 968,
+  "Thenu (stevie) Nadarajah": 1053,
+  "Vikaash Rasalingam": 1033,
+  "Vithuran Skandarajaah": 1150
+ },
+ "grandFinal": {
+  "round": 9,
+  "teamA": [
+   20,
+   9
+  ],
+  "teamB": [
+   27,
+   14
+  ],
+  "score": null
+ },
+ "knownIssues": [
+  "Chained neighbour swaps: R4 Nandhithaa (#1) to court 2; R6 Joe (#10) to court 4 with three beginners (25-15); R8 Sarujan (#3) to court 3 (15-9)",
+  "Level edits not logged and they rewrite rating history",
+  "Substitutes recorded under the leaving players' names",
+  "Session left 'live' with registration open after the night"
+ ],
+ "substitutions": [
+  {
+   "round": 6,
+   "court": 3,
+   "playedAs": 26,
+   "name": "Vikaash Rasalingam",
+   "status": "left as recorded (organiser's decision)"
+  },
+  {
+   "round": 7,
+   "court": 2,
+   "playedAs": 8,
+   "playedBy": 20,
+   "name": "Kevin Mariyaseelan",
+   "status": "confirmed: sarveshwar sureshkumar played; flagged only, ratings not changed"
+  }
+ ]
+}
