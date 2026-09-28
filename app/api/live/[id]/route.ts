@@ -27,10 +27,10 @@ export async function GET(req: Request, { params }: Ctx) {
     const session = await loadSession(id)
     if (checkAdmin(req)) {
       const history = await previousLevels(id).catch(() => ({}))
-      return NextResponse.json({ session, meta, admin: true, history })
+      return NextResponse.json({ session, meta, admin: true, history, serverNow: Date.now() })
     }
     const { lastScoreAt: _s, lastActivityAt: _a, configVersion: _v, latestConfigVersion: _l, ...pub } = meta
-    return NextResponse.json({ session: redactSession(session), meta: pub, admin: false })
+    return NextResponse.json({ session: redactSession(session), meta: pub, admin: false, serverNow: Date.now() })
   } catch (e) {
     return NextResponse.json({ error: (e as Error).message }, { status: 404 })
   }

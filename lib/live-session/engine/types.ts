@@ -65,6 +65,16 @@ export interface Round {
   index: number; // 1-based
   matches: Match[];
   sitOuts: PlayerId[];
+  /** Round timer, stored server-side (see lib/live-session/timer.ts). */
+  timer?: TimerState;
+}
+
+/** Server-stored round timer. Fields documented in lib/live-session/timer.ts. */
+export interface TimerState {
+  startedAt: string | null;
+  durationS: number | null;
+  pausedAt: string | null;
+  remainingS: number | null;
 }
 
 export interface GameResult {

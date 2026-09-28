@@ -4,6 +4,8 @@ import { supabase } from '@/lib/supabase-client'
 import { T } from '../../../_components/theme'
 import { FormBadges, RatingTrend, LastDelta } from '../../../_components/Form'
 import { displayNames } from '@/lib/live-session/displayNames'
+import { clockOffset } from '@/lib/live-session/timer'
+import { RoundTimer } from '../../../_components/RoundTimer'
 
 /**
  * A player's own view. Reads /api/live/[id]/player/[playerId], which returns
@@ -15,17 +17,25 @@ export default function PlayerPage({ params }: { params: Promise<{ id: string; p
   const [view, setView] = useState<any>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [offset, setOffset] = useState(0)
 
   const refetch = useCallback(async () => {
+    const sentAt = Date.now()
     try {
       const res = await fetch(`/api/live/${id}/player/${playerId}`, { cache: 'no-store' })
       const json = await res.json()
       if (!res.ok) { setError(json.error ?? 'Could not load'); return }
       setView(json.player); setError(null)
+      if (typeof json.serverNow === 'number') setOffset(clockOffset(json.serverNow, sentAt, Date.now()))
     } catch (e) { setError((e as Error).message) } finally { setLoading(false) }
   }, [id, playerId])
 
   useEffect(() => { refetch() }, [refetch])
+  useEffect(() => {
+    const onShow = () => { if (document.visibilityState === 'visible') refetch() }
+    document.addEventListener('visibilitychange', onShow)
+    return () => document.removeEventListener('visibilitychange', onShow)
+  }, [refetch])
 
   useEffect(() => {
     let t: ReturnType<typeof setTimeout> | null = null
@@ -83,6 +93,12 @@ export default function PlayerPage({ params }: { params: Promise<{ id: string; p
       <h1 style={{ fontSize:34, fontWeight:900, margin:'4px 0 22px', letterSpacing:'-0.5px' }}>
         {view.name}
       </h1>
+
+      {round?.timer?.startedAt && (
+        <div style={{ marginBottom:14 }}>
+          <RoundTimer mode="player" timer={round.timer} round={round.index} offset={offset} />
+        </div>
+      )}
 
       <div style={{
         background: sittingNow ? T.infoDim : T.card,

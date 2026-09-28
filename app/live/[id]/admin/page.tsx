@@ -21,7 +21,7 @@ export default function LiveAdminPage({ params }: { params: Promise<{ id: string
   const { id } = use(params)
   const [secret, setSecret] = useState('')
   const [authed, setAuthed] = useState(false)
-  const { session, meta, error, loading, refetch, isAdmin, history } =
+  const { session, meta, error, loading, refetch, isAdmin, history, offset } =
     useLiveSession(id, authed ? secret : undefined, authed)
   const [leaving, setLeaving] = useState<any>(null)
   const [startFix, setStartFix] = useState<any>(null)
@@ -211,7 +211,13 @@ export default function LiveAdminPage({ params }: { params: Promise<{ id: string
         {tab === 'courts' && (
           <>
             <div style={{ marginBottom:12 }}>
-              <RoundTimer minutes={8} />
+              <RoundTimer mode="admin" timer={round?.timer} round={round?.index} offset={offset}
+                onAction={async (a) => {
+                  const res = await fetch(`/api/live/${id}/timer`, { method:'POST',
+                    headers: { 'Content-Type':'application/json', 'x-admin-secret': secret }, body: JSON.stringify(a) })
+                  const j = await res.json().catch(() => ({}))
+                  if (!res.ok) setMsg(j.error ?? 'Timer failed'); else refetch()
+                }} />
             </div>
 
             {round ? (

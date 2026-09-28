@@ -11,6 +11,7 @@ import type {
   Config, GameResult, Level, LevelChange, Pair, Player, Round, Match,
 } from './engine';
 import { normaliseConfig } from './engine/types';
+import { rowToTimer } from './timer';
 import type { Session } from './engine';
 
 // ── Row shapes ────────────────────────────────────────────────────────────────
@@ -105,6 +106,7 @@ export function rowsToSession(
   const ordered = [...games].sort((a, b) => a.round - b.round || a.court - b.court);
   const sitOutsByRound = new Map<number, string[]>();
   for (const r of rounds) sitOutsByRound.set(r.round, r.sit_outs ?? []);
+  const timerByRound = new Map(rounds.map((r) => [r.round, rowToTimer(r)]));
 
   // Every round that exists in either table, so a round with all players
   // sitting out (or one generated but not yet scored) is not silently dropped.
@@ -118,6 +120,7 @@ export function rowsToSession(
       .filter((g) => g.round === index)
       .map<Match>((g) => ({ court: g.court, teamA: g.team_a, teamB: g.team_b })),
     sitOuts: sitOutsByRound.get(index) ?? [],
+    ...(timerByRound.get(index) ? { timer: timerByRound.get(index) } : {}),
   }));
 
   const results: GameResult[] = ordered
