@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { loadSession, loadMeta, addPlayer, autoFinishIfStale, LiveSessionError } from '@/lib/live-session/actions'
 import { LEVELS } from '@/lib/live-session/levels'
+import { playerCookie } from '@/lib/live-session/pin'
+import { issuePin } from '@/lib/live-session/pinServer'
 
 type Ctx = { params: Promise<{ id: string }> }
 
@@ -11,8 +13,9 @@ type Ctx = { params: Promise<{ id: string }> }
  * you have to be in the hall to scan it. Guarded so it cannot be used to
  * vandalise a session:
  *   - only while the session is in 'setup' or 'live'
- *   - a name already present returns that player instead of erroring, so a
- *     re-scan on a new phone gets you back to your own page
+ *   - a name already present is refused: getting back to your page is by
+ *     this phone's cookie, your PIN ("Already registered?"), or the
+ *     organiser's link — never by typing a name
  *   - no level changes to an existing player; the organiser owns that
  */
 export async function POST(req: Request, { params }: Ctx) {
@@ -33,21 +36,23 @@ export async function POST(req: Request, { params }: Ctx) {
     const existing = Object.values(session.players)
       .find((p) => p.name.toLowerCase() === clean.toLowerCase())
     if (existing) {
-      // Re-entry by name lets a player on a new phone get back to their page —
-      // but it would also let anyone open anyone's page (and rating) just by
-      // typing their name. So it only works before the session starts, when
-      // ratings are still just starting levels. After that, the organiser
-      // hands out the player's own link from the Roster tab.
-      if (meta.status === 'setup') return NextResponse.json({ player_id: existing.id, existing: true })
-      return NextResponse.json(
-        { error: `${existing.name} is already registered — ask the organiser for your link` }, { status: 409 })
+      // Typing a name alone never opens someone's page any more (it used to
+      // during setup, which showed their starting rating and so their level).
+      // Their PIN, this phone's cookie, or the organiser's link does.
+      return NextResponse.json({ error: `${existing.name} is already registered. Tap “Already registered?” and enter your PIN.`,
+        alreadyRegistered: true }, { status: 409 })
     }
 
     if (!meta.registrationOpen)
       return NextResponse.json({ error: 'Registration is closed — ask the organiser to add you' }, { status: 403 })
 
     const playerId = await addPlayer(id, clean, level, { actor: 'player' })
-    return NextResponse.json({ player_id: playerId, existing: false }, { status: 201 })
+    const pin = await issuePin(playerId)
+    // Shown once: only its hash is kept. The cookie lets this phone (in this
+    // browser) straight back in; the PIN covers every other case.
+    const res = NextResponse.json({ player_id: playerId, existing: false, pin }, { status: 201 })
+    res.cookies.set(playerCookie(id, playerId, new URL(req.url).protocol === 'https:'))
+    return res
   } catch (e) {
     const status = e instanceof LiveSessionError ? 400 : 500
     return NextResponse.json({ error: (e as Error).message }, { status })

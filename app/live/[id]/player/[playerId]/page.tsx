@@ -6,6 +6,7 @@ import { FormBadges, RatingTrend, LastDelta } from '../../../_components/Form'
 import { displayNames } from '@/lib/live-session/displayNames'
 import { clockOffset } from '@/lib/live-session/timer'
 import { RoundTimer } from '../../../_components/RoundTimer'
+import { KeepMyPage } from '../../../_components/KeepMyPage'
 
 /**
  * A player's own view. Reads /api/live/[id]/player/[playerId], which returns
@@ -151,6 +152,8 @@ export default function PlayerPage({ params }: { params: Promise<{ id: string; p
           <FormBadges playerId={playerId} results={view.results} />
         </div>
       </div>
+
+      <KeepMyPage sessionId={id} playerId={playerId} />
     </div>
   )
 }
