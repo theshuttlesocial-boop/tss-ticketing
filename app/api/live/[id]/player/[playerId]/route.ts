@@ -15,7 +15,7 @@ export async function GET(_req: Request, { params }: Ctx) {
     const session = await loadSession(id)
     const view = playerView(session, playerId)
     if (!view) return NextResponse.json({ error: 'Player not in this session' }, { status: 404 })
-    return NextResponse.json({ player: view })
+    return NextResponse.json({ player: view, serverNow: Date.now() })
   } catch (e) {
     return NextResponse.json({ error: (e as Error).message }, { status: 404 })
   }

@@ -4,10 +4,36 @@ export type PlayerId = string;
 
 export type Level = 'beginner' | 'standard' | 'intermediate' | 'strong';
 
+/**
+ * A level change made during a session. Applies from `beforeRound` onwards:
+ * games before it are rated as they were played. Moving up lifts the rating
+ * to at least the new level's starting number, moving down caps it there
+ * (`adjust: false` records the change without touching the rating — used for
+ * edits recorded after the fact).
+ */
+export interface LevelChange {
+  from: Level;
+  to: Level;
+  beforeRound: number;
+  by: 'admin' | 'system';
+  reason?: string;
+  at?: string;
+  adjust?: boolean;
+}
+
 export interface Player {
   id: PlayerId;
   name: string;
+  /** Current level: drives the beginner/strong rules and is shown to admins. */
   level: Level;
+  /** Level that sets the starting rating. Defaults to `level`. */
+  startLevel?: Level;
+  /** What the player picked when they registered. Never changes. */
+  registeredLevel?: Level;
+  /** Mid-session level changes, oldest first. */
+  levelChanges?: LevelChange[];
+  /** Admin has locked the level: automatic review never moves it. */
+  levelLocked?: boolean;
   /** Current performance rating. */
   rating: number;
   /** Rated games played this session. */
@@ -16,9 +42,9 @@ export interface Player {
   sitOuts: number;
   /** Did they sit out the most recent round? */
   satLastRound: boolean;
-  /** Beginner flag — enforces the court ceiling. Clears on promotion, never re-applies. */
+  /** Beginner flag: current level is beginner. Enforces the court ceiling and the strong/beginner rule. */
   beginner: boolean;
-  /** Consecutive rounds the player's rating has been above the session median (for promotion). */
+  /** Unused since level review replaced median promotion; kept for the column. */
   aboveMedianStreak: number;
   /** Rating history, one entry per rated game, for the TV/player page. */
   history: number[];
@@ -39,6 +65,16 @@ export interface Round {
   index: number; // 1-based
   matches: Match[];
   sitOuts: PlayerId[];
+  /** Round timer, stored server-side (see lib/live-session/timer.ts). */
+  timer?: TimerState;
+}
+
+/** Server-stored round timer. Fields documented in lib/live-session/timer.ts. */
+export interface TimerState {
+  startedAt: string | null;
+  durationS: number | null;
+  pausedAt: string | null;
+  remainingS: number | null;
 }
 
 export interface GameResult {
@@ -48,6 +84,12 @@ export interface GameResult {
   teamB: Pair;
   scoreA: number;
   scoreB: number;
+  /**
+   * Players whose rating this game must not touch — an unknown substitute
+   * played in their place. The game still rates the other three, using the
+   * listed player's rating as the stand-in.
+   */
+  unrated?: PlayerId[];
 }
 
 export interface RatingConfig {
@@ -59,8 +101,8 @@ export interface RatingConfig {
   clip: [number, number];
   /** K by games already played: index 0 = 1st game. Last value repeats. */
   kSchedule: number[];
-  /** Promotion: consecutive rounds above median required. */
-  promotionRounds: number;
+  /** Legacy: median promotion, replaced by `levels` review. Ignored. */
+  promotionRounds?: number;
 }
 
 export interface RotationConfig {
@@ -92,6 +134,34 @@ export interface RotationConfig {
   };
   /** Neighbour-swap: don't widen a court's rating spread past this. */
   maxCourtSpread: number;
+  /**
+   * Neighbour-swap: furthest a swap may leave anyone from their natural block
+   * (rating rank among those playing, in fours). null = no limit (pre-v2).
+   */
+  maxSwapDistance: number | null;
+  /** Neighbour-swap: never widen a court's team gap by more than this. null = no limit (pre-v2). */
+  maxSwapGapIncrease: number | null;
+  /**
+   * With only one or two flagged beginners in a round, pair each with the
+   * highest-rated non-strong player on their court, as a partner.
+   */
+  loneBeginnerPairing: boolean;
+}
+
+/** Automatic level review, run after every scored round. */
+export interface LevelsConfig {
+  /** Off = suggest only: an admin taps Apply. Moves down to beginner always apply. */
+  autoApply: boolean;
+  /** Games a player must have played (not by a substitute) before a move. */
+  minGames: number;
+  /** Scored rounds in a row their rating must sit in another band. */
+  roundsInBand: number;
+  /** How far inside the new band the rating must be, so levels don't flip back. */
+  hysteresis: number;
+  /** Flag a game won by this many points or more. */
+  mismatchMargin: number;
+  /** ... or whose point share missed the expected share by this much. */
+  mismatchShare: number;
 }
 
 export interface FinalsConfig {
@@ -106,7 +176,15 @@ export interface Config {
   rating: RatingConfig;
   rotation: RotationConfig;
   finals: FinalsConfig;
+  levels: LevelsConfig;
 }
+
+/**
+ * Bump when DEFAULT_CONFIG changes in a way sessions should know about.
+ * 1 = sessions created before versioning. 2 = swap limits, lone-beginner
+ * pairing, level review.
+ */
+export const CONFIG_VERSION = 2;
 
 export const DEFAULT_CONFIG: Config = {
   rating: {
@@ -117,7 +195,6 @@ export const DEFAULT_CONFIG: Config = {
     divisor: 1000,
     clip: [0.15, 0.85],
     kSchedule: [300, 300, 220, 220, 160],
-    promotionRounds: 2,
   },
   rotation: {
     courts: 4,
@@ -128,6 +205,30 @@ export const DEFAULT_CONFIG: Config = {
     // reverse. per100Gap was 0.5.
     cost: { repeatPartner: 3, repeatOpponent: 1, per100Gap: 3, strongWithBeginner: 6, strongVsBeginner: 2 },
     maxCourtSpread: 150,
+    maxSwapDistance: 1,
+    maxSwapGapIncrease: 25,
+    loneBeginnerPairing: true,
   },
   finals: { finalists: 4, minGames: 4, shrink: 2, base: 1000 },
+  // Suggest-only by default: one night is too few games to move levels
+  // reliably (see scripts/simulate-rotation.ts). Moves down to beginner
+  // still apply on their own.
+  levels: { autoApply: false, minGames: 3, roundsInBand: 2, hysteresis: 30, mismatchMargin: 12, mismatchShare: 0.2 },
 };
+
+/**
+ * A stored config with every key it predates filled from the defaults.
+ * Stored values win, so an old session keeps replaying exactly as it was
+ * played; only settings it never had take today's defaults.
+ */
+export function normaliseConfig(stored: any): Config {
+  const c = stored ?? {};
+  const d = DEFAULT_CONFIG;
+  return {
+    ...c,
+    rating: { ...d.rating, ...c.rating, start: { ...d.rating.start, ...c.rating?.start } },
+    rotation: { ...d.rotation, ...c.rotation, cost: { ...d.rotation.cost, ...c.rotation?.cost } },
+    finals: { ...d.finals, ...c.finals },
+    levels: { ...d.levels, ...c.levels },
+  };
+}

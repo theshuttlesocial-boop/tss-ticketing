@@ -6,21 +6,25 @@ import { FormBadges } from '../../_components/Form'
 import { RoundTimer } from '../../_components/RoundTimer'
 import { ScoreCard } from './ScoreCard'
 import { RosterEditor } from './RosterEditor'
-import { ScoreLog, LogRow } from './ScoreLog'
+import { ScoreLog, PastGames, LogRow } from './ScoreLog'
+import { Attention } from './Attention'
+import { LeaveSheet, StartLevelSheet } from './Sheets'
 import { standings, grandFinal, roundComplete } from '@/lib/live-session/engine'
 import type { Config, Level } from '@/lib/live-session/engine'
 import { LEVEL_INFO, LEVELS } from '@/lib/live-session/levels'
 import { displayNames } from '@/lib/live-session/displayNames'
 
-type Tab = 'courts' | 'standings' | 'roster' | 'settings'
+type Tab = 'courts' | 'standings' | 'roster' | 'log' | 'settings'
 const SLOTS = ['A.a', 'A.b', 'B.a', 'B.b'] as const
 
 export default function LiveAdminPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const [secret, setSecret] = useState('')
   const [authed, setAuthed] = useState(false)
-  const { session, meta, error, loading, refetch, isAdmin } =
+  const { session, meta, error, loading, refetch, isAdmin, history, offset } =
     useLiveSession(id, authed ? secret : undefined, authed)
+  const [leaving, setLeaving] = useState<any>(null)
+  const [startFix, setStartFix] = useState<any>(null)
   const [tab, setTab] = useState<Tab>('courts')
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
@@ -50,7 +54,7 @@ export default function LiveAdminPage({ params }: { params: Promise<{ id: string
       .catch(() => {})
   }, [authed, isAdmin, id, secret, session])
 
-  const call = async (path: string, init: RequestInit = {}) => {
+  const call = async (path: string, init: RequestInit = {}): Promise<any> => {
     setBusy(true); setMsg(null)
     try {
       const res = await fetch(path, {
@@ -58,11 +62,21 @@ export default function LiveAdminPage({ params }: { params: Promise<{ id: string
         headers: { 'Content-Type':'application/json', 'x-admin-secret': secret, ...(init.headers ?? {}) },
       })
       const json = await res.json().catch(() => ({}))
+      // A change that breaks a rule (e.g. Strong + beginner on one court) is
+      // refused once with a question; confirming resends it with force.
+      if (res.status === 409 && json.needsConfirm && typeof init.body === 'string') {
+        setBusy(false)
+        if (!confirm(json.error)) return null
+        return call(path, { ...init, body: JSON.stringify({ ...JSON.parse(init.body), force: true }) })
+      }
       if (!res.ok) { setMsg(json.error ?? `Failed (${res.status})`); return null }
       await refetch()
       return json
     } finally { setBusy(false) }
   }
+  const post = (sub: string, body: unknown, method = 'POST') =>
+    call(`/api/live/${id}${sub}`, { method, body: JSON.stringify(body) })
+  const finish = () => { if (confirm('Finish this session? Registration closes and the QR code stops opening it.')) post('', { status: 'finished' }, 'PATCH') }
 
   const round = session?.rounds[session.rounds.length - 1]
   const finalAt = (session?.config as any)?.finalRound as number | undefined
@@ -76,6 +90,7 @@ export default function LiveAdminPage({ params }: { params: Promise<{ id: string
     try { return { table: standings(session.players, session.results, session.config.finals), tableError: null } }
     catch (e) { return { table: [], tableError: (e as Error).message } }
   }, [session])
+  const finalScored = !!finalAt && !!session?.results.some((r) => r.round === finalAt)
   const final = useMemo(() => {
     if (!table.length || !session) return null
     try { return grandFinal(table.filter((t) => !gone.has(t.id)), session.config.finals) } catch { return null }
@@ -108,6 +123,7 @@ export default function LiveAdminPage({ params }: { params: Promise<{ id: string
     { id:'courts', label:'Courts' },
     { id:'standings', label:'Standings' },
     { id:'roster', label:'Roster' },
+    { id:'log', label:'Log' },
     { id:'settings', label:'Settings' },
   ]
 
@@ -147,6 +163,8 @@ export default function LiveAdminPage({ params }: { params: Promise<{ id: string
           onLevel={(pid: string, level: string) => call(`/api/live/${id}/players`, { method:'PATCH', body: JSON.stringify({ player_id: pid, level }) })}
           onRemove={(pid: string) => call(`/api/live/${id}/players?player_id=${pid}`, { method:'DELETE' })}
           onStart={async () => { const ok = await call(`/api/live/${id}`, { method:'PATCH', body: JSON.stringify({ status:'live' }) }); if (ok) setTab('courts') }}
+          onUseLatest={() => { if (confirm('Switch this session to the latest default settings?')) post('', { useLatest: true }, 'PATCH') }}
+          history={history}
         />
       )}
 
@@ -158,7 +176,8 @@ export default function LiveAdminPage({ params }: { params: Promise<{ id: string
       }}>
         {TABS.map(t => (
           <button key={t.id} onClick={() => setTab(t.id)} style={{
-            flex:'1 0 auto', padding:'10px 14px', fontSize:14, fontWeight:700,
+            // Five tabs must fit a 375px-wide phone without sideways scrolling.
+            flex:'1 1 0', minWidth:0, padding:'12px 4px', fontSize:13, fontWeight:700,
             borderRadius:'10px 10px 0 0', cursor:'pointer', fontFamily:'inherit',
             border:`1px solid ${tab===t.id ? T.border : 'transparent'}`, borderBottom:'none',
             background: tab===t.id ? T.card : 'transparent',
@@ -172,11 +191,33 @@ export default function LiveAdminPage({ params }: { params: Promise<{ id: string
         {msg && <div style={{ background:T.dangerDim, border:`1px solid ${T.danger}`, color:T.danger,
           padding:'10px 14px', borderRadius:8, marginBottom:12, fontSize:14 }}>{msg}</div>}
 
+        {meta?.status === 'finished' && (
+          <div style={{ background:T.card, border:`1px solid ${T.border}`, borderRadius:12, padding:'12px 14px',
+            marginBottom:12, fontSize:14, display:'flex', gap:10, alignItems:'center' }}>
+            <span style={{ flex:1 }}><strong>Session finished.</strong> Registration is closed and the QR code no longer opens it. You can still correct scores and who played.</span>
+            <button style={{ ...btn(), minHeight:44 }} disabled={busy}
+              onClick={() => { if (confirm('Reopen this session?')) post('', { status: 'live' }, 'PATCH') }}>Reopen</button>
+          </div>
+        )}
+
+        {meta && (
+          <Attention session={session} meta={meta} busy={busy} nm={nm} gone={gone}
+            post={(b) => post('/attention', b)}
+            patchPlayer={(b) => post('/players', b, 'PATCH')}
+            onFinish={finish} />
+        )}
+
         {/* ── COURTS ───────────────────────────────────────────── */}
         {tab === 'courts' && (
           <>
             <div style={{ marginBottom:12 }}>
-              <RoundTimer minutes={8} />
+              <RoundTimer mode="admin" timer={round?.timer} round={round?.index} offset={offset}
+                onAction={async (a) => {
+                  const res = await fetch(`/api/live/${id}/timer`, { method:'POST',
+                    headers: { 'Content-Type':'application/json', 'x-admin-secret': secret }, body: JSON.stringify(a) })
+                  const j = await res.json().catch(() => ({}))
+                  if (!res.ok) setMsg(j.error ?? 'Timer failed'); else refetch()
+                }} />
             </div>
 
             {round ? (
@@ -231,12 +272,18 @@ export default function LiveAdminPage({ params }: { params: Promise<{ id: string
               </div>
             )}
 
-            {inFinal && (
+            {inFinal && !finalScored && (
               <div style={{ marginTop:14, background:T.card, border:`1px solid ${T.warning}`, borderRadius:12,
                 padding:'12px 14px', fontSize:14 }}>
-                🏆 <strong>Grand final in progress.</strong> Enter its score, then finish the session in Settings.
+                🏆 <strong>Grand final in progress.</strong> Enter its score, then finish the session.
                 Undo the round if the final was drawn by mistake.
               </div>
+            )}
+            {finalScored && meta?.status === 'live' && (
+              <button style={{ ...btn('primary'), width:'100%', marginTop:14, padding:'18px', fontSize:17, fontWeight:800 }}
+                disabled={busy} onClick={finish}>
+                🏁 Finish session
+              </button>
             )}
 
             {/* actions */}
@@ -328,7 +375,15 @@ export default function LiveAdminPage({ params }: { params: Promise<{ id: string
           </>
         )}
 
-        {tab === 'standings' && <ScoreLog log={log} unavailable={logUnavailable} />}
+        {/* ── LOG ──────────────────────────────────────────────── */}
+        {tab === 'log' && (
+          <>
+            <ScoreLog log={log} unavailable={logUnavailable} />
+            <PastGames session={session} nm={nm} busy={busy}
+              onSwap={(round, court, slot, pid) => post('/override', { round, court, slot, player_id: pid })}
+              onUnknown={(round, court, pid, on) => post('/override', { round, court, player_id: pid, unknown: on })} />
+          </>
+        )}
 
         {/* ── ROSTER ───────────────────────────────────────────── */}
         {tab === 'roster' && (
@@ -342,7 +397,14 @@ export default function LiveAdminPage({ params }: { params: Promise<{ id: string
               onRename={(pid, name) => call(`/api/live/${id}/players`, { method:'PATCH', body: JSON.stringify({ player_id: pid, name }) })}
               onLevel={(pid, level) => call(`/api/live/${id}/players`, { method:'PATCH', body: JSON.stringify({ player_id: pid, level }) })}
               onRemove={(pid) => call(`/api/live/${id}/players?player_id=${pid}`, { method:'DELETE' })}
-              playerLink={(pid) => `${origin}/live/${id}/player/${pid}`} />
+              playerLink={(pid) => `${origin}/live/${id}/player/${pid}`}
+              history={history}
+              live={{
+                nextRound: session.rounds.length + 1,
+                onLeave: (p) => setLeaving(p),
+                onLock: (pid, locked) => post('/players', { player_id: pid, locked }, 'PATCH'),
+                onStartLevel: (p) => setStartFix(p),
+              }} />
             {gone.size > 0 && (
               <div style={{ marginTop:14 }}>
                 <div style={{ fontSize:12, color:T.muted, marginBottom:6 }}>
@@ -368,23 +430,51 @@ export default function LiveAdminPage({ params }: { params: Promise<{ id: string
             <RegistrationToggle open={!!meta?.registrationOpen} busy={busy}
               onToggle={(open) => call(`/api/live/${id}`, { method:'PATCH', body: JSON.stringify({ registrationOpen: open }) })} />
             <SessionQr sessionId={id} origin={origin} />
+            <ConfigVersion meta={meta} />
             <TuningPanel config={session.config} busy={busy}
               onApply={cfg => call(`/api/live/${id}`, { method:'PATCH', body: JSON.stringify({ config: cfg }) })} />
             <section style={{ ...cardStyle, padding:14 }}>
               <h2 style={{ fontSize:15, margin:'0 0 8px' }}>End session</h2>
               <p style={{ color:T.muted, fontSize:13, margin:'0 0 10px' }}>
-                Closes the session so the printed QR stops pointing at it.
+                Closes registration so the printed QR stops pointing at it. A session still open 6 hours after its last
+                score finishes itself.
               </p>
-              <button style={{ ...btn('danger'), width:'100%' }} disabled={busy}
-                onClick={() => { if (confirm('Finish this session?')) call(`/api/live/${id}/final`, { method:'PATCH' }) }}>
-                Finish session
-              </button>
+              {meta?.status === 'finished'
+                ? <button style={{ ...btn(), width:'100%', minHeight:44 }} disabled={busy}
+                    onClick={() => { if (confirm('Reopen this session?')) post('', { status: 'live' }, 'PATCH') }}>Reopen session</button>
+                : <button style={{ ...btn('danger'), width:'100%', minHeight:44 }} disabled={busy} onClick={finish}>Finish session</button>}
             </section>
           </>
         )}
       </div>
 
       </>}
+
+      {leaving && (
+        <LeaveSheet leaver={leaving} busy={busy}
+          onCourt={!!round && round.matches.some((m) => [m.teamA.a, m.teamA.b, m.teamB.a, m.teamB.b].includes(leaving.id))
+            && !session.results.some((r) => r.round === round.index && [r.teamA.a, r.teamA.b, r.teamB.a, r.teamB.b].includes(leaving.id))}
+          candidates={Object.values(session.players).filter((p: any) => p.id !== leaving.id && !gone.has(p.id))
+            .sort((a: any, b: any) => a.name.localeCompare(b.name)) as any}
+          onClose={() => setLeaving(null)}
+          onConfirm={async (substitute) => {
+            const ok = await post('/players', { player_id: leaving.id, leave: true, substitute }, 'PATCH')
+            if (ok) setLeaving(null)
+          }} />
+      )}
+      {startFix && (
+        <StartLevelSheet player={startFix} busy={busy} onClose={() => setStartFix(null)}
+          preview={async (level) => {
+            const res = await fetch(`/api/live/${id}/players`, { method:'PATCH', cache:'no-store',
+              headers: { 'Content-Type':'application/json', 'x-admin-secret': secret },
+              body: JSON.stringify({ player_id: startFix.id, start_level: level, preview: true }) })
+            return res.ok ? res.json() : null
+          }}
+          apply={async (level) => {
+            const ok = await post('/players', { player_id: startFix.id, start_level: level }, 'PATCH')
+            if (ok) setStartFix(null)
+          }} />
+      )}
 
       {/* review-before-generate */}
       {review && round && (
@@ -525,12 +615,18 @@ function SessionQr({ sessionId, origin }: { sessionId: string; origin: string })
 }
 
 function TuningPanel({ config, onApply, busy }: {
-  config: Config; onApply: (c: Config) => void; busy: boolean
+  config: Config; onApply: (c: any) => void; busy: boolean
 }) {
   const [k, setK] = useState(config.rating.kSchedule.join(','))
   const [start, setStart] = useState(LEVELS.map(l => config.rating.start[l as Level]).join(','))
   const [clip, setClip] = useState(config.rating.clip.join(','))
-  const [promo, setPromo] = useState(String(config.rating.promotionRounds))
+  const r = config.rotation, lv = config.levels
+  const [swapDist, setSwapDist] = useState(r.maxSwapDistance == null ? '' : String(r.maxSwapDistance))
+  const [swapGap, setSwapGap] = useState(r.maxSwapGapIncrease == null ? '' : String(r.maxSwapGapIncrease))
+  const [lone, setLone] = useState(!!r.loneBeginnerPairing)
+  const [auto, setAuto] = useState(!!lv.autoApply)
+  const [review, setReview] = useState([lv.minGames, lv.roundsInBand, lv.hysteresis].join(','))
+  const [mis, setMis] = useState([lv.mismatchMargin, lv.mismatchShare].join(','))
   const [cap, setCap] = useState(config.rotation.movementCap == null ? '' : String(config.rotation.movementCap))
   const [begCourts, setBegCourts] = useState(config.rotation.beginnerCourts.join(','))
   const [cost, setCost] = useState([config.rotation.cost.repeatPartner, config.rotation.cost.repeatOpponent, config.rotation.cost.per100Gap].join(','))
@@ -543,24 +639,39 @@ function TuningPanel({ config, onApply, busy }: {
     const [b, st, im, sg] = nums(start)
     const [cl, ch] = nums(clip)
     const [rp, ro, pg] = nums(cost)
+    const [mg, rib, hy] = nums(review)
+    const [mm, ms] = nums(mis)
+    // Only the settings on this panel are sent; the server rebuilds the rest
+    // from its defaults (lib/live-session/config.ts).
     onApply({
-      ...config,
-      rating: { ...config.rating, kSchedule: nums(k),
+      courts: config.rotation.courts,
+      rating: { kSchedule: nums(k),
         start: { beginner:b, standard:st, intermediate:im, strong:sg },
-        clip: [cl, ch], promotionRounds: Number(promo) },
-      rotation: { ...config.rotation,
+        clip: [cl, ch] },
+      rotation: {
         movementCap: cap.trim() === '' ? null : Number(cap),
         beginnerCourts: nums(begCourts),
         cost: { repeatPartner: rp, repeatOpponent: ro, per100Gap: pg,
           strongWithBeginner: Number(swb), strongVsBeginner: Number(svb) },
-        maxCourtSpread: Number(spread) },
-    })
+        maxCourtSpread: Number(spread),
+        maxSwapDistance: swapDist.trim() === '' ? null : Number(swapDist),
+        maxSwapGapIncrease: swapGap.trim() === '' ? null : Number(swapGap),
+        loneBeginnerPairing: lone },
+      levels: { autoApply: auto, minGames: mg, roundsInBand: rib, hysteresis: hy, mismatchMargin: mm, mismatchShare: ms },
+    } as any)
   }
 
   const Field = ({ label, value, set }: { label: string; value: string; set: (v: string) => void }) => (
     <label style={{ display:'block', marginBottom:9 }}>
       <span style={{ fontSize:11, color:T.muted, display:'block', marginBottom:3 }}>{label}</span>
       <input style={inp({ padding:'8px 10px', fontSize:13 })} value={value} onChange={e => set(e.target.value)} />
+    </label>
+  )
+
+  const Check = ({ label, value, set }: { label: string; value: boolean; set: (v: boolean) => void }) => (
+    <label style={{ display:'flex', gap:8, alignItems:'flex-start', marginBottom:10, cursor:'pointer', fontSize:13 }}>
+      <input type="checkbox" checked={value} onChange={e => set(e.target.checked)} style={{ marginTop:2, width:18, height:18 }} />
+      <span>{label}</span>
     </label>
   )
 
@@ -572,13 +683,19 @@ function TuningPanel({ config, onApply, busy }: {
           <Field label="K schedule (games 1,2,3,4,5+)" value={k} set={setK} />
           <Field label="Start: beginner / standard / intermediate / strong" value={start} set={setStart} />
           <Field label="Expected-share clip" value={clip} set={setClip} />
-          <Field label="Promotion rounds above median" value={promo} set={setPromo} />
           <Field label="Movement cap (blank = none)" value={cap} set={setCap} />
           <Field label="Beginner courts" value={begCourts} set={setBegCourts} />
           <Field label="Cost: repeat partner / repeat opponent / per 100 pts" value={cost} set={setCost} />
           <Field label="Cost: strong paired with beginner" value={swb} set={setSwb} />
           <Field label="Cost: strong facing beginner" value={svb} set={setSvb} />
           <Field label="Max court spread for swaps" value={spread} set={setSpread} />
+          <Field label="Swaps: furthest from rating block, in courts (blank = no limit)" value={swapDist} set={setSwapDist} />
+          <Field label="Swaps: max team-gap increase, rating points (blank = no limit)" value={swapGap} set={setSwapGap} />
+          <Check label="Lone beginner partners the best non-Strong player on court" value={lone} set={setLone} />
+          <div style={{ fontSize:12, fontWeight:800, color:T.muted, margin:'14px 0 8px' }}>LEVEL REVIEW</div>
+          <Check label="Move levels automatically (off = suggest only; moves down to Beginner always apply)" value={auto} set={setAuto} />
+          <Field label="Min games / rounds in the other band / points inside it" value={review} set={setReview} />
+          <Field label="Flag a game: margin of / point share off by" value={mis} set={setMis} />
           <button style={{ ...btn('primary'), width:'100%' }} disabled={busy} onClick={apply}>
             Apply &amp; recompute
           </button>
@@ -588,6 +705,28 @@ function TuningPanel({ config, onApply, busy }: {
   )
 }
 
+
+/** Which default settings this session was built from. */
+function ConfigVersion({ meta, onUseLatest, busy }: { meta: any; onUseLatest?: () => void; busy?: boolean }) {
+  if (!meta?.latestConfigVersion) return null
+  const v = meta.configVersion as number | null
+  const current = v === meta.latestConfigVersion
+  return (
+    <section style={{ ...cardStyle, padding:14 }}>
+      <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+        <div style={{ flex:1, fontSize:13 }}>
+          <strong style={{ fontSize:15 }}>Settings v{v ?? 1}</strong>
+          <span style={{ color: current ? T.muted : T.warning, display:'block', marginTop:2 }}>
+            {current ? 'Latest defaults.' : `Older than the latest defaults (v${meta.latestConfigVersion}).`}
+          </span>
+        </div>
+        {!current && onUseLatest && (
+          <button style={{ ...btn('primary'), minHeight:44 }} disabled={busy} onClick={onUseLatest}>Use latest settings</button>
+        )}
+      </div>
+    </section>
+  )
+}
 
 function RegistrationToggle({ open, busy, onToggle }: { open: boolean; busy: boolean; onToggle: (open: boolean) => void }) {
   return (
@@ -608,7 +747,7 @@ function RegistrationToggle({ open, busy, onToggle }: { open: boolean; busy: boo
 }
 
 /** Shown while the session is in 'setup': live registrations, then Start. */
-function RegistrationView({ id, origin, session, meta, busy, msg, onToggle, onAdd, onRename, onLevel, onRemove, onStart }: any) {
+function RegistrationView({ id, origin, session, meta, busy, msg, onToggle, onAdd, onRename, onLevel, onRemove, onStart, onUseLatest, history }: any) {
   const n = Object.keys(session.players).length
   const courts = session.config.rotation.courts
   return (
@@ -616,10 +755,11 @@ function RegistrationView({ id, origin, session, meta, busy, msg, onToggle, onAd
       {msg && <div style={{ background:T.dangerDim, border:`1px solid ${T.danger}`, color:T.danger,
         padding:'10px 14px', borderRadius:8, marginBottom:12, fontSize:14 }}>{msg}</div>}
       <RegistrationToggle open={meta.registrationOpen} busy={busy} onToggle={onToggle} />
+      <ConfigVersion meta={meta} onUseLatest={onUseLatest} busy={busy} />
       <SessionQr sessionId={id} origin={origin} />
       <section style={{ ...cardStyle, padding:14 }}>
         <h2 style={{ fontSize:15, margin:'0 0 10px' }}>Players</h2>
-        <RosterEditor players={Object.values(session.players).filter((p: any) => !(((session.config as any)?.withdrawn ?? []) as string[]).includes(p.id)) as any} onCourtIds={new Set()} busy={busy} arrivalOrder
+        <RosterEditor players={Object.values(session.players).filter((p: any) => !(((session.config as any)?.withdrawn ?? []) as string[]).includes(p.id)) as any} onCourtIds={new Set()} busy={busy} arrivalOrder history={history}
           onAdd={onAdd} onRename={onRename} onLevel={onLevel} onRemove={onRemove} />
       </section>
       <button style={{ ...btn('primary'), width:'100%', padding:'15px', fontSize:16 }}

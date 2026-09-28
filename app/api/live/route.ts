@@ -4,7 +4,8 @@ import { createLiveSession, LiveSessionError } from '@/lib/live-session/actions'
 
 export async function POST(req: Request) {
   if (!checkAdmin(req)) return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
-  const { name, roster, seed, config, courts } = await req.json()
+  // Any `config` in the body is ignored: the server builds it (lib/live-session/config.ts).
+  const { name, roster, seed, courts } = await req.json()
 
   if (!name) return NextResponse.json({ error: 'name required' }, { status: 400 })
   // An empty roster is allowed: players can self-register via the QR. At least
@@ -24,7 +25,7 @@ export async function POST(req: Request) {
     // A fixed default seed made every week's round 1 identical for the same
     // regulars (same people sat out first, same pairings). Random per session.
     const sessionSeed = Number.isInteger(seed) ? seed : Math.floor(Math.random() * 1_000_000_000)
-    const id = await createLiveSession(name, roster ?? [], sessionSeed, config, courts)
+    const id = await createLiveSession(name, roster ?? [], sessionSeed, courts)
     return NextResponse.json({ id }, { status: 201 })
   } catch (e) {
     const status = e instanceof LiveSessionError ? 400 : 500

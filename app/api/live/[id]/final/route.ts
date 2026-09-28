@@ -16,7 +16,7 @@ export async function POST(req: Request, { params }: Ctx) {
   }
 }
 
-/** Close the session so /live/latest stops resolving to it. */
+/** Finish the session: closes registration, /live/latest stops resolving to it. */
 export async function PATCH(req: Request, { params }: Ctx) {
   if (!checkAdmin(req)) return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
   const { id } = await params

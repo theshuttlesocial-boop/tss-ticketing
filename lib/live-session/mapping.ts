@@ -8,8 +8,10 @@
  * supabase/migrations/005_live_sessions.sql.
  */
 import type {
-  Config, GameResult, Level, Pair, Player, Round, Match,
+  Config, GameResult, Level, LevelChange, Pair, Player, Round, Match,
 } from './engine';
+import { normaliseConfig } from './engine/types';
+import { rowToTimer } from './timer';
 import type { Session } from './engine';
 
 // ── Row shapes ────────────────────────────────────────────────────────────────
@@ -35,6 +37,11 @@ export interface LivePlayerRow {
   beginner: boolean;
   above_median_streak: number;
   history: number[];
+  /** Migration 011. Absent on rows read before it ran: fall back to `level`. */
+  registered_level?: Level | null;
+  start_level?: Level | null;
+  level_history?: LevelChange[] | null;
+  level_locked?: boolean | null;
 }
 
 export interface LiveGameRow {
@@ -46,6 +53,8 @@ export interface LiveGameRow {
   team_b: Pair;
   score_a: number | null;
   score_b: number | null;
+  /** Migration 011: players an unknown substitute played for in this game. */
+  unrated?: string[] | null;
 }
 
 export interface LiveRoundRow {
@@ -66,9 +75,14 @@ export function rowToPlayer(r: LivePlayerRow): Player {
     games: r.games,
     sitOuts: r.sit_outs,
     satLastRound: r.sat_last_round,
-    beginner: r.beginner,
+    // The flag follows the current level; the stored column is only a copy.
+    beginner: r.level === 'beginner',
     aboveMedianStreak: r.above_median_streak,
     history: (r.history ?? []).map(Number),
+    startLevel: r.start_level ?? r.level,
+    registeredLevel: r.registered_level ?? r.level,
+    levelChanges: r.level_history ?? [],
+    levelLocked: !!r.level_locked,
   };
 }
 
@@ -92,6 +106,7 @@ export function rowsToSession(
   const ordered = [...games].sort((a, b) => a.round - b.round || a.court - b.court);
   const sitOutsByRound = new Map<number, string[]>();
   for (const r of rounds) sitOutsByRound.set(r.round, r.sit_outs ?? []);
+  const timerByRound = new Map(rounds.map((r) => [r.round, rowToTimer(r)]));
 
   // Every round that exists in either table, so a round with all players
   // sitting out (or one generated but not yet scored) is not silently dropped.
@@ -105,6 +120,7 @@ export function rowsToSession(
       .filter((g) => g.round === index)
       .map<Match>((g) => ({ court: g.court, teamA: g.team_a, teamB: g.team_b })),
     sitOuts: sitOutsByRound.get(index) ?? [],
+    ...(timerByRound.get(index) ? { timer: timerByRound.get(index) } : {}),
   }));
 
   const results: GameResult[] = ordered
@@ -116,9 +132,10 @@ export function rowsToSession(
       teamB: g.team_b,
       scoreA: g.score_a as number,
       scoreB: g.score_b as number,
+      ...(g.unrated?.length ? { unrated: g.unrated } : {}),
     }));
 
-  return { config: session.config, players: byId, rounds: roundList, results, seed: session.seed };
+  return { config: normaliseConfig(session.config), players: byId, rounds: roundList, results, seed: session.seed };
 }
 
 // ── Engine -> rows ────────────────────────────────────────────────────────────
@@ -152,6 +169,10 @@ export function playerToRow(p: Player, sessionId: string): LivePlayerRow {
     session_id: sessionId,
     name: p.name,
     level: p.level,
+    registered_level: p.registeredLevel ?? p.level,
+    start_level: p.startLevel ?? p.level,
+    level_history: p.levelChanges ?? [],
+    level_locked: !!p.levelLocked,
     ...playerToDerivedRow(p),
     ...playerToRotationRow(p),
   } as LivePlayerRow;

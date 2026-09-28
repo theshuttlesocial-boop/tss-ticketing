@@ -78,7 +78,9 @@ export function applyGame(
 ): Record<string, Player> {
   const { deltas } = rateGame(players, g, cfg);
   const next: Record<string, Player> = { ...players };
+  const skip = new Set(g.unrated ?? []);
   for (const id of Object.keys(deltas)) {
+    if (skip.has(id)) continue; // an unknown substitute played this slot
     const p = players[id];
     const rating = p.rating + deltas[id];
     next[id] = { ...p, rating, games: p.games + 1, history: [...p.history, rating] };
@@ -94,22 +96,28 @@ export function median(xs: number[]): number {
 }
 
 /**
- * End-of-round promotion check. A beginner whose rating has been above the
- * session median for `promotionRounds` consecutive rounds loses the flag —
- * permanently for this session.
+ * Level bands: the boundary between two neighbouring levels is halfway between
+ * their starting ratings. With 900/980/1060/1140:
+ * beginner < 940 ≤ standard < 1020 ≤ intermediate < 1100 ≤ strong.
  */
-export function applyPromotion(
-  players: Record<string, Player>,
-  cfg: RatingConfig = DEFAULT_CONFIG.rating,
-): Record<string, Player> {
-  const med = median(Object.values(players).map((p) => p.rating));
-  const next: Record<string, Player> = {};
-  for (const p of Object.values(players)) {
-    if (!p.beginner) { next[p.id] = p; continue; }
-    const streak = p.rating > med ? p.aboveMedianStreak + 1 : 0;
-    next[p.id] = { ...p, aboveMedianStreak: streak, beginner: streak < cfg.promotionRounds };
-  }
-  return next;
+const ORDER: Player['level'][] = ['beginner', 'standard', 'intermediate', 'strong'];
+
+export function bandBounds(level: Player['level'], start: Record<Player['level'], number>): [number, number] {
+  const i = ORDER.indexOf(level);
+  const lo = i === 0 ? -Infinity : (start[ORDER[i - 1]] + start[level]) / 2;
+  const hi = i === ORDER.length - 1 ? Infinity : (start[level] + start[ORDER[i + 1]]) / 2;
+  return [lo, hi];
+}
+
+export function bandOf(rating: number, start: Record<Player['level'], number>): Player['level'] {
+  for (const l of ORDER) { const [lo, hi] = bandBounds(l, start); if (rating >= lo && rating < hi) return l; }
+  return 'strong';
+}
+
+/** How far a rating sits outside a level's band (0 = inside). */
+export function outsideBand(rating: number, level: Player['level'], start: Record<Player['level'], number>): number {
+  const [lo, hi] = bandBounds(level, start);
+  return rating < lo ? lo - rating : rating >= hi ? rating - hi : 0;
 }
 
 export function makePlayer(id: string, name: string, level: Player['level'], cfg: RatingConfig = DEFAULT_CONFIG.rating): Player {
@@ -120,5 +128,9 @@ export function makePlayer(id: string, name: string, level: Player['level'], cfg
     beginner: level === 'beginner',
     aboveMedianStreak: 0,
     history: [],
+    startLevel: level,
+    registeredLevel: level,
+    levelChanges: [],
+    levelLocked: false,
   };
 }

@@ -2,8 +2,29 @@
 import { useRef, useState, useEffect } from 'react'
 import { T, inp, btn } from '../../_components/theme'
 import { LEVEL_INFO, LEVELS } from '@/lib/live-session/levels'
+import type { LevelChange } from '@/lib/live-session/engine'
+import type { PreviousLevel } from '../../_hooks/useLiveSession'
 
-type P = { id: string; name: string; level: string; rating: number }
+type P = {
+  id: string; name: string; level: string; rating: number
+  startLevel?: string; registeredLevel?: string; levelChanges?: LevelChange[]; levelLocked?: boolean
+}
+const L = (l?: string) => (l ? l[0].toUpperCase() + l.slice(1) : '?')
+
+/** Mid-session controls. Absent during registration, where edits are simple corrections. */
+export type LiveControls = {
+  nextRound: number
+  onLeave: (p: P) => void
+  onLock: (id: string, locked: boolean) => void
+  onStartLevel: (p: P) => void
+}
+
+/** "Last session (Session 89): moved Standard → Intermediate" — admin only. */
+function previousLine(h?: PreviousLevel) {
+  if (!h) return null
+  const moved = h.moves.length ? `moved ${h.moves.map((m) => `${L(m.from)} → ${L(m.to)}`).join(', ')}` : `played as ${L(h.level)}`
+  return `Last session (${h.session}): ${moved}`
+}
 
 /**
  * Roster list used both during registration and mid-session.
@@ -13,8 +34,10 @@ type P = { id: string; name: string; level: string; rating: number }
  * watch people register one by one. The server has no join timestamp, so the
  * order is tracked in the page: after a reload it starts alphabetical.
  */
-export function RosterEditor({ players, onCourtIds, busy, arrivalOrder, onAdd, onRename, onLevel, onRemove, playerLink }: {
+export function RosterEditor({ players, onCourtIds, busy, arrivalOrder, onAdd, onRename, onLevel, onRemove, playerLink, history = {}, live }: {
   players: P[]
+  history?: Record<string, PreviousLevel>
+  live?: LiveControls
   onCourtIds: Set<string>
   busy: boolean
   arrivalOrder?: boolean
@@ -70,7 +93,8 @@ export function RosterEditor({ players, onCourtIds, busy, arrivalOrder, onAdd, o
         {list.map((p) => (
           <Row key={p.id} p={p} busy={busy} onCourt={onCourtIds.has(p.id)}
             fresh={!!seenAt.current[p.id] && Date.now() - seenAt.current[p.id] < 8000}
-            onRename={onRename} onLevel={onLevel} onRemove={onRemove} link={playerLink?.(p.id)} />
+            onRename={onRename} onLevel={onLevel} onRemove={onRemove} link={playerLink?.(p.id)}
+            prev={previousLine(history[p.id])} live={live} />
         ))}
         {list.length === 0 && (
           <div style={{ color:T.muted, fontSize:14, padding:'14px 0' }}>
@@ -96,8 +120,9 @@ export function RosterEditor({ players, onCourtIds, busy, arrivalOrder, onAdd, o
   )
 }
 
-function Row({ p, busy, onCourt, fresh, onRename, onLevel, onRemove, link }: {
+function Row({ p, busy, onCourt, fresh, onRename, onLevel, onRemove, link, prev, live }: {
   p: P; busy: boolean; onCourt: boolean; fresh: boolean; link?: string
+  prev: string | null; live?: LiveControls
   onRename: (id: string, name: string) => void
   onLevel: (id: string, level: string) => void
   onRemove: (id: string) => void
@@ -140,16 +165,45 @@ function Row({ p, busy, onCourt, fresh, onRename, onLevel, onRemove, link }: {
         )}
       </div>
       <div style={{ display:'grid', gridTemplateColumns:'1fr auto', gap:8 }}>
-        <select aria-label={`Level for ${p.name}`} style={inp({ padding:'7px 9px', fontSize:13 })} value={p.level} disabled={busy}
-          onChange={(e) => onLevel(p.id, e.target.value)}>
-          {LEVELS.map((l) => <option key={l} value={l}>{l[0].toUpperCase() + l.slice(1)}</option>)}
+        <select aria-label={`Level for ${p.name}`} style={inp({ padding:'10px 9px', fontSize:15 })} value={p.level} disabled={busy}
+          onChange={(e) => {
+            const to = e.target.value
+            if (live && !confirm(`Move ${p.name} to ${L(to)} from round ${live.nextRound}?\n\nGames already played stay as they were. Their rating is moved to at least/at most ${L(to)}'s starting number.`)) {
+              e.target.value = p.level; return
+            }
+            onLevel(p.id, to)
+          }}>
+          {LEVELS.map((l) => <option key={l} value={l}>{L(l)}</option>)}
         </select>
-        <button style={{ ...btn('danger'), padding:'7px 12px', fontSize:13 }}
-          disabled={busy || onCourt}
-          title={onCourt ? 'On court — swap them out or undo the round first' : 'Remove'}
-          aria-label={`Remove ${p.name}`}
-          onClick={() => { if (confirm(`Remove ${p.name}? If they have already played, they are marked as left: their games still count and they are not drawn again.`)) onRemove(p.id) }}>Remove</button>
+        {live ? (
+          <button style={{ ...btn('danger'), padding:'10px 12px', fontSize:14, minHeight:44 }} disabled={busy}
+            aria-label={`${p.name} is leaving`} onClick={() => live.onLeave(p)}>Left</button>
+        ) : (
+          <button style={{ ...btn('danger'), padding:'7px 12px', fontSize:13 }}
+            disabled={busy || onCourt}
+            title={onCourt ? 'On court — swap them out or undo the round first' : 'Remove'}
+            aria-label={`Remove ${p.name}`}
+            onClick={() => { if (confirm(`Remove ${p.name}? If they have already played, they are marked as left: their games still count and they are not drawn again.`)) onRemove(p.id) }}>Remove</button>
+        )}
       </div>
+      {live && (
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginTop:8 }}>
+          <button style={{ ...btn(p.levelLocked ? 'primary' : 'ghost'), fontSize:13, minHeight:44 }} disabled={busy}
+            aria-pressed={!!p.levelLocked}
+            onClick={() => live.onLock(p.id, !p.levelLocked)}>{p.levelLocked ? '🔒 Level locked' : 'Lock level'}</button>
+          <button style={{ ...btn(), fontSize:13, minHeight:44 }} disabled={busy}
+            onClick={() => live.onStartLevel(p)}>Starting level…</button>
+        </div>
+      )}
+      {(p.registeredLevel && p.registeredLevel !== p.level) || (p.levelChanges ?? []).length || prev ? (
+        <div style={{ fontSize:12, color:T.muted, marginTop:7, lineHeight:1.5 }}>
+          {p.registeredLevel && p.registeredLevel !== p.level && <div>Picked {L(p.registeredLevel)}{p.startLevel && p.startLevel !== p.registeredLevel ? ` · starting level ${L(p.startLevel)}` : ''}</div>}
+          {(p.levelChanges ?? []).map((c, i) => (
+            <div key={i}>{L(c.from)} → {L(c.to)} from R{c.beforeRound} · {c.by === 'system' ? 'automatic' : 'admin'}</div>
+          ))}
+          {prev && <div>{prev}</div>}
+        </div>
+      ) : null}
     </div>
   )
 }

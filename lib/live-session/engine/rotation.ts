@@ -189,25 +189,61 @@ export function splitCost(court: Player[], teamA: Pair, teamB: Pair, hist: Histo
   return { cost, repeats: partnerRep + oppRep };
 }
 
-export function chooseSplit(court: Player[], hist: History, cfg: RotationConfig): SplitChoice {
+/**
+ * Lone-beginner pairing: with only one or two flagged beginners in the round,
+ * each partners the highest-rated non-strong player on their court (two
+ * beginners on one court go on opposite sides, so each gets one of the top
+ * two). A beginner carried by the court's best player gets a real game
+ * instead of being the obvious target. Returns null when the court has no
+ * beginner, or no split satisfies it.
+ */
+export function loneBeginnerSplits(sorted: Player[], splits: [Pair, Pair][]): [Pair, Pair][] | null {
+  const begs = sorted.filter((p) => p.beginner);
+  if (begs.length === 0 || begs.length > 2) return null;
+  const top = sorted.find((p) => !p.beginner && p.level !== 'strong');
+  const partnerOf = (split: [Pair, Pair], id: PlayerId) => {
+    for (const t of split) { if (t.a === id) return t.b; if (t.b === id) return t.a; }
+    return null;
+  };
+  const ok = splits.filter((sp) => {
+    if (begs.length === 2) return partnerOf(sp, begs[0].id) !== begs[1].id;
+    return !!top && partnerOf(sp, begs[0].id) === top.id;
+  });
+  return ok.length ? ok : null;
+}
+
+export function chooseSplit(court: Player[], hist: History, cfg: RotationConfig, loneBeginner = false): SplitChoice {
   const sorted = [...court].sort((a, b) => b.rating - a.rating);
+  const all = splitsOf(sorted);
+  const candidates = (loneBeginner && loneBeginnerSplits(sorted, all)) || all;
   let best: SplitChoice | null = null;
-  for (const [teamA, teamB] of splitsOf(sorted)) {
+  for (const [teamA, teamB] of candidates) {
     const { cost, repeats } = splitCost(sorted, teamA, teamB, hist, cfg);
     if (!best || cost < best.cost - 1e-9) best = { teamA, teamB, cost, repeats }; // strict < keeps balanced on ties
   }
   return best!;
 }
 
+/** Rating gap between the two pairs of a split. */
+export function splitGap(court: Player[], split: { teamA: Pair; teamB: Pair }): number {
+  const r = (id: PlayerId) => court.find((p) => p.id === id)!.rating;
+  return Math.abs((r(split.teamA.a) + r(split.teamA.b)) / 2 - (r(split.teamB.a) + r(split.teamB.b)) / 2);
+}
+
+/** True when the round qualifies for lone-beginner pairing. */
+export const loneBeginnerRound = (active: Player[], cfg: RotationConfig) => {
+  const n = active.filter((p) => p.beginner).length;
+  return !!cfg.loneBeginnerPairing && n >= 1 && n <= 2;
+};
+
 /* ------------------------------------------------------------------ */
 /* Hard rule — a strong never shares a court with a beginner            */
 /* ------------------------------------------------------------------ */
 
 /**
- * "Beginner" here is the beginner FLAG, not the registered level: the same flag
- * the court ceiling uses. It clears on promotion (rating above the session
- * median for `promotionRounds` rounds), after which the player has shown they
- * belong on a normal court.
+ * "Beginner" here is the beginner FLAG: the player's CURRENT level is
+ * beginner at draw time. A player moved up by level review (or by an admin)
+ * loses it from the next draw; one moved down to beginner gains it.
  */
 const isStrong = (p: Player) => p.level === 'strong';
 const isBeg = (p: Player) => p.beginner;
@@ -409,9 +445,40 @@ export function constructSeparated(courts: Player[][]): Player[][] {
 
 const spread = (c: Player[]) => Math.max(...c.map((p) => p.rating)) - Math.min(...c.map((p) => p.rating));
 
-export function neighbourSwap(courts: Player[][], hist: History, cfg: RotationConfig): Player[][] {
+/**
+ * Neighbour-swap pass: trade players between adjacent courts to cut repeated
+ * partners/opponents. Limits, tracked across the whole pass rather than per
+ * swap (Session 89 showed chained swaps carrying one player several courts):
+ *
+ *  - nobody ends up more than `maxSwapDistance` (1) court from their natural block — their
+ *    rating rank among those playing, in fours — unless they started further
+ *    away (the beginner ceiling can do that) and the swap brings them closer;
+ *  - neither court's team gap may grow by more than `maxSwapGapIncrease` over
+ *    what it was before the pass;
+ *  - a non-beginner never moves onto a court holding flagged beginners unless
+ *    that court is their natural block.
+ */
+export function neighbourSwap(courts: Player[][], hist: History, cfg: RotationConfig, loneBeginner = false): Player[][] {
   const out = courts.map((c) => [...c]);
-  const repeatsOf = (c: Player[]) => chooseSplit(c, hist, cfg).repeats;
+  const split = (c: Player[]) => chooseSplit(c, hist, cfg, loneBeginner);
+  const repeatsOf = (c: Player[]) => split(c).repeats;
+  const gapOf = (c: Player[]) => splitGap(c, split(c));
+
+  const ranked = courts.flat().sort((a, b) => b.rating - a.rating);
+  const natural = new Map(ranked.map((p, i) => [p.id, Math.floor(i / 4)]));
+  const startGap = courts.map(gapOf);
+  const maxGapUp = cfg.maxSwapGapIncrease ?? Infinity;
+  const maxDist = cfg.maxSwapDistance;
+
+  const placementOk = (p: Player, from: number, to: number, dest: Player[]) => {
+    if (maxDist == null) return true;
+    const home = natural.get(p.id)!;
+    const d = Math.abs(to - home);
+    if (d > maxDist && d >= Math.abs(from - home)) return false;
+    if (!p.beginner && dest.some((x) => x.beginner) && home !== to) return false;
+    return true;
+  };
+
   let improved = true, guard = 0;
   while (improved && guard++ < 20) {
     improved = false;
@@ -428,6 +495,8 @@ export function neighbourSwap(courts: Player[][], hist: History, cfg: RotationCo
           const lower = out[ci + 1].map((x, k) => (k === j ? p : x));
           if (spread(upper) > cfg.maxCourtSpread || spread(lower) > cfg.maxCourtSpread) continue;
           if (courtViolates(upper) || courtViolates(lower)) continue;
+          if (!placementOk(q, ci + 1, ci, upper) || !placementOk(p, ci, ci + 1, lower)) continue;
+          if (gapOf(upper) - startGap[ci] > maxGapUp || gapOf(lower) - startGap[ci + 1] > maxGapUp) continue;
           const after = repeatsOf(upper) + repeatsOf(lower);
           if (after < before && (!bestSwap || after < bestSwap.after)) bestSwap = { i, j, after };
         }
@@ -463,6 +532,8 @@ export function solveRound(
   previousRounds: Round[],
   cfg: RotationConfig = DEFAULT_CONFIG.rotation,
   seed = 1,
+  /** Replay/test hook: use these sit-outs instead of choosing them. */
+  fixedSitOuts?: PlayerId[],
 ): SolveResult {
   const rand = rng(seed + previousRounds.length * 7919);
   const players = Object.values(playersMap);
@@ -473,9 +544,8 @@ export function solveRound(
   const courtsUsed = Math.min(cfg.courts, Math.floor(players.length / 4));
   if (courtsUsed < 1) throw new Error('need at least 4 players to draw a round');
 
-  const fair = chooseSitOuts(players, courtsUsed, rand);
-  const aligned = alignUpperGroup(players, fair, courtsUsed);
-  const sitOuts = repairSitOutsForSeparation(players, aligned);
+  const sitOuts = fixedSitOuts ?? repairSitOutsForSeparation(
+    players, alignUpperGroup(players, chooseSitOuts(players, courtsUsed, rand), courtsUsed));
   const sitSet = new Set(sitOuts);
   const active = players.filter((p) => !sitSet.has(p.id));
 
@@ -483,12 +553,13 @@ export function solveRound(
   courts = applyBeginnerCeiling(courts, cfg);
   courts = applyMovementCap(courts, hist, cfg);
   courts = applyBeginnerCeiling(courts, cfg); // cap pass must not undo the ceiling
-  courts = neighbourSwap(courts, hist, cfg);
+  const lone = loneBeginnerRound(active, cfg);
+  courts = neighbourSwap(courts, hist, cfg, lone);
   // Hard rule last, so no later pass can undo it.
   const sep = enforceSeparation(courts, cfg);
   courts = sep.courts;
 
-  const diag = courts.map((c, i) => ({ court: i + 1, players: c, split: chooseSplit(c, hist, cfg) }));
+  const diag = courts.map((c, i) => ({ court: i + 1, players: c, split: chooseSplit(c, hist, cfg, lone) }));
   const matches: Match[] = diag.map((d) => ({ court: d.court, teamA: d.split.teamA, teamB: d.split.teamB }));
   return { round: { index: previousRounds.length + 1, matches, sitOuts }, courts: diag, separationViolations: sep.violations };
 }

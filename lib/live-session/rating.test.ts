@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { expectedShare, kFor, rateGame, makePlayer, applyPromotion, median, confidenceRating, DEFAULT_CONFIG, Player } from './engine';
+import { expectedShare, kFor, rateGame, makePlayer, median, confidenceRating, DEFAULT_CONFIG, Player } from './engine';
 
 const roster = (ratings: number[], beginners: number[] = []): Record<string, Player> => {
   const m: Record<string, Player> = {};
@@ -57,16 +57,11 @@ test('doc example: no court multiplier — opponent strength carries it (+48 vs 
   assert.equal(Math.round(c4), 5);
 });
 
-test('promotion: clears after 2 consecutive rounds above median, never re-applies', () => {
-  let ps = roster([1100, 1000, 950, 850, 800], [1]); // p1 is a flagged beginner sitting above median
+test('median promotion is gone: the beginner flag follows the current level only', () => {
+  // Level review (engine/review.ts) replaced "above the median for 2 rounds".
+  let ps = roster([1100, 1000, 950, 850, 800], [1]);
   assert.equal(median(Object.values(ps).map((p) => p.rating)), 950);
-  ps = applyPromotion(ps);
-  assert.equal(ps.p1.beginner, true, 'one round is not enough');
-  ps = applyPromotion(ps);
-  assert.equal(ps.p1.beginner, false, 'promoted after two');
-  ps = { ...ps, p1: { ...ps.p1, rating: 700 } };
-  ps = applyPromotion(ps);
-  assert.equal(ps.p1.beginner, false, 'never re-applies');
+  assert.equal(ps.p1.beginner, true);
 });
 
 test('confidence-adjusted rating shrinks toward 1000 for few games', () => {
