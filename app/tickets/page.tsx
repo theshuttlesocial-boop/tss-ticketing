@@ -728,6 +728,11 @@ export default function TicketsPage() {
         </main>
 
         <footer style={{borderTop:`1px solid ${T.border}`,padding:'24px 20px'}}>
+          {/* Already booked? Self-service spot release */}
+          <div style={{maxWidth:640,margin:'0 auto 16px',padding:'12px 16px',background:T.card,border:`1px solid ${T.border}`,borderRadius:10,display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap' as const,gap:8}}>
+            <span style={{fontSize:13,color:T.muted}}>Already booked but can't make it?</span>
+            <a href="/release" style={{fontSize:13,fontWeight:700,color:T.accent,textDecoration:'none',whiteSpace:'nowrap' as const}}>Release your spot →</a>
+          </div>
           <div style={{maxWidth:640,margin:'0 auto',display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap' as const,gap:12}}>
             <div style={{fontSize:12,color:T.muted}}>
               The Shuttle Social · <a href="https://instagram.com/theshuttlesocial" target="_blank" rel="noopener" style={{color:T.accent,textDecoration:'none'}}>@theshuttlesocial</a> · <a href="https://tiktok.com/@theshuttlesocial" target="_blank" rel="noopener" style={{color:T.accent,textDecoration:'none'}}>TikTok</a>

@@ -8,6 +8,8 @@ const card = '#0f180f'
 const text = '#edf5ed'
 const muted = '#6b8a6b'
 
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://tickets.theshuttlesocial.com'
+
 function emailWrap(content: string) {
   return `<!DOCTYPE html><html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width"/></head>
 <body style="margin:0;padding:0;background:${bg};font-family:system-ui,sans-serif;">
@@ -76,7 +78,7 @@ export function generateICS(session: {
     `DTEND:${toICSDate(end)}`,
     `SUMMARY:${escapeICS(session.title)}`,
     `LOCATION:${escapeICS(session.venue)}`,
-    `DESCRIPTION:${escapeICS(`Booking ref: ${session.bookingRef}\nView your tickets: https://tickets.theshuttlesocial.com`)}`,
+    `DESCRIPTION:${escapeICS(`Booking ref: ${session.bookingRef}\nView your tickets: ${APP_URL}\n\nCan't make it? Release your spot: ${APP_URL}/release`)}`,
     'BEGIN:VALARM',
     'ACTION:DISPLAY',
     'DESCRIPTION:Reminder',
@@ -145,6 +147,11 @@ export async function sendBookingConfirmation({ to, name, bookingRef, sessionTit
       <div style="color:${muted};font-size:13px;line-height:1.7;">
         Please bring this email or your booking ref <strong style="color:${text};">${bookingRef}</strong> to the session.<br/>
         Questions? Message us on Instagram <strong style="color:${brandColor};">@theshuttlesocial</strong>
+      </div>
+      <div style="margin-top:20px;padding:12px 14px;background:#142014;border-radius:8px;text-align:center;">
+        <div style="color:${muted};font-size:12px;margin-bottom:6px;">Can't make it?</div>
+        <a href="${APP_URL}/release" style="color:${brandColor};font-size:13px;font-weight:700;text-decoration:none;">Release your spot &rarr;</a>
+        <div style="color:${muted};font-size:11px;margin-top:6px;line-height:1.5;">Free up your place for the waitlist. You're only refunded once someone takes it.</div>
       </div>
     `)
   })
@@ -290,4 +297,117 @@ export async function sendApologyRefundEmail({ to, name, bookingRef, sessionTitl
       </div>
     `)
   })
+}
+
+// ── Release confirmation (routes B credit / C card) ─────────────────────────
+// Sent to the releaser after they open their spot to the waitlist. Explicit
+// that no money moves until someone actually takes the spot.
+export async function sendReleaseConfirmation({ to, name, bookingRef, sessionTitle, sessionDate, spaces, refundPreference }: {
+  to: string; name: string; bookingRef: string; sessionTitle: string; sessionDate: string
+  spaces: number; refundPreference: 'credit' | 'card'
+}) {
+  if (!resend) return
+  const fmtDate = (d: string) => new Date(d).toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'})
+  const routeLine = refundPreference === 'credit'
+    ? "If someone takes it, you'll receive store credit for the full value, valid 90 days."
+    : "If someone takes it, we'll refund your card for the released spot(s)."
+  await resend.emails.send({
+    from: process.env.EMAIL_FROM ?? 'bookings@theshuttlesocial.com',
+    to,
+    subject: `Spot released - ${sessionTitle} - Ref ${bookingRef}`,
+    html: emailWrap(`
+      <div style="color:${brandColor};font-size:24px;font-weight:900;margin-bottom:4px;">Your spot is now open</div>
+      <div style="color:${muted};font-size:14px;margin-bottom:24px;">${sessionTitle} - ${fmtDate(sessionDate)}</div>
+      <div style="background:${card};border:1px solid #1e3220;border-radius:12px;padding:20px;margin-bottom:16px;">
+        <table style="width:100%;border-collapse:collapse;">
+          ${infoRow('Booking ref', bookingRef, true)}
+          ${infoRow('Spaces released', String(spaces))}
+          ${infoRow('You chose', refundPreference === 'credit' ? 'Credit for a future session' : 'Refund to card')}
+        </table>
+      </div>
+      <div style="color:${muted};font-size:13px;line-height:1.8;">
+        Hi <strong style="color:${text};">${name}</strong>,<br/><br/>
+        Your spot is now open to the waitlist. <strong style="color:${text};">You'll only be refunded once someone takes it.</strong> ${routeLine}<br/><br/>
+        If nobody claims it before the session starts, we can't refund it and your original booking stands.<br/><br/>
+        Questions? Message us <strong style="color:${brandColor};">@theshuttlesocial</strong>
+      </div>
+    `)
+  })
+}
+
+// ── Name-change transfer: ask the incoming person to confirm ────────────────
+export async function sendTransferConfirmRequest({ toEmail, toName, fromName, sessionTitle, sessionDate, sessionTime, venue, confirmUrl }: {
+  toEmail: string; toName: string; fromName: string; sessionTitle: string
+  sessionDate: string; sessionTime: string; venue: string; confirmUrl: string
+}) {
+  if (!resend) return
+  const fmtDate = (d: string) => new Date(d).toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'})
+  await resend.emails.send({
+    from: process.env.EMAIL_FROM ?? 'bookings@theshuttlesocial.com',
+    to: toEmail,
+    subject: `${fromName} wants to give you their spot - ${sessionTitle}`,
+    html: emailWrap(`
+      <div style="color:${brandColor};font-size:24px;font-weight:900;margin-bottom:4px;">You've been offered a spot!</div>
+      <div style="color:${muted};font-size:14px;margin-bottom:24px;"><strong style="color:${text};">${fromName}</strong> would like you to take their place.</div>
+      <div style="background:${card};border:1px solid #1e3220;border-radius:12px;padding:20px;margin-bottom:16px;">
+        <table style="width:100%;border-collapse:collapse;">
+          ${infoRow('Session', sessionTitle)}
+          ${infoRow('Date', fmtDate(sessionDate))}
+          ${infoRow('Time', sessionTime)}
+          ${infoRow('Venue', venue)}
+        </table>
+      </div>
+      <div style="text-align:center;margin-bottom:16px;">
+        <a href="${confirmUrl}" style="display:inline-block;background:${brandColor};color:#080f08;font-weight:800;font-size:16px;text-decoration:none;padding:14px 28px;border-radius:10px;">Confirm my place &rarr;</a>
+      </div>
+      <div style="color:${muted};font-size:13px;line-height:1.7;">
+        Hi <strong style="color:${text};">${toName}</strong>, tap the button above to accept. This link expires in 24 hours. If you didn't expect this, you can ignore it - nothing happens until you confirm.
+      </div>
+    `)
+  })
+}
+
+// ── Name-change transfer completed: notify both parties ─────────────────────
+export async function sendTransferComplete({ fromEmail, fromName, toEmail, toName, sessionTitle, sessionDate, sessionTime, venue, bookingRef }: {
+  fromEmail: string; fromName: string; toEmail: string; toName: string
+  sessionTitle: string; sessionDate: string; sessionTime: string; venue: string; bookingRef: string
+}) {
+  if (!resend) return
+  const fmtDate = (d: string) => new Date(d).toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'})
+  const detail = `
+    <div style="background:${card};border:1px solid #1e3220;border-radius:12px;padding:20px;margin-bottom:16px;">
+      <table style="width:100%;border-collapse:collapse;">
+        ${infoRow('Booking ref', bookingRef, true)}
+        ${infoRow('Session', sessionTitle)}
+        ${infoRow('Date', fmtDate(sessionDate))}
+        ${infoRow('Time', sessionTime)}
+        ${infoRow('Venue', venue)}
+      </table>
+    </div>`
+
+  // Incoming person: now holds the spot.
+  await resend.emails.send({
+    from: process.env.EMAIL_FROM ?? 'bookings@theshuttlesocial.com',
+    to: toEmail,
+    subject: `You're confirmed: ${sessionTitle} - Ref ${bookingRef}`,
+    html: emailWrap(`
+      <div style="color:${brandColor};font-size:24px;font-weight:900;margin-bottom:4px;">You're in, ${toName}!</div>
+      <div style="color:${muted};font-size:14px;margin-bottom:24px;">${fromName} has transferred their spot to you.</div>
+      ${detail}
+      <div style="color:${muted};font-size:13px;line-height:1.7;">Bring this email or the booking ref to the session. See you on court!</div>
+    `)
+  }).catch(() => {})
+
+  // Releaser: transfer done.
+  await resend.emails.send({
+    from: process.env.EMAIL_FROM ?? 'bookings@theshuttlesocial.com',
+    to: fromEmail,
+    subject: `Transfer complete - ${sessionTitle} - Ref ${bookingRef}`,
+    html: emailWrap(`
+      <div style="color:${brandColor};font-size:24px;font-weight:900;margin-bottom:4px;">Transfer complete</div>
+      <div style="color:${muted};font-size:14px;margin-bottom:24px;"><strong style="color:${text};">${toName}</strong> has accepted your spot.</div>
+      ${detail}
+      <div style="color:${muted};font-size:13px;line-height:1.7;">Hi ${fromName}, your place is now theirs - nothing more to do. Thanks for letting us know in good time.</div>
+    `)
+  }).catch(() => {})
 }
