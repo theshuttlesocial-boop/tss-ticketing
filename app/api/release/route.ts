@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { lookupReleasableBooking } from '@/lib/release-server'
+import { getReleasableBookingForEmail } from '@/lib/release-server'
 import { runCascade } from '@/lib/waitlist-matcher'
 import { sendReleaseConfirmation } from '@/lib/email'
 
@@ -8,7 +8,7 @@ import { sendReleaseConfirmation } from '@/lib/email'
 // waitlist, and DOES NOT move any money or create any credit here — that only
 // happens in settlement when a replacement actually pays (Phase 4).
 export async function POST(req: Request) {
-  const { bookingRef, email, spaces, refundPreference } = await req.json().catch(() => ({}))
+  const { bookingId, email, spaces, refundPreference } = await req.json().catch(() => ({}))
 
   if (refundPreference !== 'credit' && refundPreference !== 'card') {
     return NextResponse.json({ error: 'Choose credit or card.' }, { status: 400 })
@@ -18,8 +18,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Invalid number of spaces.' }, { status: 400 })
   }
 
-  // Re-validate server-side; never trust the client's booking id.
-  const booking = await lookupReleasableBooking(bookingRef ?? '', email ?? '')
+  // Re-validate server-side that this booking belongs to the email.
+  const booking = await getReleasableBookingForEmail(bookingId ?? '', email ?? '')
   if (!booking) return NextResponse.json({ error: "We couldn't find that booking." }, { status: 404 })
   if (!booking.sessionInFuture) {
     return NextResponse.json({ error: 'This session has already taken place.' }, { status: 400 })

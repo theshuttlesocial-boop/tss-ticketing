@@ -13,17 +13,19 @@ const fmt = (p:number) => `£${(p/100).toFixed(2)}`
 const fmtDate = (d:string) => new Date(d).toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'})
 
 interface Booking {
-  bookingRef:string; name:string; quantity:number; spacesReleased:number; maxReleasable:number
+  id:string; bookingRef:string; name:string; quantity:number; spacesReleased:number; maxReleasable:number
   pricePencePerSpace:number; hasConfirmedTransfer:boolean
   session:{ id:string; title:string; date:string; time:string; venue:string; label?:string }
 }
+type Step = 'email'|'choose'|'spaces'|'route'|'done'
 
 const panel:React.CSSProperties = { background:T.card, border:`1px solid ${T.border}`, borderRadius:14, padding:22, marginBottom:16 }
 
 export default function ReleasePage(){
-  const [step,setStep]=useState<1|2|3|4>(1)
-  const [bookingRef,setBookingRef]=useState(''); const [email,setEmail]=useState('')
+  const [step,setStep]=useState<Step>('email')
+  const [email,setEmail]=useState('')
   const [loading,setLoading]=useState(false); const [error,setError]=useState('')
+  const [bookings,setBookings]=useState<Booking[]>([])
   const [booking,setBooking]=useState<Booking|null>(null)
   const [priorCardRefunds,setPriorCardRefunds]=useState(0)
   const [spaces,setSpaces]=useState(1)
@@ -33,13 +35,17 @@ export default function ReleasePage(){
   async function lookup(){
     setLoading(true);setError('')
     try{
-      const res=await fetch('/api/release/lookup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({bookingRef,email})})
+      const res=await fetch('/api/release/lookup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email})})
       const d=await res.json()
       if(!res.ok){setError(d.error??'Something went wrong');return}
-      setBooking(d.booking);setPriorCardRefunds(d.priorCardRefunds??0);setSpaces(1);setStep(2)
+      setBookings(d.bookings);setPriorCardRefunds(d.priorCardRefunds??0)
+      if(d.bookings.length===1){ pick(d.bookings[0]) }
+      else { setStep('choose') }
     }catch{setError('Network error - please try again')}
     finally{setLoading(false)}
   }
+
+  function pick(b:Booking){ setBooking(b);setSpaces(1);setRoute(null);setError('');setStep('spaces') }
 
   const quote = booking ? computeRefundQuote(booking.pricePencePerSpace, spaces, priorCardRefunds) : null
 
@@ -59,28 +65,43 @@ export default function ReleasePage(){
 
       <main style={{maxWidth:520,margin:'0 auto',padding:'28px 20px 60px'}}>
 
-        {/* STEP 1 — find booking */}
-        {step===1&&(
+        {/* STEP — find by email */}
+        {step==='email'&&(
           <>
             <h1 style={{fontSize:24,fontWeight:900,marginBottom:8}}>Can't make it?</h1>
             <p style={{color:T.muted,fontSize:14,lineHeight:1.6,marginBottom:20}}>
-              Enter your booking reference and email to release your spot. We'll offer it to the waitlist for you.
+              Enter the email you booked with and we'll pull up your upcoming spot. We'll offer it to the waitlist for you.
             </p>
             <div style={panel}>
-              <label style={{fontSize:12,color:T.muted,display:'block',marginBottom:5}}>Booking reference</label>
-              <input value={bookingRef} onChange={e=>setBookingRef(e.target.value)} placeholder="TSS-XXXXX" autoCapitalize="characters" style={{...inp(),marginBottom:14}}/>
               <label style={{fontSize:12,color:T.muted,display:'block',marginBottom:5}}>Email</label>
-              <input type="email" value={email} onChange={e=>setEmail(e.target.value)} onKeyDown={e=>e.key==='Enter'&&bookingRef&&email&&lookup()} placeholder="you@email.com" autoComplete="email" style={inp()}/>
+              <input type="email" value={email} onChange={e=>setEmail(e.target.value)} onKeyDown={e=>e.key==='Enter'&&email&&lookup()} placeholder="you@email.com" autoComplete="email" style={inp()}/>
               {error&&<div style={{marginTop:12,padding:'10px 12px',background:T.dangerDim,color:T.danger,borderRadius:8,fontSize:13}}>{error}</div>}
-              <button onClick={lookup} disabled={!bookingRef||!email||loading} style={{marginTop:16,width:'100%',padding:'14px',minHeight:52,borderRadius:10,border:'none',background:(!bookingRef||!email||loading)?T.border:T.accent,color:(!bookingRef||!email||loading)?T.muted:'#080f08',fontWeight:800,fontSize:16,cursor:(!bookingRef||!email||loading)?'default':'pointer',fontFamily:'inherit'}}>
+              <button onClick={lookup} disabled={!email||loading} style={{marginTop:16,width:'100%',padding:'14px',minHeight:52,borderRadius:10,border:'none',background:(!email||loading)?T.border:T.accent,color:(!email||loading)?T.muted:'#080f08',fontWeight:800,fontSize:16,cursor:(!email||loading)?'default':'pointer',fontFamily:'inherit'}}>
                 {loading?'Looking…':'Find my booking →'}
               </button>
             </div>
           </>
         )}
 
-        {/* STEP 2 — choose how many spaces */}
-        {step===2&&booking&&(
+        {/* STEP — choose which booking (multiple upcoming) */}
+        {step==='choose'&&(
+          <>
+            <h1 style={{fontSize:22,fontWeight:900,marginBottom:6}}>Which booking?</h1>
+            <p style={{color:T.muted,fontSize:14,marginBottom:18}}>You have more than one upcoming booking. Pick the one you can't make.</p>
+            {bookings.map(b=>(
+              <button key={b.id} onClick={()=>pick(b)} style={{width:'100%',textAlign:'left',background:T.card,border:`1px solid ${T.border}`,borderRadius:14,padding:18,marginBottom:12,cursor:'pointer',fontFamily:'inherit'}}>
+                {b.session.label&&<span style={{background:T.accentDim,color:T.accent,fontSize:11,fontWeight:700,padding:'2px 8px',borderRadius:20,border:`1px solid ${T.accentBorder}`,marginBottom:8,display:'inline-block'}}>{b.session.label} London</span>}
+                <div style={{fontWeight:800,fontSize:16,color:T.text}}>{b.session.title}</div>
+                <div style={{fontSize:13,color:T.muted,marginTop:4,lineHeight:1.6}}>{fmtDate(b.session.date)}, {b.session.time} · {b.session.venue}</div>
+                <div style={{fontSize:12,color:T.muted,marginTop:8}}>Ref <strong style={{color:T.accent}}>{b.bookingRef}</strong> · {b.maxReleasable} spot{b.maxReleasable>1?'s':''} releasable</div>
+              </button>
+            ))}
+            <button onClick={()=>setStep('email')} style={{marginTop:4,width:'100%',padding:'10px',borderRadius:10,border:`1px solid ${T.border}`,background:'none',color:T.muted,fontWeight:600,fontSize:13,cursor:'pointer',fontFamily:'inherit'}}>Back</button>
+          </>
+        )}
+
+        {/* STEP — choose how many spaces */}
+        {step==='spaces'&&booking&&(
           <>
             <BookingHeader booking={booking}/>
             <div style={panel}>
@@ -91,25 +112,24 @@ export default function ReleasePage(){
                 ))}
               </div>
               {booking.spacesReleased>0&&<div style={{fontSize:12,color:T.muted,marginTop:10}}>You've already released {booking.spacesReleased} of {booking.quantity} spot(s).</div>}
-              <button onClick={()=>{setRoute(null);setError('');setStep(3)}} style={{marginTop:18,width:'100%',padding:'14px',minHeight:52,borderRadius:10,border:'none',background:T.accent,color:'#080f08',fontWeight:800,fontSize:16,cursor:'pointer',fontFamily:'inherit'}}>
+              <button onClick={()=>{setRoute(null);setError('');setStep('route')}} style={{marginTop:18,width:'100%',padding:'14px',minHeight:52,borderRadius:10,border:'none',background:T.accent,color:'#080f08',fontWeight:800,fontSize:16,cursor:'pointer',fontFamily:'inherit'}}>
                 Continue →
               </button>
-              <button onClick={()=>setStep(1)} style={{marginTop:10,width:'100%',padding:'10px',borderRadius:10,border:`1px solid ${T.border}`,background:'none',color:T.muted,fontWeight:600,fontSize:13,cursor:'pointer',fontFamily:'inherit'}}>Back</button>
+              <button onClick={()=>setStep(bookings.length>1?'choose':'email')} style={{marginTop:10,width:'100%',padding:'10px',borderRadius:10,border:`1px solid ${T.border}`,background:'none',color:T.muted,fontWeight:600,fontSize:13,cursor:'pointer',fontFamily:'inherit'}}>Back</button>
             </div>
           </>
         )}
 
-        {/* STEP 3 — choose route */}
-        {step===3&&booking&&quote&&(
+        {/* STEP — choose route */}
+        {step==='route'&&booking&&quote&&(
           <>
             <BookingHeader booking={booking}/>
             <div style={{fontSize:13,color:T.muted,marginBottom:12}}>Releasing <strong style={{color:T.text}}>{spaces}</strong> spot{spaces>1?'s':''}. Choose what happens next:</div>
 
-            {/* Route A — name change (recommended, emphasised) */}
             {!booking.hasConfirmedTransfer?(
               <RouteCard emphasised title="I've found my own replacement" badge="RECOMMENDED · FREE"
                 subtitle="Give your spot to someone specific. No fee, and you settle up between yourselves." selected={route==='A'} onClick={()=>{setRoute('A');setError('')}}>
-                {route==='A'&&<TransferForm booking={booking} spaces={spaces} bookingRef={bookingRef} email={email} onDone={(toEmail)=>setDone({kind:'transfer',toEmail})}/>}
+                {route==='A'&&<TransferForm booking={booking} spaces={spaces} email={email} onDone={(toEmail)=>{setDone({kind:'transfer',toEmail});setStep('done')}}/>}
               </RouteCard>
             ):(
               <div style={{...panel,opacity:0.7}}>
@@ -118,15 +138,12 @@ export default function ReleasePage(){
               </div>
             )}
 
-            {/* Route B — credit */}
             <RouteCard title="Credit for a future session" subtitle={`${fmt(quote.grossPence)} credit, valid 90 days. Available to everyone.`} selected={route==='B'} onClick={()=>{setRoute('B');setError('')}}>
               {route==='B'&&(
-                <ConfirmRelease label={`Release for ${fmt(quote.grossPence)} credit`} loading={loading}
-                  onConfirm={()=>submitRelease('credit')} error={error}/>
+                <ConfirmRelease label={`Release for ${fmt(quote.grossPence)} credit`} loading={loading} onConfirm={()=>submitRelease('credit')} error={error}/>
               )}
             </RouteCard>
 
-            {/* Route C — card refund */}
             <RouteCard title="Refund to my card" subtitle={quote.isFullRefund
                 ? `Full refund: ${fmt(quote.refundPence)}`
                 : `Refund: ${fmt(quote.refundPence)} (${fmt(quote.feePence)} admin fee)`} selected={route==='C'} onClick={()=>{setRoute('C');setError('')}}>
@@ -137,18 +154,17 @@ export default function ReleasePage(){
                       A {fmt(quote.feePence)} admin fee applies - this would be your {priorCardRefunds+1}{ordinal(priorCardRefunds+1)} card refund in 90 days. Choose credit or a name change to avoid it.
                     </div>
                   )}
-                  <ConfirmRelease label={`Release for ${fmt(quote.refundPence)} refund`} loading={loading}
-                    onConfirm={()=>submitRelease('card')} error={error}/>
+                  <ConfirmRelease label={`Release for ${fmt(quote.refundPence)} refund`} loading={loading} onConfirm={()=>submitRelease('card')} error={error}/>
                 </>
               )}
             </RouteCard>
 
-            <button onClick={()=>setStep(2)} style={{marginTop:4,width:'100%',padding:'10px',borderRadius:10,border:`1px solid ${T.border}`,background:'none',color:T.muted,fontWeight:600,fontSize:13,cursor:'pointer',fontFamily:'inherit'}}>Back</button>
+            <button onClick={()=>setStep('spaces')} style={{marginTop:4,width:'100%',padding:'10px',borderRadius:10,border:`1px solid ${T.border}`,background:'none',color:T.muted,fontWeight:600,fontSize:13,cursor:'pointer',fontFamily:'inherit'}}>Back</button>
           </>
         )}
 
-        {/* STEP 4 — confirmation */}
-        {step===4&&done&&(
+        {/* STEP — confirmation */}
+        {step==='done'&&done&&(
           <div style={{...panel,textAlign:'center',padding:'32px 24px'}}>
             <div style={{fontSize:44,marginBottom:12}}>{done.kind==='transfer'?'📨':'✅'}</div>
             {done.kind==='transfer'?(
@@ -174,12 +190,13 @@ export default function ReleasePage(){
   )
 
   async function submitRelease(refundPreference:'credit'|'card'){
+    if(!booking)return
     setLoading(true);setError('')
     try{
-      const res=await fetch('/api/release',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({bookingRef,email,spaces,refundPreference})})
+      const res=await fetch('/api/release',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({bookingId:booking.id,email,spaces,refundPreference})})
       const d=await res.json()
       if(!res.ok){setError(d.error??'Something went wrong');return}
-      setDone({kind:refundPreference});setStep(4)
+      setDone({kind:refundPreference});setStep('done')
     }catch{setError('Network error - please try again')}
     finally{setLoading(false)}
   }
@@ -235,14 +252,14 @@ function ConfirmRelease({label,onConfirm,loading,error}:{label:string;onConfirm:
   )
 }
 
-function TransferForm({booking,spaces,bookingRef,email,onDone}:{booking:Booking;spaces:number;bookingRef:string;email:string;onDone:(toEmail:string)=>void}){
+function TransferForm({booking,spaces,email,onDone}:{booking:Booking;spaces:number;email:string;onDone:(toEmail:string)=>void}){
   const [toName,setToName]=useState(''); const [toEmail,setToEmail]=useState(''); const [toPhone,setToPhone]=useState('')
   const [consent,setConsent]=useState(false); const [loading,setLoading]=useState(false); const [error,setError]=useState('')
 
   async function submit(){
     setLoading(true);setError('')
     try{
-      const res=await fetch('/api/release/transfer',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({bookingRef,email,spaces,toName,toEmail,toPhone,consent})})
+      const res=await fetch('/api/release/transfer',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({bookingId:booking.id,email,spaces,toName,toEmail,toPhone,consent})})
       const d=await res.json()
       if(!res.ok){setError(d.error??'Something went wrong');return}
       onDone(d.toEmail??toEmail)

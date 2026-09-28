@@ -18,43 +18,16 @@ export interface ReleasableBooking {
   session: { id: string; title: string; date: string; time: string; venue: string; label?: string }
 }
 
-// Case-insensitive match on BOTH booking ref and email. Returns null whenever
-// anything doesn't line up — callers must surface a single generic error and
-// never reveal which field was wrong (prevents booking-ref enumeration).
-//
-// booking_ref is stored upper-cased at creation, so we upper-case the input and
-// exact-match it (safe against LIKE/ILIKE wildcard chars such as `_` that the
-// nanoid alphabet can contain). Email is compared case-insensitively in JS.
-export async function lookupReleasableBooking(bookingRefRaw: string, emailRaw: string): Promise<ReleasableBooking | null> {
-  const bookingRef = (bookingRefRaw ?? '').trim().toUpperCase()
-  const email = (emailRaw ?? '').trim().toLowerCase()
-  if (!bookingRef || !email) return null
+const BOOKING_COLS =
+  'id,booking_ref,name,email,phone,quantity,spaces_released,release_status,total_pence,stripe_payment_intent_id,stripe_status,session_id,created_at,sessions(id,title,date,time,venue,label)'
 
-  const { data: booking } = await supabaseAdmin
-    .from('bookings')
-    .select('id,booking_ref,name,email,phone,quantity,spaces_released,release_status,total_pence,stripe_payment_intent_id,session_id')
-    .eq('booking_ref', bookingRef)
-    .maybeSingle()
+function isPaid(status?: string) {
+  return status === 'succeeded' || status === 'partially_refunded'
+}
 
-  if (!booking) return null
-  if ((booking.email ?? '').trim().toLowerCase() !== email) return null
-  // Only paid bookings can be released (covers 'succeeded' and, later, 'partially_refunded').
-  // Read stripe_status separately to keep the select above tight.
-  const { data: statusRow } = await supabaseAdmin
-    .from('bookings').select('stripe_status').eq('id', booking.id).single()
-  const paid = statusRow?.stripe_status === 'succeeded' || statusRow?.stripe_status === 'partially_refunded'
-  if (!paid) return null
-
-  const { data: session } = await supabaseAdmin
-    .from('sessions').select('id,title,date,time,venue,label').eq('id', booking.session_id).single()
-  if (!session) return null
-
-  const { data: confirmedTransfers } = await supabaseAdmin
-    .from('ticket_transfers').select('id').eq('booking_id', booking.id).not('confirmed_at', 'is', null).limit(1)
-
+function buildShape(booking: any, session: any, hasConfirmedTransfer: boolean): ReleasableBooking {
   const today = new Date().toISOString().split('T')[0]
   const spacesReleased = booking.spaces_released ?? 0
-
   return {
     id: booking.id,
     booking_ref: booking.booking_ref,
@@ -69,10 +42,60 @@ export async function lookupReleasableBooking(bookingRefRaw: string, emailRaw: s
     pricePencePerSpace: Math.round(booking.total_pence / booking.quantity),
     maxReleasable: booking.quantity - spacesReleased,
     sessionInFuture: session.date >= today,
-    hasConfirmedTransfer: (confirmedTransfers?.length ?? 0) > 0,
+    hasConfirmedTransfer,
     session: {
       id: session.id, title: session.title, date: session.date,
       time: session.time, venue: session.venue, label: session.label ?? undefined,
     },
   }
+}
+
+// Case-insensitive email match. PostgREST ilike can over-match (email local
+// parts may contain `_`/`%`, which are LIKE wildcards), so we tighten with an
+// exact lower-cased comparison in JS — over-matching only ever returns extra
+// rows we then discard, never fewer.
+async function confirmedTransferIds(bookingIds: string[]): Promise<Set<string>> {
+  const set = new Set<string>()
+  if (!bookingIds.length) return set
+  const { data } = await supabaseAdmin
+    .from('ticket_transfers').select('booking_id').not('confirmed_at', 'is', null).in('booking_id', bookingIds)
+  ;(data ?? []).forEach((t: any) => set.add(t.booking_id))
+  return set
+}
+
+// All releasable bookings for an email: paid, future-dated, with spaces left to
+// release, newest first. Empty array when the email has none.
+export async function lookupReleasableBookingsByEmail(emailRaw: string): Promise<ReleasableBooking[]> {
+  const email = (emailRaw ?? '').trim().toLowerCase()
+  if (!email) return []
+
+  const { data } = await supabaseAdmin
+    .from('bookings')
+    .select(BOOKING_COLS)
+    .ilike('email', email)
+    .in('stripe_status', ['succeeded', 'partially_refunded'])
+    .order('created_at', { ascending: false })
+
+  const rows = (data ?? []).filter((b: any) => (b.email ?? '').trim().toLowerCase() === email && b.sessions)
+  const confirmed = await confirmedTransferIds(rows.map((r: any) => r.id))
+
+  return rows
+    .map((b: any) => buildShape(b, b.sessions, confirmed.has(b.id)))
+    .filter(b => b.sessionInFuture && b.maxReleasable >= 1)
+}
+
+// Re-validate a specific booking belongs to the email, for the POST endpoints.
+// Never trust a client-supplied booking id on its own.
+export async function getReleasableBookingForEmail(bookingId: string, emailRaw: string): Promise<ReleasableBooking | null> {
+  const email = (emailRaw ?? '').trim().toLowerCase()
+  if (!bookingId || !email) return null
+
+  const { data: b } = await supabaseAdmin.from('bookings').select(BOOKING_COLS).eq('id', bookingId).maybeSingle()
+  if (!b || !(b as any).sessions) return null
+  if (((b as any).email ?? '').trim().toLowerCase() !== email) return null
+  if (!isPaid((b as any).stripe_status)) return null
+
+  const { data: t } = await supabaseAdmin
+    .from('ticket_transfers').select('id').eq('booking_id', (b as any).id).not('confirmed_at', 'is', null).limit(1)
+  return buildShape(b, (b as any).sessions, (t?.length ?? 0) > 0)
 }
