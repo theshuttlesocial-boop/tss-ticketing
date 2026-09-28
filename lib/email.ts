@@ -299,6 +299,39 @@ export async function sendApologyRefundEmail({ to, name, bookingRef, sessionTitl
   })
 }
 
+// ── Waitlist offer: a spot has opened, claim within the window ───────────────
+export async function sendWaitlistOffer({ to, name, sessionTitle, sessionDate, sessionTime, venue, spaces, claimUrl, expiresMinutes }: {
+  to: string; name: string; sessionTitle: string; sessionDate: string; sessionTime: string
+  venue: string; spaces: number; claimUrl: string; expiresMinutes: number
+}) {
+  if (!resend) { console.log(`[Email] Waitlist offer for ${to} - set RESEND_API_KEY to enable`); return }
+  const fmtDate = (d: string) => new Date(d).toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'})
+  await resend.emails.send({
+    from: process.env.EMAIL_FROM ?? 'bookings@theshuttlesocial.com',
+    to,
+    subject: `A spot opened up! ${sessionTitle}`,
+    html: emailWrap(`
+      <div style="color:${brandColor};font-size:24px;font-weight:900;margin-bottom:4px;">A spot just opened up!</div>
+      <div style="color:${muted};font-size:14px;margin-bottom:20px;">You're off the waitlist, ${name} - if you're quick.</div>
+      <div style="background:${card};border:1px solid #1e3220;border-radius:12px;padding:20px;margin-bottom:16px;">
+        <table style="width:100%;border-collapse:collapse;">
+          ${infoRow('Session', sessionTitle)}
+          ${infoRow('Date', fmtDate(sessionDate))}
+          ${infoRow('Time', sessionTime)}
+          ${infoRow('Venue', venue)}
+          ${infoRow('Spaces held for you', String(spaces), true)}
+        </table>
+      </div>
+      <div style="text-align:center;margin-bottom:16px;">
+        <a href="${claimUrl}" style="display:inline-block;background:${brandColor};color:#080f08;font-weight:800;font-size:16px;text-decoration:none;padding:14px 28px;border-radius:10px;">Claim your spot &rarr;</a>
+      </div>
+      <div style="color:${muted};font-size:13px;line-height:1.7;text-align:center;">
+        This offer is first-come, first-served and expires in about ${expiresMinutes} minutes. If someone else claims it first, you'll stay on the list.
+      </div>
+    `)
+  })
+}
+
 // ── Release confirmation (routes B credit / C card) ─────────────────────────
 // Sent to the releaser after they open their spot to the waitlist. Explicit
 // that no money moves until someone actually takes the spot.
@@ -329,6 +362,34 @@ export async function sendReleaseConfirmation({ to, name, bookingRef, sessionTit
         Hi <strong style="color:${text};">${name}</strong>,<br/><br/>
         Your spot is now open to the waitlist. <strong style="color:${text};">You'll only be refunded once someone takes it.</strong> ${routeLine}<br/><br/>
         If nobody claims it before the session starts, we can't refund it and your original booking stands.<br/><br/>
+        Questions? Message us <strong style="color:${brandColor};">@theshuttlesocial</strong>
+      </div>
+    `)
+  })
+}
+
+// ── Release went unfilled: no replacement found by session start ─────────────
+export async function sendReleaseUnfilled({ to, name, bookingRef, sessionTitle, sessionDate, spaces }: {
+  to: string; name: string; bookingRef: string; sessionTitle: string; sessionDate: string; spaces: number
+}) {
+  if (!resend) return
+  const fmtDate = (d: string) => new Date(d).toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'})
+  await resend.emails.send({
+    from: process.env.EMAIL_FROM ?? 'bookings@theshuttlesocial.com',
+    to,
+    subject: `No replacement found - ${sessionTitle} - Ref ${bookingRef}`,
+    html: emailWrap(`
+      <div style="color:${brandColor};font-size:22px;font-weight:900;margin-bottom:4px;">We couldn't fill your spot</div>
+      <div style="color:${muted};font-size:14px;margin-bottom:20px;">${sessionTitle} - ${fmtDate(sessionDate)}</div>
+      <div style="background:${card};border:1px solid #1e3220;border-radius:12px;padding:20px;margin-bottom:16px;">
+        <table style="width:100%;border-collapse:collapse;">
+          ${infoRow('Booking ref', bookingRef, true)}
+          ${infoRow('Spaces offered', String(spaces))}
+        </table>
+      </div>
+      <div style="color:${muted};font-size:13px;line-height:1.8;">
+        Hi <strong style="color:${text};">${name}</strong>,<br/><br/>
+        Nobody took the spot(s) you released before the session, so as explained when you released, <strong style="color:${text};">no refund or credit is due</strong> and your original booking still stands - you're welcome to come along.<br/><br/>
         Questions? Message us <strong style="color:${brandColor};">@theshuttlesocial</strong>
       </div>
     `)
