@@ -1,7 +1,25 @@
 'use client'
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { supabase } from '@/lib/supabase-client'
-import type { Session } from '@/lib/live-session/engine'
+import type { Level, Session } from '@/lib/live-session/engine'
+
+/** Session metadata. Fields after registrationOpen are admin-only. */
+export interface LiveMeta {
+  name: string
+  status: 'setup' | 'live' | 'finished'
+  registrationOpen: boolean
+  createdAt?: string
+  configVersion?: number | null
+  latestConfigVersion?: number
+  lastScoreAt?: string | null
+  lastActivityAt?: string
+}
+
+/** Admin-only: a player's level at their most recent earlier session (matched by name). */
+export interface PreviousLevel {
+  session: string; date: string; level: Level; registered: Level
+  moves: { from: Level; to: Level; beforeRound: number; by: string }[]
+}
 
 /**
  * Subscribes to the four live_* tables and refetches the whole session on any
@@ -16,7 +34,8 @@ import type { Session } from '@/lib/live-session/engine'
 export function useLiveSession(sessionId: string, adminSecret?: string, enabled = true) {
   const [session, setSession] = useState<Session | null>(null)
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null)
-  const [meta, setMeta] = useState<{ name: string; status: 'setup' | 'live' | 'finished'; registrationOpen: boolean } | null>(null)
+  const [meta, setMeta] = useState<LiveMeta | null>(null)
+  const [history, setHistory] = useState<Record<string, PreviousLevel>>({})
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -37,6 +56,7 @@ export function useLiveSession(sessionId: string, adminSecret?: string, enabled 
       if (mine !== latest.current) return
       if (!res.ok) { setError(json.error ?? 'Could not load session'); return }
       setSession(json.session); setMeta(json.meta ?? null); setIsAdmin(!!json.admin); setError(null)
+      setHistory(json.history ?? {})
     } catch (e) {
       if (mine === latest.current) setError((e as Error).message)
     } finally {
@@ -66,5 +86,5 @@ export function useLiveSession(sessionId: string, adminSecret?: string, enabled 
     return () => { if (timer.current) clearTimeout(timer.current); supabase.removeChannel(channel) }
   }, [sessionId, refetch, enabled])
 
-  return { session, meta, error, loading, refetch, isAdmin }
+  return { session, meta, error, loading, refetch, isAdmin, history }
 }
