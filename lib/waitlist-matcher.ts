@@ -1,29 +1,9 @@
 import { supabaseAdmin } from '@/lib/supabase'
+import { nanoid } from 'nanoid'
+import { selectOffers, isTierWindowActive, hasLiveOfferConflict, MatchCandidate } from '@/lib/waitlist-alloc'
+import { notify } from '@/lib/notify'
 
-// ============================================================================
-// runCascade — offer freed spaces to the waitlist.
-//
-// PHASE 2 SCOPE (this file): a minimal, safe skeleton so /api/release has a
-// real function to call. It expires stale live offers and computes the number
-// of genuinely open spots (net of released spaces). It does NOT yet select
-// candidates, apply the tier window, or notify anyone.
-//
-// PHASE 3 replaces the body below with the full tiered-matching + notify
-// algorithm (see the project brief). The signature is stable.
-// ============================================================================
-export async function runCascade(sessionId: string): Promise<{ openSpots: number; offered: number }> {
-  // 2. Expire offers whose claim window has passed.
-  await supabaseAdmin
-    .from('waitlist')
-    .update({ status: 'expired' })
-    .eq('session_id', sessionId)
-    .eq('status', 'offered')
-    .lt('claim_expires_at', new Date().toISOString())
-
-  const openSpots = await openSpotsFor(sessionId)
-  // Phase 3: candidate selection, tier filter, allocation and notify() go here.
-  return { openSpots, offered: 0 }
-}
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://tickets.theshuttlesocial.com'
 
 // Open spots = capacity − net confirmed bookings − active unexpired holds.
 // "Net" means released spaces (bookings.spaces_released) count as available.
@@ -38,4 +18,137 @@ export async function openSpotsFor(sessionId: string): Promise<number> {
   const booked = (bookingsRes.data ?? []).reduce((a, b) => a + (b.quantity - (b.spaces_released ?? 0)), 0)
   const held = (holdsRes.data ?? []).reduce((a, h) => a + h.quantity, 0)
   return capacity - booked - held
+}
+
+// Offer freed spaces to the waitlist. Idempotent-ish and safe to re-run (the cron
+// calls it every 2 min); the seat hold at claim time is the real oversell gate.
+export async function runCascade(sessionId: string): Promise<{ openSpots: number; offered: number }> {
+  const now = new Date()
+  const nowIso = now.toISOString()
+
+  // 2. Expire offers whose claim window has passed.
+  await supabaseAdmin.from('waitlist')
+    .update({ status: 'expired' })
+    .eq('session_id', sessionId).eq('status', 'offered').lt('claim_expires_at', nowIso)
+
+  // 1. Return early if nothing is open.
+  const openSpots = await openSpotsFor(sessionId)
+  if (openSpots <= 0) return { openSpots, offered: 0 }
+
+  const { data: session } = await supabaseAdmin
+    .from('sessions').select('id,title,date,time,venue').eq('id', sessionId).single()
+  if (!session) return { openSpots, offered: 0 }
+
+  // 3. Tier window, anchored on the most recent unresolved release.
+  const { data: releases } = await supabaseAdmin
+    .from('releases').select('released_at').eq('session_id', sessionId).is('resolved_at', null)
+    .order('released_at', { ascending: false }).limit(1)
+  const windowActive = (releases?.length ?? 0) > 0
+    ? isTierWindowActive(session.date, new Date(releases![0].released_at), now)
+    : false
+
+  // 4. Candidates: this session's waiting rows.
+  const { data: waitingRows } = await supabaseAdmin
+    .from('waitlist')
+    .select('id,email,phone,name,waitlist_group_id,position,preference_rank,spaces_needed,min_spaces_acceptable,times_offered')
+    .eq('session_id', sessionId).eq('status', 'waiting')
+    .order('position', { ascending: true })
+  let waiting = waitingRows ?? []
+  if (!waiting.length) return { openSpots, offered: 0 }
+
+  // Exclusion (a): anyone who already holds a LIVE offer on ANY session,
+  // matched by email and by waitlist_group_id.
+  const { data: liveOffers } = await supabaseAdmin
+    .from('waitlist').select('email,waitlist_group_id').eq('status', 'offered').gt('claim_expires_at', nowIso)
+  const liveEmails = new Set((liveOffers ?? []).map(o => (o.email ?? '').toLowerCase()))
+  const liveGroups = new Set((liveOffers ?? []).map(o => o.waitlist_group_id).filter(Boolean) as string[])
+  waiting = waiting.filter(w => !hasLiveOfferConflict({ email: w.email ?? '', groupId: w.waitlist_group_id ?? null }, liveEmails, liveGroups))
+
+  // Exclusion (b): anyone whose higher-ranked preference session currently has
+  // availability — they should be offered that one first.
+  waiting = await filterHigherPreferenceAvailable(waiting)
+  if (!waiting.length) return { openSpots, offered: 0 }
+
+  // Resolve prior_session_count per unique email (0 == new player).
+  const priorByEmail = new Map<string, number>()
+  await Promise.all([...new Set(waiting.map(w => w.email))].map(async email => {
+    const { data } = await supabaseAdmin.rpc('prior_session_count', { p_email: email })
+    priorByEmail.set(email, data ?? 0)
+  }))
+
+  const candidates: MatchCandidate[] = waiting.map(w => ({
+    id: w.id, email: w.email, groupId: w.waitlist_group_id ?? null,
+    position: w.position ?? 0, preferenceRank: w.preference_rank ?? 1,
+    spacesNeeded: w.spaces_needed ?? 1, minSpaces: w.min_spaces_acceptable ?? 1,
+    priorSessionCount: priorByEmail.get(w.email) ?? 0,
+  }))
+
+  const offers = selectOffers(candidates, openSpots, windowActive)
+  if (!offers.length) return { openSpots, offered: 0 }
+
+  // Claim window: 30 min normally, 15 if the session is today.
+  const isToday = session.date === now.toISOString().split('T')[0]
+  const claimMinutes = isToday ? 15 : 30
+  const claimExpiresAt = new Date(now.getTime() + claimMinutes * 60_000).toISOString()
+
+  const rowById = new Map(waiting.map(w => [w.id, w]))
+  for (const offer of offers) {
+    const row = rowById.get(offer.id)
+    if (!row) continue
+    const token = nanoid(32)
+    await supabaseAdmin.from('waitlist').update({
+      status: 'offered',
+      claim_token: token,
+      claim_spaces: offer.claimSpaces,
+      claim_expires_at: claimExpiresAt,
+      times_offered: (row.times_offered ?? 0) + 1,
+      last_offered_at: nowIso,
+    }).eq('id', offer.id)
+
+    notify({
+      to: { email: row.email, phone: row.phone, firstName: (row.name ?? '').split(' ')[0] || 'there' },
+      template: 'waitlist_offer',
+      vars: {
+        firstName: (row.name ?? '').split(' ')[0] || 'there',
+        sessionTitle: session.title, sessionDate: session.date, sessionTime: session.time, venue: session.venue,
+        spaces: offer.claimSpaces, claimUrl: `${APP_URL}/claim/${token}`, expiresMinutes: claimMinutes,
+      },
+    }).catch(err => console.error('[cascade] notify failed:', err))
+  }
+
+  return { openSpots, offered: offers.length }
+}
+
+// For each candidate that is a lower preference within a group, drop it if a
+// higher-ranked preference session (same group, smaller preference_rank) still
+// has availability.
+async function filterHigherPreferenceAvailable<T extends { waitlist_group_id: string | null; preference_rank: number }>(rows: T[]): Promise<T[]> {
+  const groupIds = [...new Set(rows.map(r => r.waitlist_group_id).filter(Boolean))] as string[]
+  if (!groupIds.length) return rows
+
+  const { data: groupRows } = await supabaseAdmin
+    .from('waitlist').select('waitlist_group_id,preference_rank,session_id').in('waitlist_group_id', groupIds)
+  const byGroup = new Map<string, { preference_rank: number; session_id: string }[]>()
+  ;(groupRows ?? []).forEach(g => {
+    const arr = byGroup.get(g.waitlist_group_id) ?? []
+    arr.push({ preference_rank: g.preference_rank ?? 1, session_id: g.session_id })
+    byGroup.set(g.waitlist_group_id, arr)
+  })
+
+  // Cache availability per session we need to check.
+  const availCache = new Map<string, number>()
+  const availOf = async (sid: string) => {
+    if (!availCache.has(sid)) availCache.set(sid, await openSpotsFor(sid))
+    return availCache.get(sid)!
+  }
+
+  const keep: T[] = []
+  for (const r of rows) {
+    if (!r.waitlist_group_id) { keep.push(r); continue }
+    const higher = (byGroup.get(r.waitlist_group_id) ?? []).filter(g => g.preference_rank < r.preference_rank)
+    let higherHasRoom = false
+    for (const h of higher) { if ((await availOf(h.session_id)) > 0) { higherHasRoom = true; break } }
+    if (!higherHasRoom) keep.push(r)
+  }
+  return keep
 }

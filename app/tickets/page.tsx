@@ -255,37 +255,91 @@ function CheckoutForm({ bookingRef, expiresAt, onSuccess }:{bookingRef:string;ex
 }
 
 // ── Waitlist Modal ────────────────────────────────────────────────────────────
-function WaitlistModal({session,onClose}:{session:Session;onClose:()=>void}){
+function WaitlistModal({session,otherSessions,onClose}:{session:Session;otherSessions:Session[];onClose:()=>void}){
   const [name,setName]=useState(''); const [email,setEmail]=useState(''); const [phone,setPhone]=useState('')
   const [loading,setLoading]=useState(false); const [done,setDone]=useState<number|null>(null); const [error,setError]=useState('')
+  const [spacesNeeded,setSpacesNeeded]=useState(1)
+  const [minSpaces,setMinSpaces]=useState(1)
+  // Extra sessions to also waitlist for, in the order the user picks them (= preference order after this one).
+  const [extraIds,setExtraIds]=useState<string[]>([])
+
+  function setSpaces(n:number){ setSpacesNeeded(n); setMinSpaces(n) } // default fewest-acceptable to the full group
+  function toggleExtra(id:string){ setExtraIds(prev=>prev.includes(id)?prev.filter(x=>x!==id):[...prev,id]) }
+
   async function join(){
     setLoading(true);setError('')
-    const res=await fetch('/api/waitlist',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session_id:session.id,name,email,phone})})
+    const session_ids=[session.id,...extraIds]
+    const res=await fetch('/api/waitlist',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({session_ids,name,email,phone,spaces_needed:spacesNeeded,min_spaces_acceptable:minSpaces})})
     const d=await res.json()
     if(!res.ok){setError(d.error??'Failed');setLoading(false);return}
     setDone(d.position);setLoading(false)
   }
   return(
     <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.92)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center',padding:16}} onClick={e=>{if(e.target===e.currentTarget)onClose()}}>
-      <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:16,width:'100%',maxWidth:440,padding:28,position:'relative'}}>
+      <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:16,width:'100%',maxWidth:440,padding:28,position:'relative',maxHeight:'92vh',overflowY:'auto'}}>
         <button onClick={onClose} style={{position:'absolute',top:16,right:16,background:'none',border:'none',color:T.muted,fontSize:22,cursor:'pointer'}} aria-label="Close">✕</button>
         {done?(
           <div style={{textAlign:'center',padding:'10px 0'}}>
             <div style={{fontSize:48,fontWeight:900,color:T.accent,marginBottom:8}}>#{done}</div>
             <div style={{fontSize:20,fontWeight:700,color:T.text,marginBottom:8}}>You're on the waitlist!</div>
-            <div style={{color:T.muted,fontSize:13,marginBottom:20}}>We'll email you immediately if a spot opens up.</div>
+            <div style={{color:T.muted,fontSize:13,marginBottom:20}}>We'll message you the moment a spot opens up{extraIds.length?' for any of your chosen sessions':''}. Keep an eye on your email.</div>
             <button onClick={onClose} style={{padding:'12px 28px',background:T.accent,color:'#080f08',border:'none',borderRadius:10,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>Done</button>
           </div>
         ):(
           <>
             <div style={{fontWeight:700,fontSize:18,color:T.accent,marginBottom:4}}>🎯 Join Waitlist</div>
             <div style={{fontSize:13,color:T.muted,marginBottom:20}}>{session.title} · {fmtDateShort(session.date)}</div>
-            {[['Full Name *','text',name,setName,'Your name'],['Email *','email',email,setEmail,'you@email.com'],['Phone *','tel',phone,setPhone,'+44 7700 000000']].map(([l,t,v,sv,ph])=>(
+            {[['Full Name *','text',name,setName,'Your name','name'],['Email *','email',email,setEmail,'you@email.com','email'],['Phone *','tel',phone,setPhone,'+44 7700 000000','tel']].map(([l,t,v,sv,ph,ac])=>(
               <div key={l as string} style={{marginBottom:14}}>
                 <label style={{fontSize:12,color:T.muted,display:'block',marginBottom:5}}>{l as string}</label>
-                <input type={t as string} value={v as string} onChange={e=>(sv as any)(e.target.value)} placeholder={ph as string} style={inp()}/>
+                <input type={t as string} value={v as string} onChange={e=>(sv as any)(e.target.value)} placeholder={ph as string} autoComplete={ac as string} style={inp()}/>
               </div>
             ))}
+
+            {/* How many spaces */}
+            <div style={{marginBottom:14}}>
+              <label style={{fontSize:12,color:T.muted,display:'block',marginBottom:6}}>How many spaces do you need?</label>
+              <div style={{display:'flex',gap:8}}>
+                {[1,2,3,4].map(n=>(
+                  <button key={n} onClick={()=>setSpaces(n)} style={{flex:1,padding:'10px 0',borderRadius:8,cursor:'pointer',border:`1px solid ${spacesNeeded===n?T.accent:T.border}`,background:spacesNeeded===n?T.accentDim:T.card2,color:spacesNeeded===n?T.accent:T.text,fontWeight:700,fontSize:15,fontFamily:'inherit'}}>{n}</button>
+                ))}
+              </div>
+            </div>
+
+            {/* Fewest acceptable */}
+            {spacesNeeded>1&&(
+              <div style={{marginBottom:14}}>
+                <label style={{fontSize:12,color:T.muted,display:'block',marginBottom:6}}>What's the fewest you'd take?</label>
+                <div style={{display:'flex',gap:8}}>
+                  {Array.from({length:spacesNeeded},(_,i)=>i+1).map(n=>(
+                    <button key={n} onClick={()=>setMinSpaces(n)} style={{flex:1,padding:'10px 0',borderRadius:8,cursor:'pointer',border:`1px solid ${minSpaces===n?T.accent:T.border}`,background:minSpaces===n?T.accentDim:T.card2,color:minSpaces===n?T.accent:T.text,fontWeight:700,fontSize:15,fontFamily:'inherit'}}>{n}</button>
+                  ))}
+                </div>
+                <div style={{fontSize:11,color:T.muted,marginTop:5}}>Set this lower if you'd still come with a smaller group.</div>
+              </div>
+            )}
+
+            {/* Also waitlist for other sessions, ranked by pick order */}
+            {otherSessions.length>0&&(
+              <div style={{marginBottom:16}}>
+                <label style={{fontSize:12,color:T.muted,display:'block',marginBottom:6}}>Also waitlist me for (we'll offer your top choice first):</label>
+                <div style={{display:'flex',flexDirection:'column' as const,gap:6}}>
+                  {otherSessions.map(s=>{
+                    const idx=extraIds.indexOf(s.id)
+                    const checked=idx>=0
+                    return(
+                      <button key={s.id} onClick={()=>toggleExtra(s.id)} style={{display:'flex',alignItems:'center',gap:10,textAlign:'left',padding:'9px 11px',borderRadius:8,cursor:'pointer',border:`1px solid ${checked?T.accent:T.border}`,background:checked?T.accentDim:T.card2,fontFamily:'inherit'}}>
+                        <span style={{width:18,height:18,borderRadius:5,border:`1px solid ${checked?T.accent:T.border}`,background:checked?T.accent:'transparent',color:'#080f08',fontSize:12,fontWeight:900,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>{checked?idx+2:''}</span>
+                        <span style={{flex:1,fontSize:13,color:T.text}}>{s.title}<span style={{color:T.muted}}> · {fmtDateShort(s.date)}</span></span>
+                      </button>
+                    )
+                  })}
+                </div>
+                {extraIds.length>0&&<div style={{fontSize:11,color:T.muted,marginTop:5}}>Numbers show the order we'll offer spots — this session is your first choice.</div>}
+              </div>
+            )}
+
             {error&&<div style={{color:T.danger,fontSize:13,marginBottom:12}}>{error}</div>}
             <button onClick={join} disabled={!name||!email||!phone||loading} style={{width:'100%',padding:'12px',background:(!name||!email||!phone||loading)?T.border:T.accent,color:(!name||!email||!phone||loading)?T.muted:'#080f08',border:'none',borderRadius:10,fontWeight:700,fontSize:15,cursor:'pointer',fontFamily:'inherit'}}>
               {loading?'Joining…':'Join Waitlist'}
@@ -754,7 +808,7 @@ export default function TicketsPage() {
       )}
       {waitlistSession&&(
         <ErrorBoundary>
-          <WaitlistModal session={waitlistSession} onClose={()=>{setWaitlistSession(null);fetchSessions()}}/>
+          <WaitlistModal session={waitlistSession} otherSessions={sessions.filter(s=>s.id!==waitlistSession.id&&s.status==='open')} onClose={()=>{setWaitlistSession(null);fetchSessions()}}/>
         </ErrorBoundary>
       )}
     </>

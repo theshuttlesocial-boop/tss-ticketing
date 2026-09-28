@@ -5,7 +5,22 @@ import { nanoid } from 'nanoid'
 
 export async function POST(req: Request) {
   const body = await req.json()
-  const { session_id, quantity, name, email, phone, additional_attendees } = body
+  const { session_id, name, email, phone, additional_attendees, claim_token } = body
+  let quantity = body.quantity
+
+  // ── Waitlist claim: validate the live offer and size the order from it ──────
+  let waitlistId: string | null = null
+  if (claim_token) {
+    const { data: offer } = await supabaseAdmin.from('waitlist')
+      .select('id,session_id,claim_spaces,claim_expires_at,status')
+      .eq('claim_token', claim_token).maybeSingle()
+    if (!offer || offer.status !== 'offered' || offer.session_id !== session_id
+        || !offer.claim_expires_at || new Date(offer.claim_expires_at) < new Date()) {
+      return NextResponse.json({ error: 'offer_expired' }, { status: 409 })
+    }
+    waitlistId = offer.id
+    quantity = offer.claim_spaces ?? 1   // authoritative: size the order from the offer
+  }
 
   if (!session_id || !quantity || !name || !email || !phone)
     return NextResponse.json({ error: 'All fields including phone are required' }, { status: 400 })
@@ -13,7 +28,7 @@ export async function POST(req: Request) {
   if (quantity < 1 || quantity > 10)
     return NextResponse.json({ error: 'Invalid quantity' }, { status: 400 })
 
-  if (quantity > 1 && (!additional_attendees || additional_attendees.length < quantity - 1))
+  if (quantity > 1 && (!additional_attendees || additional_attendees.length < quantity - 1) && !claim_token)
     return NextResponse.json({ error: 'Please provide names for all additional attendees' }, { status: 400 })
 
   // ── Blocklist check ──────────────────────────────────────────────────────────
@@ -79,7 +94,7 @@ export async function POST(req: Request) {
   if (!session) return NextResponse.json({ error: 'Session not found' }, { status: 404 })
 
   const maxPerOrder = session.max_tickets_per_order ?? 4
-  if (quantity > maxPerOrder)
+  if (!claim_token && quantity > maxPerOrder)   // a waitlist offer is already sized; skip the per-order cap
     return NextResponse.json({ error: `Max ${maxPerOrder} tickets per order` }, { status: 400 })
 
   const totalPence = session.price_pence * quantity
@@ -89,6 +104,7 @@ export async function POST(req: Request) {
     paymentIntent = await createPaymentIntent({
       amountPence: totalPence, sessionId: session_id, holdToken, bookingRef,
       customerEmail: email, customerName: name,
+      extraMetadata: waitlistId ? { waitlist_id: waitlistId, claim: 'true' } : undefined,
     })
   } catch (err: any) {
     await supabaseAdmin.from('seat_holds').delete().eq('hold_token', holdToken)

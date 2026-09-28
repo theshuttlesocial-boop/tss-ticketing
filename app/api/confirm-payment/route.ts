@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { stripe } from '@/lib/stripe'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendBookingConfirmation, sendAdminBookingNotification, sendApologyRefundEmail } from '@/lib/email'
+import { settleRelease } from '@/lib/settlement'
 
 export async function POST(req: Request) {
   console.log('[webhook] POST received')
@@ -129,6 +130,32 @@ export async function POST(req: Request) {
     // ── 4. Mark hold as used (if it still exists — it may have expired) ──────
     await supabaseAdmin.from('seat_holds').update({ used: true }).eq('hold_token', hold_token)
     console.log('[webhook] seat hold marked used (or was already expired)')
+
+    // ── 4b. Waitlist claim resolution (this booking came from a claim link) ──
+    //    Marks only the claimed waitlist row; the person's other entries stay
+    //    'waiting'. Resolves the oldest unfilled release for this session and
+    //    hands settlement of the releaser's payout to Phase 4.
+    if (pi.metadata?.waitlist_id) {
+      try {
+        await supabaseAdmin.from('waitlist').update({ status: 'claimed' }).eq('id', pi.metadata.waitlist_id)
+
+        const { data: release } = await supabaseAdmin
+          .from('releases').select('id,booking_id').eq('session_id', session_id)
+          .is('outcome', null).order('released_at', { ascending: true }).limit(1).maybeSingle()
+
+        if (release) {
+          await supabaseAdmin.from('releases')
+            .update({ outcome: 'replaced', replacement_booking_id: booking.id }).eq('id', release.id)
+          await supabaseAdmin.from('bookings')
+            .update({ release_status: 'replaced' }).eq('id', release.booking_id)
+          await settleRelease(release.id)   // Phase 4 issues the credit/refund (idempotent on resolved_at)
+        } else {
+          console.warn('[webhook] claim had no unresolved release for session', session_id)
+        }
+      } catch (claimErr) {
+        console.error('[webhook] claim resolution failed:', claimErr)
+      }
+    }
 
     // ── 5. Send confirmation emails ──────────────────────────────────────────
     if (session) {
