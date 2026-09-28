@@ -64,12 +64,29 @@ export async function settleRelease(releaseId: string): Promise<void> {
     return
   }
 
-  // Card refund.
+  // Card refund. If there is no PaymentIntent (e.g. the booking was fully paid
+  // with store credit), there is no card to refund — issue store credit for the
+  // face value instead of emailing a phantom card refund.
+  if (!booking.stripe_payment_intent_id) {
+    const amount = pricePerSpace * spaces
+    const expiresAt = new Date(Date.now() + CREDIT_EXPIRY_DAYS * 86_400_000).toISOString()
+    await supabaseAdmin.from('credits').insert({
+      email: (booking.email ?? '').toLowerCase(), phone: booking.phone ?? null,
+      amount_pence: amount, source_booking_id: booking.id, expires_at: expiresAt,
+    })
+    const st = spaces >= booking.quantity ? 'refunded' : 'partially_refunded'
+    await supabaseAdmin.from('bookings').update({ stripe_status: st }).eq('id', booking.id)
+    await logAudit('settlement', { releaseId, kind: 'card_no_pi_credit_fallback', amountPence: amount, email: booking.email }, releaseId)
+    sendCreditIssued({ to: booking.email, name: firstName, amountPence: amount, expiresAt, bookingRef: booking.booking_ref })
+      .catch(err => console.error('[settlement] fallback credit email failed:', err))
+    return
+  }
+
   const priorCard = await priorCardRefundCount(booking.email, claimed.released_at, releaseId)
   const quote = computeRefundQuote(pricePerSpace, spaces, priorCard)
 
   try {
-    if (booking.stripe_payment_intent_id && quote.refundPence > 0) {
+    if (quote.refundPence > 0) {
       await stripe.refunds.create(
         { payment_intent: booking.stripe_payment_intent_id, amount: quote.refundPence },
         { idempotencyKey: `release-refund-${releaseId}` },
