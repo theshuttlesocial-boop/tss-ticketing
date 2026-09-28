@@ -8,7 +8,7 @@ export type LogEvent =
   | 'level' | 'start_level' | 'level_lock'
   | 'added' | 'left' | 'removed' | 'rejoined'
   | 'substitute' | 'unknown_substitute'
-  | 'finish' | 'reopen' | 'registration' | 'config' | 'attention';
+  | 'finish' | 'reopen' | 'registration' | 'config' | 'attention' | 'pin_reset';
 
 export interface LogRow {
   id?: string;
@@ -68,6 +68,7 @@ export function describe(r: LogRow): { when: string; who: string; what: string }
     case 'reopen': what = 'Session reopened'; break;
     case 'registration': what = `Registration ${d.open ? 'opened' : 'closed'}`; break;
     case 'config': what = d.latest ? 'Settings reset to the latest defaults' : 'Settings changed'; break;
+    case 'pin_reset': what = `New PIN given to ${d.name}`; break;
     case 'attention': what = d.text ?? 'Needs-attention item dismissed'; break;
     default: what = String(r.event);
   }

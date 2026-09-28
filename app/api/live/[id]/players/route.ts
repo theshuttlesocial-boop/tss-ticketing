@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server'
 import { checkAdmin } from '@/lib/live-session/auth'
+import { issuePin } from '@/lib/live-session/pinServer'
 import {
+  logEvent,
+  loadSession,
   addPlayer, updatePlayer, removePlayer, rejoinPlayer, withdrawPlayer, correctStartLevel, setLevelLock,
   LiveSessionError, NeedsConfirmError,
 } from '@/lib/live-session/actions'
@@ -28,6 +31,7 @@ export async function POST(req: Request, { params }: Ctx) {
  *   name / level          — rename; change level from the next round
  *   start_level, preview  — correct the starting level (preview = impact only)
  *   locked                — lock the level against automatic review
+ *   newPin: true          — issue a new PIN (returned once)
  *   rejoin: true          — bring back someone who left
  *   leave: true, substitute?: { player_id } | { name, level }, force?
  */
@@ -44,6 +48,16 @@ export async function PATCH(req: Request, { params }: Ctx) {
         return NextResponse.json({ error: 'a new substitute needs a name and a level' }, { status: 400 })
       await withdrawPlayer(id, b.player_id, sub ?? undefined, { force: b.force === true })
       return NextResponse.json({ ok: true })
+    }
+    if (b.newPin === true) {
+      // For someone the organiser added (no PIN), or who has forgotten theirs.
+      // Shown to the organiser once; the old PIN stops working.
+      const s = await loadSession(id)
+      if (!s.players[b.player_id]) return NextResponse.json({ error: 'player not in this session' }, { status: 400 })
+      const pin = await issuePin(b.player_id)
+      if (!pin) return NextResponse.json({ error: 'Run migration 013 in Supabase to turn on PINs' }, { status: 503 })
+      await logEvent({ session_id: id, event: 'pin_reset', player_id: b.player_id, detail: { name: s.players[b.player_id].name } })
+      return NextResponse.json({ pin })
     }
     if (typeof b.locked === 'boolean') { await setLevelLock(id, b.player_id, b.locked); return NextResponse.json({ ok: true }) }
     if (b.start_level !== undefined) {
