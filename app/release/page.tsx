@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { computeRefundQuote } from '@/lib/release'
 
 const T = {
@@ -17,13 +17,14 @@ interface Booking {
   pricePencePerSpace:number; hasConfirmedTransfer:boolean
   session:{ id:string; title:string; date:string; time:string; venue:string; label?:string }
 }
-type Step = 'email'|'choose'|'spaces'|'route'|'done'
+type Step = 'email'|'link-sent'|'loading'|'link-invalid'|'choose'|'spaces'|'route'|'done'
 
 const panel:React.CSSProperties = { background:T.card, border:`1px solid ${T.border}`, borderRadius:14, padding:22, marginBottom:16 }
 
 export default function ReleasePage(){
   const [step,setStep]=useState<Step>('email')
   const [email,setEmail]=useState('')
+  const [token,setToken]=useState('')
   const [loading,setLoading]=useState(false); const [error,setError]=useState('')
   const [bookings,setBookings]=useState<Booking[]>([])
   const [booking,setBooking]=useState<Booking|null>(null)
@@ -32,15 +33,28 @@ export default function ReleasePage(){
   const [route,setRoute]=useState<'A'|'B'|'C'|null>(null)
   const [done,setDone]=useState<{kind:'transfer'|'credit'|'card';toEmail?:string}|null>(null)
 
-  async function lookup(){
+  // Magic link lands here with ?token=...
+  useEffect(()=>{
+    const t=new URLSearchParams(window.location.search).get('token')
+    if(!t)return
+    setToken(t);setStep('loading')
+    fetch(`/api/release/session?token=${encodeURIComponent(t)}`).then(r=>r.json()).then(d=>{
+      if(d.status!=='ok'){setStep('link-invalid');return}
+      setPriorCardRefunds(d.priorCardRefunds??0)
+      setBookings(d.bookings)
+      if(d.bookings.length===0){setStep('link-invalid')}
+      else if(d.bookings.length===1){pick(d.bookings[0])}
+      else{setStep('choose')}
+    }).catch(()=>setStep('link-invalid'))
+  },[])
+
+  async function requestLink(){
     setLoading(true);setError('')
     try{
-      const res=await fetch('/api/release/lookup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email})})
+      const res=await fetch('/api/release/request-link',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email})})
       const d=await res.json()
       if(!res.ok){setError(d.error??'Something went wrong');return}
-      setBookings(d.bookings);setPriorCardRefunds(d.priorCardRefunds??0)
-      if(d.bookings.length===1){ pick(d.bookings[0]) }
-      else { setStep('choose') }
+      setStep('link-sent')
     }catch{setError('Network error - please try again')}
     finally{setLoading(false)}
   }
@@ -65,22 +79,46 @@ export default function ReleasePage(){
 
       <main style={{maxWidth:520,margin:'0 auto',padding:'28px 20px 60px'}}>
 
-        {/* STEP — find by email */}
+        {/* STEP — request a magic link */}
         {step==='email'&&(
           <>
             <h1 style={{fontSize:24,fontWeight:900,marginBottom:8}}>Can't make it?</h1>
             <p style={{color:T.muted,fontSize:14,lineHeight:1.6,marginBottom:20}}>
-              Enter the email you booked with and we'll pull up your upcoming spot. We'll offer it to the waitlist for you.
+              Enter the email you booked with and we'll send you a secure link to manage your spot. No booking reference needed.
             </p>
             <div style={panel}>
               <label style={{fontSize:12,color:T.muted,display:'block',marginBottom:5}}>Email</label>
-              <input type="email" value={email} onChange={e=>setEmail(e.target.value)} onKeyDown={e=>e.key==='Enter'&&email&&lookup()} placeholder="you@email.com" autoComplete="email" style={inp()}/>
+              <input type="email" value={email} onChange={e=>setEmail(e.target.value)} onKeyDown={e=>e.key==='Enter'&&email&&requestLink()} placeholder="you@email.com" autoComplete="email" style={inp()}/>
               {error&&<div style={{marginTop:12,padding:'10px 12px',background:T.dangerDim,color:T.danger,borderRadius:8,fontSize:13}}>{error}</div>}
-              <button onClick={lookup} disabled={!email||loading} style={{marginTop:16,width:'100%',padding:'14px',minHeight:52,borderRadius:10,border:'none',background:(!email||loading)?T.border:T.accent,color:(!email||loading)?T.muted:'#080f08',fontWeight:800,fontSize:16,cursor:(!email||loading)?'default':'pointer',fontFamily:'inherit'}}>
-                {loading?'Looking…':'Find my booking →'}
+              <button onClick={requestLink} disabled={!email||loading} style={{marginTop:16,width:'100%',padding:'14px',minHeight:52,borderRadius:10,border:'none',background:(!email||loading)?T.border:T.accent,color:(!email||loading)?T.muted:'#080f08',fontWeight:800,fontSize:16,cursor:(!email||loading)?'default':'pointer',fontFamily:'inherit'}}>
+                {loading?'Sending…':'Email me a link →'}
               </button>
             </div>
           </>
+        )}
+
+        {/* STEP — link sent */}
+        {step==='link-sent'&&(
+          <div style={{...panel,textAlign:'center',padding:'32px 24px'}}>
+            <div style={{fontSize:44,marginBottom:12}}>📬</div>
+            <div style={{fontSize:22,fontWeight:900,color:T.accent,marginBottom:8}}>Check your email</div>
+            <p style={{color:T.muted,fontSize:14,lineHeight:1.7}}>
+              If <strong style={{color:T.text}}>{email}</strong> has an upcoming booking, we've sent a secure link to manage it. It works for 30 minutes.
+            </p>
+            <p style={{color:T.muted,fontSize:12,lineHeight:1.6,marginTop:12}}>Can't see it? Check spam, and add bookings@theshuttlesocial.com to your contacts.</p>
+          </div>
+        )}
+
+        {/* STEP — loading from magic link */}
+        {step==='loading'&&<div style={{...panel,color:T.muted,textAlign:'center'}}>Loading your booking…</div>}
+
+        {/* STEP — link invalid/expired */}
+        {step==='link-invalid'&&(
+          <div style={{...panel,textAlign:'center',padding:'32px 24px'}}>
+            <div style={{fontSize:20,fontWeight:800,color:T.danger,marginBottom:8}}>Link expired or not valid</div>
+            <p style={{color:T.muted,fontSize:14,lineHeight:1.7,marginBottom:20}}>This link may have expired (they last 30 minutes) or there's no upcoming booking to manage.</p>
+            <button onClick={()=>{setStep('email');setToken('')}} style={{padding:'12px 24px',background:T.accent,color:'#080f08',border:'none',borderRadius:10,fontWeight:700,fontSize:14,cursor:'pointer',fontFamily:'inherit'}}>Request a new link</button>
+          </div>
         )}
 
         {/* STEP — choose which booking (multiple upcoming) */}
@@ -96,7 +134,6 @@ export default function ReleasePage(){
                 <div style={{fontSize:12,color:T.muted,marginTop:8}}>Ref <strong style={{color:T.accent}}>{b.bookingRef}</strong> · {b.maxReleasable} spot{b.maxReleasable>1?'s':''} releasable</div>
               </button>
             ))}
-            <button onClick={()=>setStep('email')} style={{marginTop:4,width:'100%',padding:'10px',borderRadius:10,border:`1px solid ${T.border}`,background:'none',color:T.muted,fontWeight:600,fontSize:13,cursor:'pointer',fontFamily:'inherit'}}>Back</button>
           </>
         )}
 
@@ -115,7 +152,7 @@ export default function ReleasePage(){
               <button onClick={()=>{setRoute(null);setError('');setStep('route')}} style={{marginTop:18,width:'100%',padding:'14px',minHeight:52,borderRadius:10,border:'none',background:T.accent,color:'#080f08',fontWeight:800,fontSize:16,cursor:'pointer',fontFamily:'inherit'}}>
                 Continue →
               </button>
-              <button onClick={()=>setStep(bookings.length>1?'choose':'email')} style={{marginTop:10,width:'100%',padding:'10px',borderRadius:10,border:`1px solid ${T.border}`,background:'none',color:T.muted,fontWeight:600,fontSize:13,cursor:'pointer',fontFamily:'inherit'}}>Back</button>
+              {bookings.length>1&&<button onClick={()=>setStep('choose')} style={{marginTop:10,width:'100%',padding:'10px',borderRadius:10,border:`1px solid ${T.border}`,background:'none',color:T.muted,fontWeight:600,fontSize:13,cursor:'pointer',fontFamily:'inherit'}}>Back</button>}
             </div>
           </>
         )}
@@ -129,7 +166,7 @@ export default function ReleasePage(){
             {!booking.hasConfirmedTransfer?(
               <RouteCard emphasised title="I've found my own replacement" badge="RECOMMENDED · FREE"
                 subtitle="Give your spot to someone specific. No fee, and you settle up between yourselves." selected={route==='A'} onClick={()=>{setRoute('A');setError('')}}>
-                {route==='A'&&<TransferForm booking={booking} spaces={spaces} email={email} onDone={(toEmail)=>{setDone({kind:'transfer',toEmail});setStep('done')}}/>}
+                {route==='A'&&<TransferForm booking={booking} spaces={spaces} token={token} onDone={(toEmail)=>{setDone({kind:'transfer',toEmail});setStep('done')}}/>}
               </RouteCard>
             ):(
               <div style={{...panel,opacity:0.7}}>
@@ -193,7 +230,7 @@ export default function ReleasePage(){
     if(!booking)return
     setLoading(true);setError('')
     try{
-      const res=await fetch('/api/release',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({bookingId:booking.id,email,spaces,refundPreference})})
+      const res=await fetch('/api/release',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({bookingId:booking.id,token,spaces,refundPreference})})
       const d=await res.json()
       if(!res.ok){setError(d.error??'Something went wrong');return}
       setDone({kind:refundPreference});setStep('done')
@@ -252,14 +289,14 @@ function ConfirmRelease({label,onConfirm,loading,error}:{label:string;onConfirm:
   )
 }
 
-function TransferForm({booking,spaces,email,onDone}:{booking:Booking;spaces:number;email:string;onDone:(toEmail:string)=>void}){
+function TransferForm({booking,spaces,token,onDone}:{booking:Booking;spaces:number;token:string;onDone:(toEmail:string)=>void}){
   const [toName,setToName]=useState(''); const [toEmail,setToEmail]=useState(''); const [toPhone,setToPhone]=useState('')
   const [consent,setConsent]=useState(false); const [loading,setLoading]=useState(false); const [error,setError]=useState('')
 
   async function submit(){
     setLoading(true);setError('')
     try{
-      const res=await fetch('/api/release/transfer',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({bookingId:booking.id,email,spaces,toName,toEmail,toPhone,consent})})
+      const res=await fetch('/api/release/transfer',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({bookingId:booking.id,token,spaces,toName,toEmail,toPhone,consent})})
       const d=await res.json()
       if(!res.ok){setError(d.error??'Something went wrong');return}
       onDone(d.toEmail??toEmail)

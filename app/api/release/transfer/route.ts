@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { nanoid } from 'nanoid'
-import { getReleasableBookingForEmail } from '@/lib/release-server'
+import { getReleasableBookingForEmail, emailForMagicToken } from '@/lib/release-server'
 import { sendTransferConfirmRequest } from '@/lib/email'
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://tickets.theshuttlesocial.com'
@@ -10,7 +10,7 @@ const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://tickets.theshuttleso
 // the incoming person a confirm link. No Stripe, no money, no admin fee, ever.
 // The transfer only completes when THEY click confirm (see /api/transfer/confirm).
 export async function POST(req: Request) {
-  const { bookingId, email, spaces, toName, toEmail, toPhone, consent } = await req.json().catch(() => ({}))
+  const { bookingId, token, spaces, toName, toEmail, toPhone, consent } = await req.json().catch(() => ({}))
 
   if (consent !== true) {
     return NextResponse.json({ error: 'Please confirm the other person has agreed to take your place.' }, { status: 400 })
@@ -23,7 +23,10 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Invalid number of spaces.' }, { status: 400 })
   }
 
-  const booking = await getReleasableBookingForEmail(bookingId ?? '', email ?? '')
+  const email = await emailForMagicToken(token ?? '')
+  if (!email) return NextResponse.json({ error: 'Your link has expired. Please request a new one.' }, { status: 401 })
+
+  const booking = await getReleasableBookingForEmail(bookingId ?? '', email)
   if (!booking) return NextResponse.json({ error: "We couldn't find that booking." }, { status: 404 })
   if (!booking.sessionInFuture) {
     return NextResponse.json({ error: 'This session has already taken place.' }, { status: 400 })

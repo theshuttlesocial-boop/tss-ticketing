@@ -299,6 +299,31 @@ export async function sendApologyRefundEmail({ to, name, bookingRef, sessionTitl
   })
 }
 
+// ── Release magic link: emailed so only the inbox owner can manage a booking ─
+export async function sendReleaseMagicLink({ to, url }: { to: string; url: string }) {
+  if (!resend) { console.log(`[Email] Release magic link for ${to}: ${url}`); return }
+  const fromAddr = process.env.EMAIL_FROM ?? 'bookings@theshuttlesocial.com'
+  await resend.emails.send({
+    // Display name + reply-to improve inbox placement (primary, not spam).
+    from: `The Shuttle Social <${fromAddr}>`,
+    to,
+    reply_to: fromAddr,
+    subject: 'Manage your Shuttle Social booking',
+    // Plain-text alternative also helps deliverability.
+    text: `Hi,\n\nTap this link to manage your booking (release your spot, transfer it, or request credit/refund):\n\n${url}\n\nThis link works for 30 minutes and can only be used from your inbox. If you didn't request it, you can ignore this email.\n\nThe Shuttle Social`,
+    html: emailWrap(`
+      <div style="color:${brandColor};font-size:22px;font-weight:900;margin-bottom:4px;">Manage your booking</div>
+      <div style="color:${muted};font-size:14px;margin-bottom:20px;">You asked to make a change to your spot. Tap below to continue.</div>
+      <div style="text-align:center;margin-bottom:16px;">
+        <a href="${url}" style="display:inline-block;background:${brandColor};color:#080f08;font-weight:800;font-size:16px;text-decoration:none;padding:14px 28px;border-radius:10px;">Manage my booking &rarr;</a>
+      </div>
+      <div style="color:${muted};font-size:13px;line-height:1.7;">
+        This secure link works for 30 minutes and only from your inbox. If you didn't request it, just ignore this email - nothing will change.
+      </div>
+    `)
+  })
+}
+
 // ── Waitlist offer: a spot has opened, claim within the window ───────────────
 export async function sendWaitlistOffer({ to, name, sessionTitle, sessionDate, sessionTime, venue, spaces, claimUrl, expiresMinutes }: {
   to: string; name: string; sessionTitle: string; sessionDate: string; sessionTime: string

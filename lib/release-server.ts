@@ -1,4 +1,5 @@
 import { supabaseAdmin } from '@/lib/supabase'
+import { nanoid } from 'nanoid'
 
 export interface ReleasableBooking {
   id: string
@@ -82,6 +83,24 @@ export async function lookupReleasableBookingsByEmail(emailRaw: string): Promise
   return rows
     .map((b: any) => buildShape(b, b.sessions, confirmed.has(b.id)))
     .filter(b => b.sessionInFuture && b.maxReleasable >= 1)
+}
+
+// ── Magic-link tokens ────────────────────────────────────────────────────────
+// A token proves the person controls the email inbox. Valid for 30 min (the DB
+// default), reusable within that window so the page can read then act.
+export async function createReleaseMagicToken(emailRaw: string): Promise<string> {
+  const token = nanoid(40)
+  await supabaseAdmin.from('release_magic_links').insert({ email: (emailRaw ?? '').trim().toLowerCase(), token })
+  return token
+}
+
+export async function emailForMagicToken(token: string): Promise<string | null> {
+  if (!token) return null
+  const { data } = await supabaseAdmin
+    .from('release_magic_links').select('email,expires_at').eq('token', token).maybeSingle()
+  if (!data) return null
+  if (new Date(data.expires_at) < new Date()) return null
+  return data.email
 }
 
 // Re-validate a specific booking belongs to the email, for the POST endpoints.
