@@ -1,4 +1,5 @@
 import { supabaseAdmin } from '@/lib/supabase'
+import { planCreditConsumption } from '@/lib/credits-calc'
 
 // Total unused, unexpired credit for an email (pence). Case-insensitive.
 export async function availableCreditPence(emailRaw: string): Promise<number> {
@@ -24,21 +25,18 @@ export async function consumeCredits(emailRaw: string, amountPence: number, book
     .order('expires_at', { ascending: true })
   const credits = (data ?? []).filter(c => (c.email ?? '').toLowerCase() === email)
 
-  let remaining = amountPence
-  for (const c of credits) {
-    if (remaining <= 0) break
-    if (c.amount_pence <= remaining) {
-      // Guard with is('used_at', null) so a concurrent consume can't double-spend.
-      await supabaseAdmin.from('credits').update({ used_at: nowIso, used_booking_id: bookingId }).eq('id', c.id).is('used_at', null)
-      remaining -= c.amount_pence
-    } else {
-      await supabaseAdmin.from('credits').update({ amount_pence: c.amount_pence - remaining }).eq('id', c.id).is('used_at', null)
-      await supabaseAdmin.from('credits').insert({
-        email, amount_pence: remaining, used_at: nowIso, used_booking_id: bookingId,
-        source_booking_id: c.source_booking_id, expires_at: c.expires_at,
-      })
-      remaining = 0
-    }
+  const plan = planCreditConsumption(credits, amountPence)
+
+  // Guard every write with is('used_at', null) so a concurrent consume can't double-spend.
+  for (const id of plan.use) {
+    await supabaseAdmin.from('credits').update({ used_at: nowIso, used_booking_id: bookingId }).eq('id', id).is('used_at', null)
   }
-  return amountPence - remaining
+  if (plan.split) {
+    await supabaseAdmin.from('credits').update({ amount_pence: plan.split.keep }).eq('id', plan.split.id).is('used_at', null)
+    await supabaseAdmin.from('credits').insert({
+      email, amount_pence: plan.split.take, used_at: nowIso, used_booking_id: bookingId,
+      source_booking_id: plan.split.source_booking_id, expires_at: plan.split.expires_at,
+    })
+  }
+  return plan.consumed
 }

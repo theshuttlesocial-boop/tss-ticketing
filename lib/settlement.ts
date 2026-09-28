@@ -3,6 +3,7 @@ import { stripe } from '@/lib/stripe'
 import { computeRefundQuote } from '@/lib/release'
 import { sendCreditIssued, sendCardRefundIssued } from '@/lib/email'
 import { logAudit } from '@/lib/audit'
+import { isFeeAccruingRelease, withinPriorWindow } from '@/lib/settlement-calc'
 
 const CREDIT_EXPIRY_DAYS = 90
 
@@ -11,16 +12,20 @@ const CREDIT_EXPIRY_DAYS = 90
 // only refund_preference='card' AND outcome='replaced' rows are counted — which
 // is exactly why the credit route never accrues the fee ladder.
 async function priorCardRefundCount(email: string, beforeIso: string, excludeReleaseId: string): Promise<number> {
-  const windowStart = new Date(new Date(beforeIso).getTime() - CREDIT_EXPIRY_DAYS * 86_400_000).toISOString()
   // Bookings for this email (case-insensitive; ilike may over-match, tighten in JS).
   const { data: bookings } = await supabaseAdmin.from('bookings').select('id,email').ilike('email', email)
   const ids = (bookings ?? []).filter(b => (b.email ?? '').toLowerCase() === email.toLowerCase()).map(b => b.id)
   if (!ids.length) return 0
+  // Fetch this email's releases and filter with the pure predicates, so the
+  // fee-ladder rules (card+replaced only, within window, excluding this one)
+  // live in one tested place.
   const { data: rels } = await supabaseAdmin
-    .from('releases').select('id,released_at')
-    .in('booking_id', ids).eq('refund_preference', 'card').eq('outcome', 'replaced')
-    .gte('released_at', windowStart).lt('released_at', beforeIso)
-  return (rels ?? []).filter(r => r.id !== excludeReleaseId).length
+    .from('releases').select('id,released_at,refund_preference,outcome').in('booking_id', ids)
+  return (rels ?? []).filter(r =>
+    r.id !== excludeReleaseId &&
+    isFeeAccruingRelease(r) &&
+    withinPriorWindow(r.released_at, beforeIso, CREDIT_EXPIRY_DAYS),
+  ).length
 }
 
 // Pay out the releaser once a replacement has paid. Called ONLY from the claim
