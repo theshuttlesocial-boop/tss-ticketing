@@ -4,10 +4,11 @@ import { useLiveSession } from '../../_hooks/useLiveSession'
 import { CourtCard } from '../../_components/CourtCard'
 import { T } from '../../_components/theme'
 import { displayNames } from '@/lib/live-session/displayNames'
+import { RoundTimer } from '../../_components/RoundTimer'
 
 export default function BoardPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
-  const { session, error, loading } = useLiveSession(id)
+  const { session, error, loading, offset } = useLiveSession(id)
 
   const shell = (msg: string) => (
     <div style={{ minHeight:'100vh', background:T.bg, color:T.muted, display:'grid',
@@ -32,6 +33,9 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
         <div style={{ fontSize:44, fontWeight:900, letterSpacing:'-1px' }}>Round {round.index}</div>
         <div style={{ fontSize:20, color:T.muted }}>
           {round.matches.length} courts
+        </div>
+        <div style={{ marginLeft:'auto' }}>
+          <RoundTimer mode="board" timer={round.timer} round={round.index} offset={offset} />
         </div>
       </div>
 
