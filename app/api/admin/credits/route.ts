@@ -1,14 +1,16 @@
+import { requireAdmin } from '@/lib/staff'
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { logAudit } from '@/lib/audit'
 
-function checkAdmin(req: Request) {
-  return req.headers.get('x-admin-secret') === process.env.ADMIN_SECRET
+/** Owners and admins (personal login, or the owner-only emergency password). */
+async function checkAdmin(req: Request) {
+  return !!(await requireAdmin(req))
 }
 
 // GET — all credits, newest first (status computed client-side).
 export async function GET(req: Request) {
-  if (!checkAdmin(req)) return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
+  if (!(await checkAdmin(req))) return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
   const { data, error } = await supabaseAdmin
     .from('credits')
     .select('id,email,phone,amount_pence,created_at,expires_at,used_at,used_booking_id,source_booking_id')
@@ -19,7 +21,7 @@ export async function GET(req: Request) {
 
 // POST — issue a manual credit.
 export async function POST(req: Request) {
-  if (!checkAdmin(req)) return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
+  if (!(await checkAdmin(req))) return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
   const { email, amountPence, phone } = await req.json().catch(() => ({}))
   const amount = Math.round(Number(amountPence))
   if (!email?.trim() || !Number.isFinite(amount) || amount <= 0)
@@ -35,7 +37,7 @@ export async function POST(req: Request) {
 
 // DELETE ?id — void an UNUSED credit (removes it). Used credits can't be voided.
 export async function DELETE(req: Request) {
-  if (!checkAdmin(req)) return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
+  if (!(await checkAdmin(req))) return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
   const id = new URL(req.url).searchParams.get('id')
   if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 })
 
