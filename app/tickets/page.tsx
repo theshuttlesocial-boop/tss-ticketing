@@ -830,7 +830,7 @@ export default function TicketsPage() {
           </div>
           <div style={{maxWidth:640,margin:'0 auto',display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap' as const,gap:12}}>
             <div style={{fontSize:12,color:T.muted}}>
-              The Shuttle Social · <a href="https://instagram.com/theshuttlesocial" target="_blank" rel="noopener" style={{color:T.accent,textDecoration:'none'}}>@theshuttlesocial</a> · <a href="https://tiktok.com/@theshuttlesocial" target="_blank" rel="noopener" style={{color:T.accent,textDecoration:'none'}}>TikTok</a>
+              The Shuttle Social · <a href="https://instagram.com/theshuttlesocial" target="_blank" rel="noopener" style={{color:T.accent,textDecoration:'none'}}>@theshuttlesocial</a> · <a href="https://tiktok.com/@theshuttlesocial" target="_blank" rel="noopener" style={{color:T.accent,textDecoration:'none'}}>TikTok</a> · <a href="/privacy" style={{color:T.accent,textDecoration:'none'}}>Privacy</a>
             </div>
           </div>
           {/* Back to top — like Ticket Tailor */}

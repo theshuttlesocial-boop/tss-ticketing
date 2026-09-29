@@ -34,6 +34,8 @@ export interface Player {
   levelChanges?: LevelChange[];
   /** Admin has locked the level: automatic review never moves it. */
   levelLocked?: boolean;
+  /** Linked TSS account (players.id), if any. Admin-only; never public. */
+  accountId?: string;
   /** Current performance rating. */
   rating: number;
   /** Rated games played this session. */

@@ -186,7 +186,7 @@ export default function JoinPage({ params }: { params: Promise<{ id: string }> }
         letterSpacing:'1px', fontWeight:600 }}>Live session</div>
       <h1 style={{ fontSize:32, fontWeight:900, margin:'4px 0 6px' }}>What&apos;s your name?</h1>
       <p style={{ color:T.muted, fontSize:14, margin:'0 0 20px' }}>
-        This is how you&apos;ll appear on the court list.
+        This is how you&apos;ll appear on the court list. <a href="/privacy" style={{ color:T.muted }}>How we use it</a>
       </p>
 
       {errorBox}

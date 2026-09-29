@@ -43,3 +43,21 @@ export async function PATCH(req: Request) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ ok: true })
 }
+
+/**
+ * Delete my account. The account and sign-in are deleted; in every live
+ * session the player becomes "Former player", so other people's results and
+ * ratings stay correct. Bookings and payment records are kept, as the law
+ * requires (see /privacy). Needs { confirm: "DELETE" }.
+ */
+export async function DELETE(req: Request) {
+  const u = await userFromRequest(req)
+  if (!u) return NextResponse.json({ error: 'Not signed in' }, { status: 401 })
+  const b = await req.json().catch(() => ({}))
+  if (b.confirm !== 'DELETE') return NextResponse.json({ error: 'Type DELETE to confirm' }, { status: 400 })
+  const p = await ensurePlayer(u)
+  const { error } = await supabaseAdmin.rpc('anonymise_player', { p_player: p.id })
+  if (error) return NextResponse.json({ error: error.message.includes('anonymise_player')
+    ? 'Account deletion is not switched on yet — email theshuttlesocial@gmail.com and we will do it for you.' : error.message }, { status: 500 })
+  return NextResponse.json({ ok: true })
+}
