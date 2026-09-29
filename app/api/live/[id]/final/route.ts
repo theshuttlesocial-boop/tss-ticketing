@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server'
-import { checkLive } from '@/lib/live-session/auth'
+import { allowed, checkLive } from '@/lib/live-session/auth'
 import { generateGrandFinal, finishSession, LiveSessionError } from '@/lib/live-session/actions'
 
 type Ctx = { params: Promise<{ id: string }> }
 
 export async function POST(req: Request, { params }: Ctx) {
-  if (!(await checkLive(req, (await params).id))) return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
+  if (!allowed(await checkLive(req, (await params).id))) return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
   const { id } = await params
   try {
     const r = await generateGrandFinal(id)
@@ -18,7 +18,7 @@ export async function POST(req: Request, { params }: Ctx) {
 
 /** Finish the session: closes registration, /live/latest stops resolving to it. */
 export async function PATCH(req: Request, { params }: Ctx) {
-  if (!(await checkLive(req, (await params).id))) return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
+  if (!allowed(await checkLive(req, (await params).id))) return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
   const { id } = await params
   try { await finishSession(id); return NextResponse.json({ ok: true }) }
   catch (e) { return NextResponse.json({ error: (e as Error).message }, { status: 500 }) }

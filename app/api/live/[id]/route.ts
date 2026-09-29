@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { checkLive } from '@/lib/live-session/auth'
+import { allowed, checkLive } from '@/lib/live-session/auth'
 import {
   loadSession, loadMeta, setRegistrationOpen, finishSession, reopenSession, autoFinishIfStale,
   previousLevels, logEvent, writeCompat, LiveSessionError,
@@ -25,7 +25,7 @@ export async function GET(req: Request, { params }: Ctx) {
   try {
     const meta = await autoFinishIfStale(id, await loadMeta(id))
     const session = await loadSession(id)
-    if (await checkLive(req, id)) {
+    if (allowed(await checkLive(req, id))) {
       const history = await previousLevels(id).catch(() => ({}))
       return NextResponse.json({ session, meta, admin: true, history, serverNow: Date.now() })
     }
@@ -37,7 +37,7 @@ export async function GET(req: Request, { params }: Ctx) {
 }
 
 export async function PATCH(req: Request, { params }: Ctx) {
-  if (!(await checkLive(req, (await params).id))) return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
+  if (!allowed(await checkLive(req, (await params).id))) return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
   const { id } = await params
   const body = await req.json()
   const fail = (e: unknown) => NextResponse.json({ error: (e as Error).message },

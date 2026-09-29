@@ -24,7 +24,8 @@ export interface LogRow {
 const cap = (s?: string | null) => (s ? s[0].toUpperCase() + s.slice(1) : '?');
 const score = (a?: number | null, b?: number | null) => (a == null || b == null ? '—' : `${a}–${b}`);
 const who = (actor?: string | null) =>
-  !actor || actor === 'admin' ? 'Admin' : actor === 'system' ? 'System' : `Staff ${actor.slice(0, 8)}`;
+  !actor || actor === 'admin' ? 'Admin' : actor === 'system' ? 'System' : actor === 'player' ? 'Player'
+    : actor.includes('@') ? actor.split('@')[0] : actor;
 
 export function describe(r: LogRow): { when: string; who: string; what: string } {
   const d = r.detail ?? {};
