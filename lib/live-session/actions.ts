@@ -83,7 +83,33 @@ export async function loadSession(sessionId: string): Promise<Session> {
   for (const res of [p, g, r]) {
     if (res.error) throw new LiveSessionError(res.error.message);
   }
-  return rowsToSession(s.data, p.data ?? [], g.data ?? [], r.data ?? []);
+  const session = rowsToSession(s.data, p.data ?? [], g.data ?? [], r.data ?? []);
+  // Level-review notes are kept out of the publicly readable config
+  // (migration 022) and merged back in here, on the server, for admins.
+  const priv = await readPrivate(sessionId);
+  const cfg: any = session.config;
+  cfg.dismissed = [...new Set([...(cfg.dismissed ?? []), ...priv.dismissed])];
+  cfg.blockedMoves = [...new Set([...(cfg.blockedMoves ?? []), ...priv.blockedMoves])];
+  return session;
+}
+
+/** Admin-only level-review notes (migration 022). Empty if the table isn't there yet. */
+async function readPrivate(sessionId: string): Promise<{ dismissed: string[]; blockedMoves: string[] }> {
+  const { data, error } = await supabaseAdmin.from('live_session_private')
+    .select('dismissed,blocked_moves').eq('session_id', sessionId).maybeSingle();
+  if (error || !data) return { dismissed: [], blockedMoves: [] };
+  return { dismissed: data.dismissed ?? [], blockedMoves: data.blocked_moves ?? [] };
+}
+
+/** Add to the private notes; before migration 022 runs, falls back to the config. */
+async function addPrivate(sessionId: string, field: 'dismissed' | 'blockedMoves', value: string) {
+  const cur = await readPrivate(sessionId);
+  const next = { dismissed: cur.dismissed, blocked_moves: cur.blockedMoves };
+  if (field === 'dismissed') next.dismissed = [...new Set([...cur.dismissed, value])];
+  else next.blocked_moves = [...new Set([...cur.blockedMoves, value])];
+  const { error } = await supabaseAdmin.from('live_session_private')
+    .upsert({ session_id: sessionId, ...next, updated_at: new Date().toISOString() });
+  if (error) await updateConfigKey(sessionId, (c) => ({ ...c, [field]: [...new Set([...(c[field] ?? []), value])] }));
 }
 
 /** Write back the player fields a recompute derives. */
@@ -765,7 +791,7 @@ export async function attention(sessionId: string, body: {
 }) {
   if (body.action === 'dismiss') {
     if (!body.key) throw new LiveSessionError('key required');
-    await updateConfigKey(sessionId, (c) => ({ ...c, dismissed: [...new Set([...(c.dismissed ?? []), body.key])] }));
+    await addPrivate(sessionId, 'dismissed', body.key);
     await logEvent({ session_id: sessionId, event: 'attention', detail: { key: body.key, text: body.text ?? null } });
     return nudge(sessionId);
   }
@@ -783,8 +809,7 @@ export async function attention(sessionId: string, body: {
   const rerated = recomputeRatings({ ...session, players });
   await persistLevel(rerated.players[p.id]);
   await persistDerivedPlayers(rerated);
-  await updateConfigKey(sessionId, (c) => ({ ...c,
-    blockedMoves: [...new Set([...(c.blockedMoves ?? []), `${p.id}:${last.to}`])] }));
+  await addPrivate(sessionId, 'blockedMoves', `${p.id}:${last.to}`);
   await logEvent({ session_id: sessionId, event: 'level', round: last.beforeRound, player_id: p.id,
     detail: { name: p.name, from: last.to, to: last.from, reason: 'automatic change undone' } });
   await nudge(sessionId);
