@@ -1,4 +1,5 @@
 'use client'
+import { RequireTwoStep } from '@/app/_components/TwoStep'
 import { use, useState, useMemo, useEffect } from 'react'
 import { useLiveSession } from '../../_hooks/useLiveSession'
 import { T, inp, cardStyle, btn } from '../../_components/theme'
@@ -20,7 +21,7 @@ import { StaffGate as Gate } from '../../_components/StaffGate'
 type Tab = 'courts' | 'standings' | 'roster' | 'log' | 'settings'
 const SLOTS = ['A.a', 'A.b', 'B.a', 'B.b'] as const
 
-export default function LiveAdminPage({ params }: { params: Promise<{ id: string }> }) {
+function LiveAdminPageInner({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const [secret, setSecret] = useState('')
   const [authed, setAuthed] = useState(false)
@@ -795,4 +796,9 @@ function RegistrationView({ id, origin, session, meta, busy, msg, onToggle, onAd
       )}
     </div>
   )
+}
+
+/** Owners and admins pass the authenticator step first (Phase 5d). */
+export default function LiveAdminPage(props: any) {
+  return <RequireTwoStep><LiveAdminPageInner {...props} /></RequireTwoStep>
 }

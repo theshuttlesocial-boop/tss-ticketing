@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { requireOwner } from '@/lib/staff'
-import { auditFeed, inviteStaff, listStaff, StaffError, updateStaff } from '@/lib/staffAdmin'
+import { auditFeed, inviteStaff, listStaff, resetTwoStep, StaffError, updateStaff } from '@/lib/staffAdmin'
 
 const fail = (e: unknown) => NextResponse.json({ error: (e as Error).message }, { status: e instanceof StaffError ? 400 : 500 })
 
@@ -21,12 +21,15 @@ export async function POST(req: Request) {
   catch (e) { return fail(e) }
 }
 
-/** Change role or remove/restore access: { id, role? , active? } */
+/** Change role, remove/restore access, or reset two-step login: { id, role? , active?, resetTwoStep? } */
 export async function PATCH(req: Request) {
   const me = await requireOwner(req)
   if (!me) return NextResponse.json({ error: 'Owners only' }, { status: 403 })
   if (me.via !== 'account') return NextResponse.json({ error: 'Sign in with your own owner account to manage staff' }, { status: 403 })
   const b = await req.json().catch(() => ({}))
-  try { await updateStaff(me, b.id, { role: b.role, active: typeof b.active === 'boolean' ? b.active : undefined }); return NextResponse.json({ ok: true }) }
+  try {
+    if (b.resetTwoStep === true) { await resetTwoStep(me, b.id); return NextResponse.json({ ok: true }) }
+    await updateStaff(me, b.id, { role: b.role, active: typeof b.active === 'boolean' ? b.active : undefined }); return NextResponse.json({ ok: true })
+  }
   catch (e) { return fail(e) }
 }

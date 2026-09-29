@@ -9,7 +9,7 @@
  */
 import { supabaseAdmin } from '@/lib/supabase';
 import { userFromRequest } from '@/lib/account';
-import { Assignment, canRunLiveSession, isAdminRole, passwordFallbackEnabled, Role, StaffUser } from './staffRules';
+import { Assignment, canRunLiveSession, fullySignedIn, isAdminRole, needsTwoStep, passwordFallbackEnabled, Role, StaffUser, tokenAal } from './staffRules';
 
 export type { Role, StaffUser };
 
@@ -21,27 +21,30 @@ export async function staffFromRequest(req: Request): Promise<StaffUser | null> 
   }
   const u = await userFromRequest(req);
   if (!u) return null;
+  const token = (req.headers.get('authorization') ?? '').slice(7).trim();
   const { data, error } = await supabaseAdmin.from('staff').select('email,role,active').ilike('email', u.email).maybeSingle();
   if (error || !data || !data.active) return null;
-  return { email: u.email, role: data.role as Role, via: 'account' };
+  const role = data.role as Role;
+  return { email: u.email, role, via: 'account',
+    mfa: needsTwoStep(role) ? (tokenAal(token) === 'aal2' ? 'ok' : 'needed') : 'ok' };
 }
 
 /** Owners and admins: bookings, refunds, credits, emails, analytics, settings, any live session. */
 export async function requireAdmin(req: Request): Promise<StaffUser | null> {
   const s = await staffFromRequest(req);
-  return s && isAdminRole(s.role) ? s : null;
+  return s && isAdminRole(s.role) && fullySignedIn(s) ? s : null;
 }
 
 /** Owners only: staff management and the full audit log. */
 export async function requireOwner(req: Request): Promise<StaffUser | null> {
   const s = await staffFromRequest(req);
-  return s && s.role === 'owner' ? s : null;
+  return s && s.role === 'owner' && fullySignedIn(s) ? s : null;
 }
 
 /** Anyone allowed to run this live session: owners, admins, and its assigned session leads (in their window). */
 export async function requireLiveStaff(req: Request, liveSessionId: string): Promise<StaffUser | null> {
   const s = await staffFromRequest(req);
-  if (!s) return null;
+  if (!s || !fullySignedIn(s)) return null;
   if (isAdminRole(s.role)) return s;
   const { data: me } = await supabaseAdmin.from('staff').select('id').ilike('email', s.email ?? '').maybeSingle();
   if (!me) return null;

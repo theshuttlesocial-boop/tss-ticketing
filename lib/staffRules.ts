@@ -12,6 +12,8 @@ export interface StaffUser {
   role: Role;
   /** 'account' = signed in with their own login; 'password' = the shared emergency password. */
   via: 'account' | 'password';
+  /** Owners and admins must also pass the authenticator-app step (Phase 5d). */
+  mfa?: 'ok' | 'needed';
 }
 
 export interface Assignment {
@@ -22,6 +24,23 @@ export interface Assignment {
 }
 
 export const isAdminRole = (r: Role) => r === 'owner' || r === 'admin';
+
+/** Owners and admins need two-step login; session leads don't. */
+export const needsTwoStep = (r: Role) => isAdminRole(r);
+
+/**
+ * The sign-in's assurance level, read from the access token Supabase has
+ * already verified: 'aal2' once the authenticator code has been entered.
+ */
+export function tokenAal(token: string): string | null {
+  try {
+    const payload = JSON.parse(Buffer.from(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8'));
+    return typeof payload.aal === 'string' ? payload.aal : null;
+  } catch { return null; }
+}
+
+/** Has this staff member done everything their role requires to act? */
+export const fullySignedIn = (s: StaffUser) => s.via === 'password' || !needsTwoStep(s.role) || s.mfa === 'ok';
 
 /** An assignment with no window is valid while it exists; otherwise only between the times given. */
 export function assignmentActive(a: Assignment, now: number): boolean {

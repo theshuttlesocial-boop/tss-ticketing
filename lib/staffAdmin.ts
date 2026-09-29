@@ -26,8 +26,9 @@ export async function listStaff() {
   const title = (l: any) => l.ticket_session_id
     ? (() => { const t = (assignedTickets ?? []).find((x: any) => x.id === l.ticket_session_id); return t ? `${t.title} · ${t.date} ${t.time}` : 'Booking session' })()
     : (live ?? []).find((x) => x.id === l.live_session_id)?.name ?? 'Live session';
+  const twoStep = await Promise.all((staff ?? []).map((s) => hasTwoStep(s.email)));
   return {
-    staff: (staff ?? []).map((s) => ({ ...s, assignments: (leads ?? []).filter((l) => l.staff_id === s.id)
+    staff: (staff ?? []).map((s, i) => ({ ...s, twoStep: twoStep[i], assignments: (leads ?? []).filter((l) => l.staff_id === s.id)
       .map((l) => ({ id: l.id, label: title(l), valid_from: l.valid_from, valid_to: l.valid_to, live: !!l.live_session_id })) })),
     upcoming: (upcoming ?? []).filter((s) => s.status !== 'cancelled'),
     live: live ?? [],
@@ -110,4 +111,32 @@ export async function auditFeed(limit = 150) {
     ...(l ?? []).map((x: any) => ({ at: x.created_at, source: 'live', event: x.event, who: x.actor ?? 'admin',
       detail: { ...x.detail, round: x.round, court: x.court, session: x.live_sessions?.name } })),
   ].sort((x, y) => (x.at < y.at ? 1 : -1)).slice(0, limit);
+}
+
+/** The sign-in login (auth user) behind a staff email, if they have signed in. */
+async function authUserId(email: string): Promise<string | null> {
+  const { data } = await supabaseAdmin.from('players').select('auth_user_id').ilike('email', email).maybeSingle();
+  return data?.auth_user_id ?? null;
+}
+
+async function hasTwoStep(email: string): Promise<boolean> {
+  const id = await authUserId(email);
+  if (!id) return false;
+  const { data } = await supabaseAdmin.auth.admin.mfa.listFactors({ userId: id });
+  return (data?.factors ?? []).some((f: any) => f.status === 'verified');
+}
+
+/** Lost phone: remove someone's authenticator so they set it up again at next sign-in. */
+export async function resetTwoStep(actor: StaffUser, staffId: string) {
+  const { data: s } = await supabaseAdmin.from('staff').select('email').eq('id', staffId).maybeSingle();
+  if (!s) throw new StaffError('Not found');
+  const id = await authUserId(s.email);
+  if (!id) throw new StaffError(`${s.email} hasn't signed in yet — nothing to reset`);
+  const { data } = await supabaseAdmin.auth.admin.mfa.listFactors({ userId: id });
+  for (const f of data?.factors ?? []) await supabaseAdmin.auth.admin.mfa.deleteFactor({ id: f.id, userId: id });
+  // Sign them out everywhere, so a stolen phone's session can't carry on
+  // (migration 021). The factor is gone either way.
+  const { data: ended, error } = await supabaseAdmin.rpc('revoke_user_sessions', { p_user: id });
+  await logAudit('staff_mfa_reset', { email: s.email, by: by(actor), sessionsEnded: error ? null : ended }, s.email);
+  if (error) throw new StaffError('Two-step was reset, but signing them out everywhere needs migration 021 in Supabase.');
 }

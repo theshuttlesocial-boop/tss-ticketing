@@ -1,9 +1,11 @@
 'use client'
+import { RequireTwoStep } from '@/app/_components/TwoStep'
 import { useCallback, useEffect, useState } from 'react'
 import { T, btn, inp, cardStyle } from '../live/_components/theme'
 import { staffHeaders, whoAmI } from '@/lib/staffClient'
 
 type Member = { id: string; email: string; role: 'owner' | 'admin' | 'session_lead'; active: boolean; created_at: string; revoked_at: string | null
+  twoStep: boolean
   assignments: { id: string; label: string; valid_from: string | null; valid_to: string | null; live: boolean }[] }
 type Data = { staff: Member[]; upcoming: { id: string; title: string; venue: string; date: string; time: string }[]
   live: { id: string; name: string; status: string }[]
@@ -24,6 +26,7 @@ function auditLine(a: Data['audit'][number]) {
     case 'staff_restored': return `Restored access for ${d.email}`
     case 'lead_assigned': return `${d.email} leads ${d.session}`
     case 'lead_unassigned': return `${d.email} no longer leads a session`
+    case 'staff_mfa_reset': return `Two-step login reset for ${d.email}`
   }
   if (a.source === 'live') {
     const where = [d.session, d.round ? `R${d.round}` : '', d.court ? `C${d.court}` : ''].filter(Boolean).join(' ')
@@ -37,7 +40,7 @@ function auditLine(a: Data['audit'][number]) {
  * assign session leads to sessions, remove access instantly, and read the
  * audit log. The server enforces all of it (lib/staffAdmin.ts).
  */
-export default function StaffPage() {
+function StaffPageInner() {
   const [me, setMe] = useState<{ email: string | null; role: string; via: string } | null | undefined>(undefined)
   const [data, setData] = useState<Data | null>(null)
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
@@ -135,7 +138,9 @@ function MemberCard({ m, data, busy, self, call }: { m: Member; data: Data; busy
       <div style={{ display:'flex', justifyContent:'space-between', gap:8, alignItems:'flex-start', marginBottom:8 }}>
         <div style={{ minWidth:0 }}>
           <div style={{ fontWeight:800, wordBreak:'break-all' }}>{m.email}{self ? ' (you)' : ''}</div>
-          <div style={{ fontSize:12, color: m.active ? T.muted : T.danger }}>{m.active ? ROLE[m.role] : `Access removed ${when(m.revoked_at)}`}</div>
+          <div style={{ fontSize:12, color: m.active ? T.muted : T.danger }}>{m.active ? ROLE[m.role] : `Access removed ${when(m.revoked_at)}`}
+            {m.active && m.role !== 'session_lead' && <span style={{ color: m.twoStep ? T.accent : T.warning }}> · {m.twoStep ? 'two-step on' : 'two-step not set up yet'}</span>}
+          </div>
         </div>
         {m.active
           ? <button style={{ ...btn('danger'), minHeight:40, flexShrink:0 }} disabled={busy}
@@ -148,6 +153,12 @@ function MemberCard({ m, data, busy, self, call }: { m: Member; data: Data; busy
           onChange={(e) => { const r = e.target.value; if (confirm(`Make ${m.email} ${ROLE[r]}?`)) call('/api/staff', 'PATCH', { id: m.id, role: r }, `${m.email} is now ${ROLE[r]}`) }}>
           {Object.entries(ROLE).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
+      )}
+      {m.active && m.twoStep && !self && (
+        <button style={{ ...btn(), width:'100%', minHeight:40, marginBottom:8, fontSize:13 }} disabled={busy}
+          onClick={() => { if (confirm(`Reset ${m.email}'s two-step login? Their authenticator stops working, they're signed out everywhere, and they set it up again next time they sign in.`)) call('/api/staff', 'PATCH', { id: m.id, resetTwoStep: true }, `Two-step reset for ${m.email}`) }}>
+          Reset two-step (lost phone)
+        </button>
       )}
       {m.active && m.role === 'session_lead' && (
         <div>
@@ -181,4 +192,9 @@ function MemberCard({ m, data, busy, self, call }: { m: Member; data: Data; busy
       )}
     </section>
   )
+}
+
+/** Owners and admins pass the authenticator step first (Phase 5d). */
+export default function StaffPage() {
+  return <RequireTwoStep><StaffPageInner /></RequireTwoStep>
 }

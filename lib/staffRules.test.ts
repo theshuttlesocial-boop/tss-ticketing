@@ -29,3 +29,18 @@ test('emergency password: on unless switched off', () => {
   assert.ok(passwordFallbackEnabled('on'));
   assert.ok(!passwordFallbackEnabled('off'));
 });
+
+import { fullySignedIn, tokenAal } from './staffRules';
+
+const jwt = (payload: object) => `x.${Buffer.from(JSON.stringify(payload)).toString('base64url')}.y`;
+
+test('two-step: owners and admins need the app code; leads and the emergency password do not', () => {
+  assert.equal(tokenAal(jwt({ aal: 'aal2' })), 'aal2');
+  assert.equal(tokenAal(jwt({ aal: 'aal1' })), 'aal1');
+  assert.equal(tokenAal('garbage'), null);
+  assert.ok(!fullySignedIn({ email: 'a@x', role: 'admin', via: 'account', mfa: 'needed' }));
+  assert.ok(fullySignedIn({ email: 'a@x', role: 'admin', via: 'account', mfa: 'ok' }));
+  assert.ok(!fullySignedIn({ email: 'o@x', role: 'owner', via: 'account', mfa: 'needed' }));
+  assert.ok(fullySignedIn({ email: 'l@x', role: 'session_lead', via: 'account', mfa: 'ok' }));
+  assert.ok(fullySignedIn({ email: null, role: 'owner', via: 'password' }));
+});

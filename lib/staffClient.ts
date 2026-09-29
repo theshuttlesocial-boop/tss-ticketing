@@ -24,7 +24,7 @@ export async function staffHeadersReady(secret?: string | null): Promise<Record<
   return staffHeaders(secret)
 }
 
-export async function whoAmI(secret?: string | null): Promise<{ email: string | null; role: string; via: string } | null> {
+export async function whoAmI(secret?: string | null): Promise<{ email: string | null; role: string; via: string; mfa?: 'ok' | 'needed' } | null> {
   const res = await fetch('/api/staff/me', { cache: 'no-store', headers: await staffHeadersReady(secret) })
   return res.ok ? (await res.json()).staff : null
 }

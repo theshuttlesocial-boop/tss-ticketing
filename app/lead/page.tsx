@@ -1,4 +1,5 @@
 'use client'
+import { RequireTwoStep } from '@/app/_components/TwoStep'
 import { useCallback, useEffect, useState } from 'react'
 import { T, btn, cardStyle } from '../live/_components/theme'
 import { staffHeaders, whoAmI, signOutStaff } from '@/lib/staffClient'
@@ -20,7 +21,7 @@ const wrap: React.CSSProperties = { minHeight:'100vh', background:T.bg, color:T.
  * timer. Nothing about payments, emails or other sessions. The server decides
  * what's shown (lib/lead.ts); hiding things here is not the protection.
  */
-export default function LeadPage() {
+function LeadPageInner() {
   const [who, setWho] = useState<{ email: string | null; role: string } | null | undefined>(undefined)
   const [data, setData] = useState<Console | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
@@ -130,4 +131,9 @@ export default function LeadPage() {
       })}
     </div>
   )
+}
+
+/** Owners and admins pass the authenticator step first (Phase 5d). */
+export default function LeadPage() {
+  return <RequireTwoStep><LeadPageInner /></RequireTwoStep>
 }
