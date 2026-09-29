@@ -387,6 +387,8 @@ function LiveAdminPageInner({ params }: { params: Promise<{ id: string }> }) {
               </div>
             </section>
 
+            <ShadowCard id={id} secret={secret} results={session.results.length} />
+
             <section style={{ ...cardStyle, padding:14 }}>
               <h2 style={{ fontSize:15, margin:'0 0 10px' }}>Grand final</h2>
               {final ? (
@@ -801,4 +803,38 @@ function RegistrationView({ id, origin, session, meta, busy, msg, onToggle, onAd
 /** Owners and admins pass the authenticator step first (Phase 5d). */
 export default function LiveAdminPage(props: any) {
   return <RequireTwoStep><LiveAdminPageInner {...props} /></RequireTwoStep>
+}
+
+/**
+ * Shadow comparison (Roadmap Phase 6): how often each rating would have
+ * predicted the winner in this session from round 3. The TSS Rating (v2)
+ * carries over from every earlier session; nothing here changes the draw.
+ */
+function ShadowCard({ id, secret, results }: { id: string; secret: string; results: number }) {
+  const [d, setD] = useState<any>(null)
+  useEffect(() => {
+    fetch(`/api/live/${id}/shadow`, { cache:'no-store', headers: staffHeaders(secret) })
+      .then((r) => (r.ok ? r.json() : null)).then(setD).catch(() => setD(null))
+  }, [id, secret, results])
+  const pc = (x: any) => (x?.accuracy == null ? '—' : `${Math.round(x.accuracy * 100)}%`)
+  return (
+    <section style={{ ...cardStyle, padding:14 }}>
+      <h2 style={{ fontSize:15, margin:'0 0 4px' }}>New TSS rating — shadow test</h2>
+      <p style={{ color:T.muted, fontSize:12, margin:'0 0 10px' }}>
+        How often each rating picked tonight&apos;s winner (from round 3). The new rating carries over from past
+        sessions; it isn&apos;t used for courts yet. <a href="/ratings" style={{ color:T.accent }}>How it works</a>
+      </p>
+      {!d ? <div style={{ color:T.muted, fontSize:13 }}>Working it out…</div> : (
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:6, textAlign:'center' }}>
+          {[['Now (v1)', d.v1], ['New: win/loss', d.winLoss], ['New: points', d.pointShare]].map(([k, v]: any) => (
+            <div key={k} style={{ background:T.card2, border:`1px solid ${T.border}`, borderRadius:8, padding:'8px 4px' }}>
+              <div style={{ fontSize:22, fontWeight:900 }}>{pc(v)}</div>
+              <div style={{ fontSize:11, color:T.muted }}>{k}</div>
+            </div>
+          ))}
+        </div>
+      )}
+      {d && <div style={{ color:T.muted, fontSize:11, marginTop:8 }}>{d.v1.games} games called · {d.sessionsCounted} sessions of history</div>}
+    </section>
+  )
 }
