@@ -23,7 +23,7 @@ export default function LiveSetupPage() {
   useEffect(() => {
     const s = sessionStorage.getItem('tss-admin-secret')
     if (s) { setSecret(s); setAuthed(true); return }
-    whoAmI().then((w) => { if (w && w.role !== 'session_lead') setAuthed(true) })
+    whoAmI().then((w) => { if (w) setAuthed(true) })
   }, [])
 
   const create = async () => {
@@ -35,7 +35,7 @@ export default function LiveSetupPage() {
         body: JSON.stringify({ name: name.trim(), courts: Number(courts) || 4, roster: [] }),
       })
       const json = await res.json()
-      if (res.status === 401) { setMsg('Only owners and admins can create sessions.'); sessionStorage.removeItem('tss-admin-secret'); setAuthed(false); return }
+      if (res.status === 401) { setMsg(json.error ?? 'You can’t create a live session right now.'); sessionStorage.removeItem('tss-admin-secret'); setAuthed(false); return }
       if (!res.ok) { setMsg(json.error ?? 'Could not create session'); return }
       router.push(`/live/${json.id}/admin`)
     } catch (e) { setMsg((e as Error).message) } finally { setBusy(false) }
