@@ -8,6 +8,7 @@ import type { PreviousLevel } from '../../_hooks/useLiveSession'
 type P = {
   id: string; name: string; level: string; rating: number
   startLevel?: string; registeredLevel?: string; levelChanges?: LevelChange[]; levelLocked?: boolean
+  accountId?: string
 }
 const L = (l?: string) => (l ? l[0].toUpperCase() + l.slice(1) : '?')
 
@@ -26,6 +27,8 @@ export async function sharePlayerLink(name: string, url: string) {
 export type ShareControls = {
   onQr: (p: P) => void
   onNewPin: (p: P) => void
+  /** Link a name-only entry to someone's TSS account (by their sign-in email). */
+  onLink: (p: P) => void
 }
 
 export type LiveControls = {
@@ -204,10 +207,13 @@ function Row({ p, busy, onCourt, fresh, onRename, onLevel, onRemove, link, prev,
         )}
       </div>
       {share && (
-        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginTop:8 }}>
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:8, marginTop:8 }}>
           <button style={{ ...btn(), fontSize:13, minHeight:44 }} onClick={() => share.onQr(p)}>QR code</button>
           <button style={{ ...btn(), fontSize:13, minHeight:44 }} disabled={busy}
             onClick={() => { if (confirm(`Give ${p.name} a new PIN? Their old PIN stops working.`)) share.onNewPin(p) }}>New PIN</button>
+          <button style={{ ...btn(p.accountId ? 'primary' : 'ghost'), fontSize:13, minHeight:44 }} disabled={busy}
+            aria-label={p.accountId ? `${p.name} is linked to an account` : `Link ${p.name} to an account`}
+            onClick={() => share.onLink(p)}>{p.accountId ? '✓ Account' : 'Link account'}</button>
         </div>
       )}
       {live && (

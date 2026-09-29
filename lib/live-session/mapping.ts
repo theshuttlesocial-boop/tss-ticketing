@@ -42,6 +42,8 @@ export interface LivePlayerRow {
   start_level?: Level | null;
   level_history?: LevelChange[] | null;
   level_locked?: boolean | null;
+  /** Migration 017: linked account. */
+  player_id?: string | null;
 }
 
 export interface LiveGameRow {
@@ -83,6 +85,7 @@ export function rowToPlayer(r: LivePlayerRow): Player {
     registeredLevel: r.registered_level ?? r.level,
     levelChanges: r.level_history ?? [],
     levelLocked: !!r.level_locked,
+    ...(r.player_id ? { accountId: r.player_id } : {}),
   };
 }
 

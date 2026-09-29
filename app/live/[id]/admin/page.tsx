@@ -81,6 +81,18 @@ export default function LiveAdminPage({ params }: { params: Promise<{ id: string
   const playerUrl = (pid: string) => `${typeof window !== 'undefined' ? window.location.origin : ''}/live/${id}/player/${pid}`
   const shareControls = {
     onQr: (p: any) => setAccess({ p }),
+    onLink: async (p: any) => {
+      if (p.accountId) {
+        if (confirm(`Unlink ${p.name} from their TSS account? This session will leave their history.`))
+          await post('/players', { player_id: p.id, unlink: true }, 'PATCH')
+        return
+      }
+      const email = prompt(`Link ${p.name} to a TSS account.\n\nTheir sign-in email (they must have signed in once at My TSS):`)
+      if (email?.trim()) {
+        const r = await post('/players', { player_id: p.id, linkEmail: email.trim() }, 'PATCH')
+        if (r?.linked) alert(`${p.name} is linked. This session now shows in their My games.`)
+      }
+    },
     onNewPin: async (p: any) => {
       const r = await post('/players', { player_id: p.id, newPin: true }, 'PATCH')
       if (r?.pin) setAccess({ p, pin: r.pin })

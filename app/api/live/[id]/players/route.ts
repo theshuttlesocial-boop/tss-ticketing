@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { checkAdmin } from '@/lib/live-session/auth'
 import { issuePin } from '@/lib/live-session/pinServer'
+import { supabaseAdmin } from '@/lib/supabase'
 import {
   logEvent,
   loadSession,
@@ -48,6 +49,26 @@ export async function PATCH(req: Request, { params }: Ctx) {
         return NextResponse.json({ error: 'a new substitute needs a name and a level' }, { status: 400 })
       await withdrawPlayer(id, b.player_id, sub ?? undefined, { force: b.force === true })
       return NextResponse.json({ ok: true })
+    }
+    if (typeof b.linkEmail === 'string' || b.unlink === true) {
+      // Attach a past name-only entry (e.g. Session 89) to someone's account,
+      // so it shows in their history. They must have signed in once.
+      const s = await loadSession(id)
+      if (!s.players[b.player_id]) return NextResponse.json({ error: 'player not in this session' }, { status: 400 })
+      let accountId: string | null = null
+      if (!b.unlink) {
+        const { data: acct } = await supabaseAdmin.from('players').select('id').ilike('email', b.linkEmail.trim()).maybeSingle()
+        if (!acct) return NextResponse.json({ error: 'No account with that email. Ask them to sign in once at /account, then try again.' }, { status: 404 })
+        const { data: taken } = await supabaseAdmin.from('live_session_players').select('id,name')
+          .eq('session_id', id).eq('player_id', acct.id).neq('id', b.player_id).maybeSingle()
+        if (taken) return NextResponse.json({ error: `That account is already linked to ${taken.name} in this session.` }, { status: 409 })
+        accountId = acct.id
+      }
+      const { error } = await supabaseAdmin.from('live_session_players').update({ player_id: accountId }).eq('id', b.player_id)
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+      await logEvent({ session_id: id, event: 'attention', player_id: b.player_id,
+        detail: { text: `${s.players[b.player_id].name} ${accountId ? 'linked to an account' : 'unlinked from their account'}` } })
+      return NextResponse.json({ ok: true, linked: !!accountId })
     }
     if (b.newPin === true) {
       // For someone the organiser added (no PIN), or who has forgotten theirs.

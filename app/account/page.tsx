@@ -76,7 +76,7 @@ function Account() {
       <h1 style={{ fontSize:30, fontWeight:900, margin:'14px 0 6px' }}>Your TSS account</h1>
       <p style={{ color:T.muted, fontSize:14, lineHeight:1.5, margin:'0 0 20px' }}>
         Use the email you book with — your bookings appear straight away. We&apos;ll email you a sign-in code; there&apos;s no password.
-        We use your email only to sign you in and show your bookings.
+        We use your email only to sign you in and show your bookings (<a href="/privacy" style={{ color:T.accent }}>privacy</a>).
       </p>
       {err}
       {state === 'email' ? (
@@ -150,7 +150,65 @@ function Account() {
       <LeaderboardToggle on={me!.profile.leaderboard} onSaved={load} />
 
       {me!.profile.displayName && <Profile onSaved={load} name={me!.profile.displayName} level={me!.profile.level} compact />}
+
+      <YourData onDeleted={async () => { await supabase.auth.signOut(); window.location.href = '/tickets?account=deleted' }} />
     </div>
+  )
+}
+
+/** Download my data / Delete my account (UK GDPR access and erasure). */
+function YourData({ onDeleted }: { onDeleted: () => void }) {
+  const [confirming, setConfirming] = useState(false)
+  const [typed, setTyped] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+  const download = async () => {
+    setBusy(true); setErr(null)
+    try {
+      const res = await fetch('/api/me/export', { headers: await authHeader() })
+      if (!res.ok) throw new Error('Could not prepare your data')
+      const url = URL.createObjectURL(await res.blob())
+      const a = document.createElement('a'); a.href = url; a.download = `tss-my-data-${new Date().toISOString().slice(0, 10)}.json`
+      a.click(); URL.revokeObjectURL(url)
+    } catch (e) { setErr((e as Error).message) } finally { setBusy(false) }
+  }
+  const remove = async () => {
+    setBusy(true); setErr(null)
+    const res = await fetch('/api/me', { method:'DELETE', headers: { 'Content-Type':'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ confirm: typed }) })
+    const j = await res.json().catch(() => ({}))
+    setBusy(false)
+    if (!res.ok) { setErr(j.error ?? 'Could not delete your account'); return }
+    onDeleted()
+  }
+  return (
+    <section style={{ marginTop:26, borderTop:`1px solid ${T.border}`, paddingTop:16 }}>
+      <h2 style={{ fontSize:12, fontWeight:800, letterSpacing:'1px', textTransform:'uppercase', color:T.muted, margin:'0 0 8px' }}>Your data</h2>
+      <p style={{ color:T.muted, fontSize:13, margin:'0 0 10px' }}>
+        How we use it: <a href="/privacy" style={{ color:T.accent }}>privacy notice</a>.
+      </p>
+      {err && <div role="alert" style={{ color:T.danger, fontSize:14, marginBottom:8 }}>{err}</div>}
+      <div style={{ display:'grid', gap:8 }}>
+        <button style={{ ...btn(), minHeight:44 }} disabled={busy} onClick={download}>Download my data</button>
+        {!confirming ? (
+          <button style={{ ...btn('danger'), minHeight:44 }} onClick={() => setConfirming(true)}>Delete my account</button>
+        ) : (
+          <div style={{ background:T.dangerDim, border:`1px solid ${T.danger}`, borderRadius:10, padding:12 }}>
+            <p style={{ fontSize:14, margin:'0 0 8px', lineHeight:1.5 }}>
+              This deletes your account and sign-in straight away. In past sessions you&apos;ll show as &ldquo;Former player&rdquo;,
+              so other people&apos;s results stay correct. Your bookings and payment records are kept for 6 years, as the law requires.
+              This can&apos;t be undone.
+            </p>
+            <input aria-label="Type DELETE to confirm" placeholder="Type DELETE" value={typed} onChange={(e) => setTyped(e.target.value)}
+              autoCapitalize="characters" style={inp({ fontSize:16, marginBottom:8 })} />
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
+              <button style={{ ...btn(), minHeight:44 }} onClick={() => { setConfirming(false); setTyped('') }}>Cancel</button>
+              <button style={{ ...btn('danger'), minHeight:44 }} disabled={busy || typed !== 'DELETE'} onClick={remove}>Delete for good</button>
+            </div>
+          </div>
+        )}
+      </div>
+    </section>
   )
 }
 

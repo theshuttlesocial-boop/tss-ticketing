@@ -8,9 +8,10 @@ test('redact: no level, rating or level-review data reaches the public', () => {
   s = nextRound(s);
   for (const m of s.rounds[0].matches) s = recordScore(s, 1, m.court, 21, 15);
   s = changeLevel(s, 'p0', 'standard', 2, 'system', 'After 1 games (rating 950)');
+  s = { ...s, players: { ...s.players, p1: { ...s.players.p1, accountId: 'acct-1' } } };
   s = { ...s, config: { ...s.config, dismissed: ['x'], blockedMoves: ['p0:standard'] } as any };
   const pub = JSON.stringify(redactSession(s));
-  for (const leak of ['level', 'rating', 'beginner', 'strong', 'startLevel', 'registeredLevel', 'levelChanges', 'levelLocked', 'blockedMoves', 'dismissed', 'After 1 games']) {
+  for (const leak of ['accountId', 'level', 'rating', 'beginner', 'strong', 'startLevel', 'registeredLevel', 'levelChanges', 'levelLocked', 'blockedMoves', 'dismissed', 'After 1 games']) {
     assert.ok(!pub.includes(leak), `public session leaks "${leak}"`);
   }
   const mine = playerView(s, 'p0')!;
