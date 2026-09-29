@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { checkLive } from '@/lib/live-session/auth'
+import { allowed, checkLive } from '@/lib/live-session/auth'
 import { overrideSlot, markUnknownSubstitute, LiveSessionError, NeedsConfirmError } from '@/lib/live-session/actions'
 
 type Ctx = { params: Promise<{ id: string }> }
@@ -11,7 +11,7 @@ const SLOTS = ['A.a', 'A.b', 'B.a', 'B.b'] as const
  * "Unknown substitute" — { round, court, unknown: true|false, player_id }.
  */
 export async function POST(req: Request, { params }: Ctx) {
-  if (!(await checkLive(req, (await params).id))) return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
+  if (!allowed(await checkLive(req, (await params).id))) return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
   const { id } = await params
   const { round, court, slot, player_id, force, unknown } = await req.json()
 

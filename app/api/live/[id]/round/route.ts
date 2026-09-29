@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server'
-import { checkLive } from '@/lib/live-session/auth'
+import { allowed, checkLive } from '@/lib/live-session/auth'
 import { generateNextRound, undoLastRound, LiveSessionError } from '@/lib/live-session/actions'
 
 type Ctx = { params: Promise<{ id: string }> }
 
 export async function POST(req: Request, { params }: Ctx) {
-  if (!(await checkLive(req, (await params).id))) return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
+  if (!allowed(await checkLive(req, (await params).id))) return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
   const { id } = await params
   try {
     const { round } = await generateNextRound(id)
@@ -17,7 +17,7 @@ export async function POST(req: Request, { params }: Ctx) {
 }
 
 export async function DELETE(req: Request, { params }: Ctx) {
-  if (!(await checkLive(req, (await params).id))) return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
+  if (!allowed(await checkLive(req, (await params).id))) return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
   const { id } = await params
   try {
     await undoLastRound(id)

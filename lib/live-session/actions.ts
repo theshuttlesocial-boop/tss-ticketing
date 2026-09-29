@@ -29,6 +29,7 @@ import {
   roundToGameRows, roundToRoundRow,
 } from './mapping';
 import { buildConfig } from './config';
+import { currentActor } from '@/lib/actor';
 import type { LogEvent } from './changeLog';
 
 export class LiveSessionError extends Error {}
@@ -818,8 +819,10 @@ export async function logEvent(entry: {
   old_a?: number | null; old_b?: number | null; new_a?: number | null; new_b?: number | null;
   detail?: Record<string, unknown>;
 }): Promise<string | null> {
-  const row: Record<string, unknown> = { ...entry, round: entry.round ?? null, court: entry.court ?? null };
-  if (!entry.actor || entry.actor === 'admin') delete row.actor;
+  // Record the signed-in staff member when the caller didn't name an actor.
+  const actor = entry.actor ?? currentActor();
+  const row: Record<string, unknown> = { ...entry, actor, round: entry.round ?? null, court: entry.court ?? null };
+  if (!actor || actor === 'admin') delete row.actor;
   if (!entry.player_id) delete row.player_id;
   try {
     const { error } = await supabaseAdmin.from('live_score_log').insert(row);

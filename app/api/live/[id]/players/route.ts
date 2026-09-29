@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { checkLive } from '@/lib/live-session/auth'
+import { allowed, checkLive } from '@/lib/live-session/auth'
 import { issuePin } from '@/lib/live-session/pinServer'
 import { supabaseAdmin } from '@/lib/supabase'
 import {
@@ -18,7 +18,7 @@ const fail = (e: unknown) => NextResponse.json(
   { status: e instanceof NeedsConfirmError ? 409 : e instanceof LiveSessionError ? 400 : 500 })
 
 export async function POST(req: Request, { params }: Ctx) {
-  if (!(await checkLive(req, (await params).id))) return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
+  if (!allowed(await checkLive(req, (await params).id))) return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
   const { id } = await params
   const { name, level } = await req.json()
   if (!isLevel(level))
@@ -37,7 +37,7 @@ export async function POST(req: Request, { params }: Ctx) {
  *   leave: true, substitute?: { player_id } | { name, level }, force?
  */
 export async function PATCH(req: Request, { params }: Ctx) {
-  if (!(await checkLive(req, (await params).id))) return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
+  if (!allowed(await checkLive(req, (await params).id))) return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
   const { id } = await params
   const b = await req.json()
   if (!b.player_id) return NextResponse.json({ error: 'player_id required' }, { status: 400 })
@@ -93,7 +93,7 @@ export async function PATCH(req: Request, { params }: Ctx) {
 }
 
 export async function DELETE(req: Request, { params }: Ctx) {
-  if (!(await checkLive(req, (await params).id))) return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
+  if (!allowed(await checkLive(req, (await params).id))) return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
   const { id } = await params
   const playerId = new URL(req.url).searchParams.get('player_id')
   if (!playerId) return NextResponse.json({ error: 'player_id required' }, { status: 400 })

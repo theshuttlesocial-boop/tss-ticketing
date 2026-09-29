@@ -549,3 +549,29 @@ export async function sendTransferComplete({ fromEmail, fromName, toEmail, toNam
     `)
   }).catch(() => {})
 }
+
+// ── Staff invitation (Phase 5c) ──────────────────────────────────────────────
+export async function sendStaffInvite({ to, role, invitedBy }: { to: string; role: 'owner' | 'admin' | 'session_lead'; invitedBy: string | null }) {
+  const what = role === 'session_lead' ? 'a session lead' : role === 'owner' ? 'an owner' : 'an admin'
+  const where = role === 'session_lead' ? `${APP_URL}/lead` : `${APP_URL}/admin`
+  const signIn = `${APP_URL}/account?next=${encodeURIComponent(role === 'session_lead' ? '/lead' : '/admin')}`
+  if (!resend) { console.log(`[Email] Staff invite for ${to} (${role}): ${signIn}`); return }
+  const fromAddr = process.env.EMAIL_FROM ?? 'bookings@theshuttlesocial.com'
+  await resend.emails.send({
+    from: `The Shuttle Social <${fromAddr}>`,
+    to,
+    reply_to: fromAddr,
+    subject: `You've been added to The Shuttle Social team`,
+    text: `Hi,\n\n${invitedBy ?? 'The Shuttle Social'} has added you as ${what}.\n\nSign in with this email address (we'll email you a code, no password):\n${signIn}\n\nAfter that, your page is ${where}\n\nThe Shuttle Social`,
+    html: emailWrap(`
+      <div style="color:${brandColor};font-size:22px;font-weight:900;margin-bottom:4px;">Welcome to the team</div>
+      <div style="color:${muted};font-size:14px;margin-bottom:20px;">${invitedBy ?? 'The Shuttle Social'} has added you as ${what}.</div>
+      <div style="text-align:center;margin-bottom:16px;">
+        <a href="${signIn}" style="display:inline-block;background:${brandColor};color:#080f08;font-weight:800;font-size:16px;text-decoration:none;padding:14px 28px;border-radius:10px;">Sign in &rarr;</a>
+      </div>
+      <div style="color:${muted};font-size:13px;line-height:1.7;">
+        Sign in with this email address — we'll send you a code, there's no password.${role === 'session_lead' ? ' You\'ll see the sessions you run, on the day.' : ''}
+      </div>
+    `)
+  })
+}

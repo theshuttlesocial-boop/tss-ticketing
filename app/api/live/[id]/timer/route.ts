@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { checkLive } from '@/lib/live-session/auth'
+import { allowed, checkLive } from '@/lib/live-session/auth'
 import { applyTimer, rowToTimer, timerToRow, TimerAction } from '@/lib/live-session/timer'
 
 type Ctx = { params: Promise<{ id: string }> }
@@ -12,7 +12,7 @@ const ACTIONS = ['start', 'pause', 'resume', 'reset', 'add']
  * skew it. Every screen picks the change up through realtime on live_rounds.
  */
 export async function POST(req: Request, { params }: Ctx) {
-  if (!(await checkLive(req, (await params).id))) return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
+  if (!allowed(await checkLive(req, (await params).id))) return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
   const { id } = await params
   const body = await req.json()
   if (!ACTIONS.includes(body.action)) return NextResponse.json({ error: 'unknown timer action' }, { status: 400 })

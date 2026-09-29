@@ -366,6 +366,7 @@ export default function AdminPage() {
         <div style={{display:'flex',gap:8,alignItems:'center'}}>
           {msg&&<div style={{fontSize:12,color:T.accent,padding:'5px 12px',background:T.accentDim,borderRadius:20,border:`1px solid ${T.accentBorder}`}}>{msg}</div>}
           <a href="/tickets" target="_blank" style={{fontSize:12,color:T.muted,textDecoration:'none',padding:'5px 12px',border:`1px solid ${T.border}`,borderRadius:8}}>View site ↗</a>
+          {staff?.role==='owner'&&<a href="/staff" style={{fontSize:12,color:T.accent,textDecoration:'none',padding:'5px 12px',border:`1px solid ${T.accentBorder}`,borderRadius:8}}>Staff</a>}
           {staff&&<span title={staff.email??'emergency password'} style={{fontSize:12,color:staff.via==='password'?T.warning:T.muted}}>
             {staff.via==='password'?'Emergency password':`${staff.email} · ${staff.role==='owner'?'Owner':'Admin'}`}
           </span>}
