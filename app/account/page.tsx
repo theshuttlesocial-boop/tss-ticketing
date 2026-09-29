@@ -7,7 +7,7 @@ import { T, inp, btn, cardStyle } from '../live/_components/theme'
 import { LEVEL_INFO } from '@/lib/live-session/levels'
 
 type Me = {
-  profile: { email: string; firstName: string | null; displayName: string | null; level: string | null }
+  profile: { email: string; firstName: string | null; displayName: string | null; level: string | null; leaderboard: boolean }
   sessions: {
     upcoming: { ref: string; quantity: number; title: string; venue: string; date: string; time: string; mapsUrl: string | null; cancelled: boolean }[]
     past: { ref: string; title: string; venue: string; date: string }[]
@@ -142,6 +142,11 @@ function Account() {
         </Section>
       )}
 
+      <a href="/account/history" style={{ ...btn('primary'), display:'block', textAlign:'center', textDecoration:'none', padding:14, fontSize:15, marginBottom:10 }}>
+        My games, head-to-head &amp; best partners →
+      </a>
+      <LeaderboardToggle on={me!.profile.leaderboard} onSaved={load} />
+
       {me!.profile.displayName && <Profile onSaved={load} name={me!.profile.displayName} level={me!.profile.level} compact />}
     </div>
   )
@@ -173,6 +178,30 @@ function Profile({ onSaved, name, level, compact }: { onSaved: () => void; name?
         {LEVEL_INFO.map((l) => <option key={l.level} value={l.level}>{l.label}</option>)}
       </select>
       <button style={{ ...btn('primary'), width:'100%', minHeight:44 }} disabled={busy || !first.trim()} onClick={save}>Save</button>
+    </section>
+  )
+}
+
+/** Explicit opt-in to the public leaderboard. Off unless the player turns it on. */
+function LeaderboardToggle({ on, onSaved }: { on: boolean; onSaved: () => void }) {
+  const [busy, setBusy] = useState(false)
+  const set = async (v: boolean) => {
+    setBusy(true)
+    await fetch('/api/me', { method:'PATCH', headers: { 'Content-Type':'application/json', ...(await authHeader()) }, body: JSON.stringify({ leaderboard: v }) })
+    setBusy(false); onSaved()
+  }
+  return (
+    <section style={{ ...cardStyle, padding:14 }}>
+      <label style={{ display:'flex', gap:12, alignItems:'flex-start', cursor:'pointer' }}>
+        <input type="checkbox" checked={on} disabled={busy} onChange={(e) => set(e.target.checked)} style={{ width:22, height:22, marginTop:2 }} />
+        <span>
+          <strong style={{ fontSize:15 }}>Show me on the public <a href="/leaderboard" style={{ color:T.accent }}>leaderboard</a></strong>
+          <span style={{ display:'block', color:T.muted, fontSize:13, marginTop:3, lineHeight:1.45 }}>
+            Your first name, last initial and rating. You&apos;ll also see the ratings of other players who&apos;ve turned this on.
+            Off by default; turn it off any time.
+          </span>
+        </span>
+      </label>
     </section>
   )
 }
