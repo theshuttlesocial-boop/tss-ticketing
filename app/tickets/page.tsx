@@ -764,6 +764,7 @@ export default function TicketsPage() {
 
           {/* Social links */}
           <nav aria-label="Social media" style={{display:'flex',gap:10,alignItems:'center'}}>
+            <a href="/account" style={{color:T.accent,fontSize:13,fontWeight:700,textDecoration:'none',padding:'8px 10px',border:`1px solid ${T.border}`,borderRadius:20}}>My TSS</a>
             {([
               {href:'https://instagram.com/theshuttlesocial',label:'Instagram',platform:'instagram' as const,bg:'linear-gradient(45deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888)'},
               {href:'https://tiktok.com/@theshuttlesocial',label:'TikTok',platform:'tiktok' as const,bg:'#010101'},

@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { T, inp, btn } from '../../_components/theme'
 import { LEVEL_INFO } from '@/lib/live-session/levels'
 import type { Level } from '@/lib/live-session/engine'
+import { authHeader } from '@/lib/accountClient'
 
 /**
  * Self-registration. One QR for the whole session lands here; the player types
@@ -17,6 +18,7 @@ export default function JoinPage({ params }: { params: Promise<{ id: string }> }
   const [pin, setPin] = useState<string | null>(null)
   const [playerId, setPlayerId] = useState<string | null>(null)
   const [pinEntry, setPinEntry] = useState('')
+  const [signedIn, setSignedIn] = useState(false)
   const [first, setFirst] = useState('')
   const [last, setLast] = useState('')
   const [level, setLevel] = useState<Level | null>(null)
@@ -31,10 +33,22 @@ export default function JoinPage({ params }: { params: Promise<{ id: string }> }
   useEffect(() => {
     let off = false
     ;(async () => {
+      const auth = await authHeader()
       try {
-        const me = await fetch(`/api/live/${id}/me`, { cache: 'no-store' }).then((r) => r.json())
+        const me = await fetch(`/api/live/${id}/me`, { cache: 'no-store', headers: auth }).then((r) => r.json())
         if (me.player_id) { remember(me.player_id); router.replace(`/live/${id}/player/${me.player_id}`); return }
       } catch { /* offline: fall through */ }
+      // Signed in: fill in their name so joining is one tap on a level.
+      if (auth.Authorization) {
+        try {
+          const acc = await fetch('/api/me', { cache: 'no-store', headers: auth }).then((r) => r.json())
+          const full: string = acc.profile?.displayName ?? ''
+          if (full && !off) {
+            const [f, ...rest] = full.split(' ')
+            setFirst(f); setLast(rest.join(' ')); setSignedIn(true)
+          }
+        } catch { /* ignore */ }
+      }
       try {
         const saved = localStorage.getItem(`tss-live-player:${id}`)
         if (saved) { router.replace(`/live/${id}/player/${saved}`); return }
@@ -75,7 +89,7 @@ export default function JoinPage({ params }: { params: Promise<{ id: string }> }
       const name = `${first.trim()} ${last.trim()}`.trim()
       const res = await fetch(`/api/live/${id}/join`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
         body: JSON.stringify({ name, level: lv }),
       })
       const json = await res.json()
@@ -198,10 +212,17 @@ export default function JoinPage({ params }: { params: Promise<{ id: string }> }
           Enter both names to continue
         </p>
       )}
-      <button onClick={() => { setStep('signin'); setError(null) }}
-        style={{ ...btn(), width:'100%', padding:'14px', fontSize:15, marginTop:18 }}>
-        Already registered? Get back to your page
-      </button>
+      {!signedIn && (
+        <>
+          <button onClick={() => { setStep('signin'); setError(null) }}
+            style={{ ...btn(), width:'100%', padding:'14px', fontSize:15, marginTop:18 }}>
+            Already registered? Get back to your page
+          </button>
+          <p style={{ color:T.muted, fontSize:13, marginTop:14, textAlign:'center' }}>
+            Have a TSS account? <a href={`/account?next=/live/${id}/join`} style={{ color:T.accent }}>Sign in</a> and you&apos;ll never need a PIN.
+          </p>
+        </>
+      )}
     </div>
   )
 

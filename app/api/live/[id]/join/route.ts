@@ -3,6 +3,8 @@ import { loadSession, loadMeta, addPlayer, autoFinishIfStale, LiveSessionError }
 import { LEVELS } from '@/lib/live-session/levels'
 import { playerCookie } from '@/lib/live-session/pin'
 import { issuePin } from '@/lib/live-session/pinServer'
+import { supabaseAdmin } from '@/lib/supabase'
+import { ensurePlayer, userFromRequest } from '@/lib/account'
 
 type Ctx = { params: Promise<{ id: string }> }
 
@@ -33,6 +35,20 @@ export async function POST(req: Request, { params }: Ctx) {
     if (meta.status === 'finished')
       return NextResponse.json({ error: 'This session has finished' }, { status: 409 })
 
+    // Signed in? Your account is who you are — no PIN needed. If you're already
+    // in this session (on any phone), you go straight back to your page.
+    const user = await userFromRequest(req)
+    const account = user ? await ensurePlayer(user).catch(() => null) : null
+    if (account) {
+      const { data: mine } = await supabaseAdmin.from('live_session_players').select('id')
+        .eq('session_id', id).eq('player_id', account.id).maybeSingle()
+      if (mine) {
+        const res = NextResponse.json({ player_id: mine.id, existing: true })
+        res.cookies.set(playerCookie(id, mine.id, new URL(req.url).protocol === 'https:'))
+        return res
+      }
+    }
+
     const existing = Object.values(session.players)
       .find((p) => p.name.toLowerCase() === clean.toLowerCase())
     if (existing) {
@@ -47,7 +63,9 @@ export async function POST(req: Request, { params }: Ctx) {
       return NextResponse.json({ error: 'Registration is closed — ask the organiser to add you' }, { status: 403 })
 
     const playerId = await addPlayer(id, clean, level, { actor: 'player' })
-    const pin = await issuePin(playerId)
+    if (account) await supabaseAdmin.from('live_session_players').update({ player_id: account.id }).eq('id', playerId)
+    // Signed-in players don't need a PIN: signing in gets them back anywhere.
+    const pin = account ? null : await issuePin(playerId)
     // Shown once: only its hash is kept. The cookie lets this phone (in this
     // browser) straight back in; the PIN covers every other case.
     const res = NextResponse.json({ player_id: playerId, existing: false, pin }, { status: 201 })
