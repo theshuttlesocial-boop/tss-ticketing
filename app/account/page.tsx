@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase-client'
 import { authHeader } from '@/lib/accountClient'
 import { T, inp, btn, cardStyle } from '../live/_components/theme'
 import { LEVEL_INFO } from '@/lib/live-session/levels'
+import { InstallApp } from '../_components/InstallApp'
 
 type Me = {
   profile: { email: string; firstName: string | null; displayName: string | null; level: string | null; leaderboard: boolean }
@@ -116,6 +117,7 @@ function Account() {
         {me!.profile.firstName ? `Hi ${me!.profile.firstName}` : 'My sessions'}
       </h1>
       <p style={{ color:T.muted, fontSize:13, margin:'0 0 18px' }}>{me!.profile.email}</p>
+      <InstallApp />
 
       {!me!.profile.displayName && <Profile onSaved={load} />}
 
