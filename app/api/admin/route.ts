@@ -113,7 +113,7 @@ export async function PATCH(req: Request) {
   const coreFields = ['title','label','venue','region','date','time','capacity','price_pence',
     'description','status','opens_at','is_recurring','recurring_day_of_week','cancelled_occurrence']
   // Optional columns added in migration 002 — may not exist on all deployments yet
-  const optionalFields = ['max_tickets_per_order','maps_url']
+  const optionalFields = ['max_tickets_per_order','maps_url','show_coming_soon']
 
   // Build full update payload, converting empty strings to null for optional text fields
   const fullUpdate: Record<string,any> = {}

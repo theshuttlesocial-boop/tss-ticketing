@@ -34,11 +34,11 @@ function ukLocalToUTC(local:string):string {
   return new Date(guess.getTime()+diffMs).toISOString()
 }
 
-interface Session { id:string;title:string;label?:string;venue:string;region:string;date:string;time:string;capacity:number;price_pence:number;status:string;booked:number;revenue_pence:number;opens_at?:string;description?:string;is_recurring?:boolean;recurring_parent_id?:string;cancelled_occurrence?:boolean;waitlist_count:number;max_tickets_per_order?:number;maps_url?:string }
+interface Session { show_coming_soon?:boolean;id:string;title:string;label?:string;venue:string;region:string;date:string;time:string;capacity:number;price_pence:number;status:string;booked:number;revenue_pence:number;opens_at?:string;description?:string;is_recurring?:boolean;recurring_parent_id?:string;cancelled_occurrence?:boolean;waitlist_count:number;max_tickets_per_order?:number;maps_url?:string }
 interface Booking { id:string;name:string;email:string;phone?:string;quantity:number;total_pence:number;booking_ref:string;created_at:string;stripe_status:string;additional_attendees?:any;sessions?:{title:string;date:string;venue:string;label?:string} }
 
 function displayStatus(s:Session):{label:string;color:string} {
-  if (s.opens_at && new Date(s.opens_at)>new Date() && s.status==='draft') return {label:`⏰ ${new Date(s.opens_at).toLocaleString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}`,color:T.info}
+  if (s.opens_at && new Date(s.opens_at)>new Date() && s.status==='draft') return {label:`⏰ ${new Date(s.opens_at).toLocaleString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}${s.show_coming_soon===false?' · hidden':''}`,color:T.info}
   if (s.status==='open') return {label:'✅ Open',color:T.accent}
   if (s.status==='draft') return {label:'🔒 Draft',color:T.muted}
   if (s.status==='closed') return {label:'🚫 Closed',color:T.warning}
@@ -88,7 +88,7 @@ function AdminPageInner() {
   const [editing,setEditing]=useState<Session|null>(null)
   const [filterSession,setFilterSession]=useState(''); const [filterStatus,setFilterStatus]=useState('')
   const [settings,setSettings]=useState<Record<string,string>>({})
-  const [form,setForm]=useState({title:'',label:'West',venue:'',customVenue:'',region:'North/West London',date:'',time:'19:00',capacity:24,price_pence:800,max_tickets_per_order:4,status:'draft',releaseMode:'manual',releaseDateTime:'',description:'',is_recurring:false,recurring_day_of_week:4})
+  const [form,setForm]=useState({title:'',label:'West',venue:'',customVenue:'',region:'North/West London',date:'',time:'19:00',capacity:24,price_pence:800,max_tickets_per_order:4,status:'draft',releaseMode:'manual',releaseDateTime:'',description:'',is_recurring:false,recurring_day_of_week:4,show_coming_soon:false})
   const [refunding,setRefunding]=useState<string|null>(null)
   const [calView,setCalView]=useState(false)
   const [attendeeSearch,setAttendeeSearch]=useState('')
@@ -150,10 +150,11 @@ function AdminPageInner() {
       capacity:Number(form.capacity),price_pence:Number(form.price_pence),
       max_tickets_per_order:Number(form.max_tickets_per_order),
       status:opens_at?'draft':form.status,opens_at,description:form.description||null,
+      show_coming_soon:!!opens_at&&form.show_coming_soon,
       is_recurring:form.is_recurring,recurring_day_of_week:form.is_recurring?Number(form.recurring_day_of_week):null
     })})
     setLoading(false)
-    if(res.ok){flash('✅ Session created!');setForm({title:'',label:'West',venue:'',customVenue:'',region:'North/West London',date:'',time:'19:00',capacity:24,price_pence:800,max_tickets_per_order:4,status:'draft',releaseMode:'manual',releaseDateTime:'',description:'',is_recurring:false,recurring_day_of_week:4});reload();setTab('sessions')}
+    if(res.ok){flash('✅ Session created!');setForm({title:'',label:'West',venue:'',customVenue:'',region:'North/West London',date:'',time:'19:00',capacity:24,price_pence:800,max_tickets_per_order:4,status:'draft',releaseMode:'manual',releaseDateTime:'',description:'',is_recurring:false,recurring_day_of_week:4,show_coming_soon:false});reload();setTab('sessions')}
     else{const d=await res.json();setError(d.error??'Failed')}
   }
 
@@ -413,7 +414,7 @@ function AdminPageInner() {
         {/* SESSIONS */}
         {tab==='sessions'&&(
           editing?(
-            <SessionEditor session={editing} onSave={async u=>{await patch(editing.id,u);setEditing(null)}} onCancel={()=>setEditing(null)} onStatusChange={async s=>patch(editing.id,{status:s,opens_at:null})} onSchedule={async dt=>patch(editing.id,{status:'draft',opens_at:dt})} onGenerateNext={()=>generateNextRecurring(editing.id)} onDelete={()=>deleteSession(editing.id,editing.title)} secret={secret} flash={flash} reload={reload}/>
+            <SessionEditor session={editing} onSave={async u=>{await patch(editing.id,u);setEditing(null)}} onCancel={()=>setEditing(null)} onStatusChange={async s=>patch(editing.id,{status:s,opens_at:null})} onSchedule={async dt=>patch(editing.id,{status:'draft',opens_at:dt})} onComingSoon={async on=>patch(editing.id,{show_coming_soon:on})} onGenerateNext={()=>generateNextRecurring(editing.id)} onDelete={()=>deleteSession(editing.id,editing.title)} secret={secret} flash={flash} reload={reload}/>
           ):(
             <>
             <div style={{display:'flex',gap:8,marginBottom:16,alignItems:'center',flexWrap:'wrap' as const}}>
@@ -515,11 +516,15 @@ function AdminPageInner() {
                     <button key={k} onClick={()=>setForm(f=>({...f,releaseMode:k,status:k==='now'?'open':'draft'}))} style={{padding:'8px 12px',borderRadius:8,border:'none',cursor:'pointer',fontSize:12,fontWeight:600,flex:1,background:form.releaseMode===k?T.accentDim:'#142014',color:form.releaseMode===k?T.accent:T.muted,outline:form.releaseMode===k?`1px solid ${T.accentBorder}`:'none',fontFamily:'inherit'}}>{l}</button>
                   ))}
                 </div>
-                {form.releaseMode==='scheduled'&&(
+                {form.releaseMode==='scheduled'&&(<>
                   <Field label="Release Date & Time">
                     <input type="datetime-local" value={form.releaseDateTime} onChange={e=>setForm(f=>({...f,releaseDateTime:e.target.value}))} style={{...inp(),borderColor:'rgba(96,180,255,0.4)'}}/>
                   </Field>
-                )}
+                  <label style={{display:'flex',gap:10,alignItems:'flex-start',cursor:'pointer',fontSize:13,marginTop:10}}>
+                    <input type="checkbox" checked={form.show_coming_soon} onChange={e=>setForm(f=>({...f,show_coming_soon:e.target.checked}))} style={{accentColor:T.info,width:16,height:16,marginTop:2}}/>
+                    <span>Show a “Coming soon” countdown on the booking page until it opens<span style={{display:'block',color:T.muted,fontSize:12}}>Off = the session stays completely hidden until release time.</span></span>
+                  </label>
+                </>)}
               </div>
 
               {error&&<div style={{color:T.danger,marginBottom:12,fontSize:13}}>{error}</div>}
@@ -1032,7 +1037,8 @@ function CalendarView({sessions,onEdit}:{sessions:Session[];onEdit:(s:Session)=>
 }
 
 // ── Session Editor ────────────────────────────────────────────────────────────
-function SessionEditor({session,onSave,onCancel,onStatusChange,onSchedule,onGenerateNext,onDelete,secret,flash,reload}:{session:Session;onSave:(u:any)=>Promise<void>;onCancel:()=>void;onStatusChange:(s:string)=>void;onSchedule:(dt:string)=>void;onGenerateNext:()=>void;onDelete:()=>void;secret:string;flash:(m:string)=>void;reload:()=>void}) {
+function SessionEditor({session,onSave,onCancel,onStatusChange,onSchedule,onComingSoon,onGenerateNext,onDelete,secret,flash,reload}:{session:Session;onSave:(u:any)=>Promise<void>;onCancel:()=>void;onStatusChange:(s:string)=>void;onSchedule:(dt:string)=>void;onComingSoon:(on:boolean)=>void;onGenerateNext:()=>void;onDelete:()=>void;secret:string;flash:(m:string)=>void;reload:()=>void}) {
+  const [comingSoon,setComingSoon]=useState(!!session.show_coming_soon)
   const initV = {title:session.title,label:session.label??'West',venue:session.venue,region:session.region,date:session.date,time:session.time,capacity:session.capacity,price_pence:session.price_pence,description:session.description??'',max_tickets_per_order:session.max_tickets_per_order??4,maps_url:session.maps_url??'',is_recurring:session.is_recurring??false}
   const [v,setV]=useState(initV)
   // vRef is always updated synchronously — Save reads from here, not from state
@@ -1071,6 +1077,12 @@ function SessionEditor({session,onSave,onCancel,onStatusChange,onSchedule,onGene
               {session.opens_at&&<button onClick={()=>onStatusChange('draft')} style={{padding:'9px 12px',background:'none',color:T.muted,border:`1px solid ${T.border}`,borderRadius:8,cursor:'pointer',fontSize:12,fontFamily:'inherit'}}>Clear</button>}
             </div>
             {session.opens_at&&<div style={{marginTop:8,fontSize:12,color:T.info}}>⏰ Scheduled: {new Date(session.opens_at).toLocaleString('en-GB',{timeZone:'Europe/London',weekday:'short',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})} UK time</div>}
+            {session.opens_at&&session.status==='draft'&&(
+              <label style={{display:'flex',gap:10,alignItems:'flex-start',cursor:'pointer',fontSize:13,marginTop:10}}>
+                <input type="checkbox" checked={comingSoon} onChange={e=>{setComingSoon(e.target.checked);onComingSoon(e.target.checked)}} style={{accentColor:T.info,width:16,height:16,marginTop:2}}/>
+                <span>Show a “Coming soon” countdown on the booking page until it opens<span style={{display:'block',color:T.muted,fontSize:12}}>Off = completely hidden until release time.</span></span>
+              </label>
+            )}
           </div>
         </div>
 
