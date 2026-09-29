@@ -14,6 +14,8 @@ import { standings, grandFinal, roundComplete } from '@/lib/live-session/engine'
 import type { Config, Level } from '@/lib/live-session/engine'
 import { LEVEL_INFO, LEVELS } from '@/lib/live-session/levels'
 import { displayNames } from '@/lib/live-session/displayNames'
+import { staffHeaders, whoAmI } from '@/lib/staffClient'
+import { StaffGate as Gate } from '../../_components/StaffGate'
 
 type Tab = 'courts' | 'standings' | 'roster' | 'log' | 'settings'
 const SLOTS = ['A.a', 'A.b', 'B.a', 'B.b'] as const
@@ -35,9 +37,12 @@ export default function LiveAdminPage({ params }: { params: Promise<{ id: string
   const [log, setLog] = useState<LogRow[]>([])
   const [logUnavailable, setLogUnavailable] = useState<string | null>(null)
 
+  // Signed in with a staff account? Straight in. Otherwise the emergency
+  // password, if one was typed in this tab.
   useEffect(() => {
     const s = sessionStorage.getItem('tss-admin-secret')
-    if (s) { setSecret(s); setAuthed(true) }
+    if (s) { setSecret(s); setAuthed(true); return }
+    whoAmI().then((w) => { if (w) setAuthed(true) })
   }, [])
 
   // During registration, also poll: realtime is the fast path, this is the
@@ -50,7 +55,7 @@ export default function LiveAdminPage({ params }: { params: Promise<{ id: string
 
   useEffect(() => {
     if (!authed || isAdmin !== true) return
-    fetch(`/api/live/${id}/log`, { headers: { 'x-admin-secret': secret }, cache: 'no-store' })
+    fetch(`/api/live/${id}/log`, { headers: { ...staffHeaders(secret) }, cache: 'no-store' })
       .then((r) => r.json())
       .then((j) => { setLog(j.log ?? []); setLogUnavailable(j.unavailable ?? null) })
       .catch(() => {})
@@ -61,7 +66,7 @@ export default function LiveAdminPage({ params }: { params: Promise<{ id: string
     try {
       const res = await fetch(path, {
         ...init,
-        headers: { 'Content-Type':'application/json', 'x-admin-secret': secret, ...(init.headers ?? {}) },
+        headers: { 'Content-Type':'application/json', ...staffHeaders(secret), ...(init.headers ?? {}) },
       })
       const json = await res.json().catch(() => ({}))
       // A change that breaks a rule (e.g. Strong + beginner on one court) is
@@ -126,7 +131,10 @@ export default function LiveAdminPage({ params }: { params: Promise<{ id: string
       fontFamily:'DM Sans, system-ui, sans-serif', padding:20 }}>
       <div style={{ ...cardStyle, padding:24, maxWidth:340, textAlign:'center' }}>
         <div style={{ color:T.danger, fontSize:16, fontWeight:700, marginBottom:6 }}>
-          That admin secret is not right
+          No access to this session
+        </div>
+        <div style={{ color:T.muted, fontSize:13 }}>
+          Sign in with a staff account that runs this session, or ask an owner to assign it to you.
         </div>
         <button style={{ ...btn('primary'), width:'100%', marginTop:8 }} onClick={() => {
           sessionStorage.removeItem('tss-admin-secret'); setSecret(''); setAuthed(false)
@@ -238,7 +246,7 @@ export default function LiveAdminPage({ params }: { params: Promise<{ id: string
               <RoundTimer mode="admin" timer={round?.timer} round={round?.index} offset={offset}
                 onAction={async (a) => {
                   const res = await fetch(`/api/live/${id}/timer`, { method:'POST',
-                    headers: { 'Content-Type':'application/json', 'x-admin-secret': secret }, body: JSON.stringify(a) })
+                    headers: { 'Content-Type':'application/json', ...staffHeaders(secret) }, body: JSON.stringify(a) })
                   const j = await res.json().catch(() => ({}))
                   if (!res.ok) setMsg(j.error ?? 'Timer failed'); else refetch()
                 }} />
@@ -495,7 +503,7 @@ export default function LiveAdminPage({ params }: { params: Promise<{ id: string
         <StartLevelSheet player={startFix} busy={busy} onClose={() => setStartFix(null)}
           preview={async (level) => {
             const res = await fetch(`/api/live/${id}/players`, { method:'PATCH', cache:'no-store',
-              headers: { 'Content-Type':'application/json', 'x-admin-secret': secret },
+              headers: { 'Content-Type':'application/json', ...staffHeaders(secret) },
               body: JSON.stringify({ player_id: startFix.id, start_level: level, preview: true }) })
             return res.ok ? res.json() : null
           }}
@@ -524,22 +532,6 @@ const Centre = ({ children, colour = T.muted }: { children: React.ReactNode; col
     placeItems:'center', fontFamily:'DM Sans, system-ui, sans-serif' }}>{children}</div>
 )
 
-function Gate({ secret, setSecret, setAuthed }: any) {
-  const unlock = () => { if (secret) { sessionStorage.setItem('tss-admin-secret', secret); setAuthed(true) } }
-  return (
-    <div style={{ minHeight:'100vh', background:T.bg, display:'grid', placeItems:'center',
-      fontFamily:'DM Sans, system-ui, sans-serif', padding:20 }}>
-      <div style={{ ...cardStyle, padding:22, width:'100%', maxWidth:330 }}>
-        <h1 style={{ color:T.text, fontSize:19, margin:'0 0 14px' }}>Live session admin</h1>
-        <input type="password" placeholder="Admin secret" style={inp({ fontSize:16, padding:'13px' })}
-          value={secret} onChange={e => setSecret(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter') unlock() }} />
-        <button style={{ ...btn('primary'), width:'100%', marginTop:12, padding:'13px' }}
-          onClick={unlock}>Unlock</button>
-      </div>
-    </div>
-  )
-}
 
 /**
  * Confirmation step before a new round is drawn.

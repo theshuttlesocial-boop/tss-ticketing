@@ -1,6 +1,6 @@
 /**
  * Server functions wrapping the engine. Service-role only — every caller must
- * already have checked ADMIN_SECRET (see app/api/live/...).
+ * already have passed the staff check (lib/staff.ts, via app/api/live/...).
  *
  * The pure transforms live in mapping.ts; this file is the I/O around them.
  */

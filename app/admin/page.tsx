@@ -1,4 +1,5 @@
 'use client'
+import { staffHeaders, whoAmI, signOutStaff } from '@/lib/staffClient'
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 
 // ── Midnight Green Theme ──────────────────────────────────────────────────────
@@ -78,6 +79,7 @@ const DAYS=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturda
 
 export default function AdminPage() {
   const [secret,setSecret]=useState(''); const [authed,setAuthed]=useState(false)
+  const [staff,setStaff]=useState<{email:string|null;role:string;via:string}|null>(null)
   const [sessions,setSessions]=useState<Session[]>([]); const [bookings,setBookings]=useState<Booking[]>([])
   const [waitlist,setWaitlist]=useState<any[]>([]); const [analytics,setAnalytics]=useState<any>(null)
   const [tab,setTab]=useState<'overview'|'sessions'|'create'|'bookings'|'attendees'|'waitlist'|'analytics'|'settings'|'blocked'|'credits'|'releases'|'transfers'>('overview')
@@ -103,20 +105,25 @@ export default function AdminPage() {
 
   async function login(){
     setLoading(true);setError('')
-    const res=await fetch('/api/admin',{headers:{'x-admin-secret':secret}})
-    if(!res.ok){setError('Wrong password');setLoading(false);return}
-    const d=await res.json();setSessions(d.sessions??[]);if(d.settings)setSettings(d.settings);setAuthed(true);setLoading(false)
+    const who=await whoAmI(secret)
+    if(!who){setError(secret?'Wrong password':'This account doesn\'t have admin access. Sign in with your staff email, or ask an owner to add you.');setLoading(false);return}
+    if(who.role==='session_lead'){window.location.href='/lead';return}
+    const res=await fetch('/api/admin',{headers:{...staffHeaders(secret)}})
+    if(!res.ok){setError('Could not load admin');setLoading(false);return}
+    const d=await res.json();setSessions(d.sessions??[]);if(d.settings)setSettings(d.settings);setStaff(who);setAuthed(true);setLoading(false)
   }
+  // Already signed in with a staff account? Straight in, no password.
+  useEffect(()=>{whoAmI().then(w=>{if(w)login()})},[]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const reload = useCallback(async()=>{
-    const res=await fetch('/api/admin',{headers:{'x-admin-secret':secret}})
+    const res=await fetch('/api/admin',{headers:{...staffHeaders(secret)}})
     const d=await res.json();setSessions(d.sessions??[]);if(d.settings)setSettings(d.settings)
   },[secret])
 
   async function patch(id:string,u:Record<string,any>){
     const body={session_id:id,...u}
     console.log('[admin] PATCH body:', JSON.stringify(body,null,2))
-    const res=await fetch('/api/admin',{method:'PATCH',headers:{'Content-Type':'application/json','x-admin-secret':secret},body:JSON.stringify(body)})
+    const res=await fetch('/api/admin',{method:'PATCH',headers:{'Content-Type':'application/json',...staffHeaders(secret)},body:JSON.stringify(body)})
     const d=await res.json()
     console.log('[admin] PATCH response:', JSON.stringify(d,null,2))
     if(!res.ok){flash(`❌ Save failed: ${d.error??'Unknown error'}`);return}
@@ -128,7 +135,7 @@ export default function AdminPage() {
   }
 
   async function saveSetting(key:string,value:string){
-    await fetch('/api/admin',{method:'PATCH',headers:{'Content-Type':'application/json','x-admin-secret':secret},body:JSON.stringify({setting_key:key,setting_value:value})})
+    await fetch('/api/admin',{method:'PATCH',headers:{'Content-Type':'application/json',...staffHeaders(secret)},body:JSON.stringify({setting_key:key,setting_value:value})})
     flash('✅ Saved!')
   }
 
@@ -136,7 +143,7 @@ export default function AdminPage() {
     setLoading(true);setError('')
     const venue=form.venue==='Other'?form.customVenue:form.venue
     const opens_at=form.releaseMode==='scheduled'&&form.releaseDateTime?new Date(form.releaseDateTime).toISOString():null
-    const res=await fetch('/api/sessions',{method:'POST',headers:{'Content-Type':'application/json','x-admin-secret':secret},body:JSON.stringify({
+    const res=await fetch('/api/sessions',{method:'POST',headers:{'Content-Type':'application/json',...staffHeaders(secret)},body:JSON.stringify({
       title:form.title||(form.label?`TSS ${form.label} — ${venue}`:`TSS — ${venue}`),
       label:form.label,venue,region:form.region,date:form.date,time:form.time,
       capacity:Number(form.capacity),price_pence:Number(form.price_pence),
@@ -151,29 +158,29 @@ export default function AdminPage() {
 
   async function loadBookings(){
     const url=filterSession?`/api/admin?type=bookings&session_id=${filterSession}`:'/api/admin?type=bookings'
-    const res=await fetch(url,{headers:{'x-admin-secret':secret}})
+    const res=await fetch(url,{headers:{...staffHeaders(secret)}})
     const d=await res.json();setBookings(d.bookings??[])
   }
 
   async function loadWaitlist(){
     const url=filterSession?`/api/admin?type=waitlist&session_id=${filterSession}`:'/api/admin?type=waitlist'
-    const res=await fetch(url,{headers:{'x-admin-secret':secret}})
+    const res=await fetch(url,{headers:{...staffHeaders(secret)}})
     const d=await res.json();setWaitlist(d.waitlist??[])
   }
 
   async function loadAnalytics(){
-    const res=await fetch('/api/admin?type=analytics',{headers:{'x-admin-secret':secret}})
+    const res=await fetch('/api/admin?type=analytics',{headers:{...staffHeaders(secret)}})
     const d=await res.json();setAnalytics(d)
   }
 
   async function loadBlocked(){
-    const res=await fetch('/api/admin/blocked',{headers:{'x-admin-secret':secret}})
+    const res=await fetch('/api/admin/blocked',{headers:{...staffHeaders(secret)}})
     const d=await res.json();setBlocked(d.blocked??[])
   }
 
   async function addBlocked(){
     setBlockLoading(true);setBlockError('')
-    const res=await fetch('/api/admin/blocked',{method:'POST',headers:{'Content-Type':'application/json','x-admin-secret':secret},body:JSON.stringify({email:blockForm.email,reason:blockForm.reason||null})})
+    const res=await fetch('/api/admin/blocked',{method:'POST',headers:{'Content-Type':'application/json',...staffHeaders(secret)},body:JSON.stringify({email:blockForm.email,reason:blockForm.reason||null})})
     const d=await res.json()
     setBlockLoading(false)
     if(!res.ok){setBlockError(d.error??'Failed');return}
@@ -182,26 +189,26 @@ export default function AdminPage() {
 
   async function removeBlocked(id:string,email:string){
     if(!confirm(`Remove ${email} from blocklist?`))return
-    await fetch(`/api/admin/blocked?id=${id}`,{method:'DELETE',headers:{'x-admin-secret':secret}})
+    await fetch(`/api/admin/blocked?id=${id}`,{method:'DELETE',headers:{...staffHeaders(secret)}})
     loadBlocked();flash('✅ Removed from blocklist')
   }
 
   // ── Credits ──
   async function loadCredits(){
-    const res=await fetch('/api/admin/credits',{headers:{'x-admin-secret':secret}})
+    const res=await fetch('/api/admin/credits',{headers:{...staffHeaders(secret)}})
     const d=await res.json();setCredits(d.credits??[])
   }
   async function issueCredit(){
     const amountPence=Math.round(parseFloat(creditForm.amount)*100)
     if(!creditForm.email.trim()||!Number.isFinite(amountPence)||amountPence<=0){flash('❌ Enter a valid email and amount');return}
-    const res=await fetch('/api/admin/credits',{method:'POST',headers:{'Content-Type':'application/json','x-admin-secret':secret},body:JSON.stringify({email:creditForm.email,amountPence})})
+    const res=await fetch('/api/admin/credits',{method:'POST',headers:{'Content-Type':'application/json',...staffHeaders(secret)},body:JSON.stringify({email:creditForm.email,amountPence})})
     const d=await res.json()
     if(!res.ok){flash(`❌ ${d.error??'Failed'}`);return}
     setCreditForm({email:'',amount:''});loadCredits();flash('✅ Credit issued')
   }
   async function voidCredit(id:string){
     if(!confirm('Void this unused credit? This cannot be undone.'))return
-    const res=await fetch(`/api/admin/credits?id=${id}`,{method:'DELETE',headers:{'x-admin-secret':secret}})
+    const res=await fetch(`/api/admin/credits?id=${id}`,{method:'DELETE',headers:{...staffHeaders(secret)}})
     const d=await res.json()
     if(!res.ok){flash(`❌ ${d.error??'Failed'}`);return}
     loadCredits();flash('✅ Credit voided')
@@ -209,19 +216,19 @@ export default function AdminPage() {
 
   // ── Releases ──
   async function loadReleases(){
-    const res=await fetch('/api/admin/releases',{headers:{'x-admin-secret':secret}})
+    const res=await fetch('/api/admin/releases',{headers:{...staffHeaders(secret)}})
     const d=await res.json();setReleasesData({unresolved:d.unresolved??[],resolved:d.resolved??[],offers:d.offers??[]})
   }
   async function releaseAll(sessionId:string,title:string){
     if(!confirm(`Offer all open spots for "${title}" to everyone now (skips the new-player window)?`))return
-    const res=await fetch('/api/admin/releases',{method:'POST',headers:{'Content-Type':'application/json','x-admin-secret':secret},body:JSON.stringify({action:'release_all',session_id:sessionId})})
+    const res=await fetch('/api/admin/releases',{method:'POST',headers:{'Content-Type':'application/json',...staffHeaders(secret)},body:JSON.stringify({action:'release_all',session_id:sessionId})})
     const d=await res.json()
     if(!res.ok){flash(`❌ ${d.error??'Failed'}`);return}
     flash(`✅ Offered ${d.offered} · ${d.openSpots} open`);loadReleases()
   }
   async function markReplaced(releaseId:string){
     if(!confirm('Manually mark this release as replaced? Use only if you\'ve sorted the replacement yourself.'))return
-    const res=await fetch('/api/admin/releases',{method:'POST',headers:{'Content-Type':'application/json','x-admin-secret':secret},body:JSON.stringify({action:'mark_replaced',release_id:releaseId})})
+    const res=await fetch('/api/admin/releases',{method:'POST',headers:{'Content-Type':'application/json',...staffHeaders(secret)},body:JSON.stringify({action:'mark_replaced',release_id:releaseId})})
     const d=await res.json()
     if(!res.ok){flash(`❌ ${d.error??'Failed'}`);return}
     flash('✅ Marked replaced');loadReleases()
@@ -229,14 +236,14 @@ export default function AdminPage() {
 
   // ── Transfers ──
   async function loadTransfers(){
-    const res=await fetch('/api/admin/transfers',{headers:{'x-admin-secret':secret}})
+    const res=await fetch('/api/admin/transfers',{headers:{...staffHeaders(secret)}})
     const d=await res.json();setTransfers(d.transfers??[])
   }
 
   async function refund(bookingId:string,bookingRef:string){
     if(!confirm(`Refund booking ${bookingRef}? This cannot be undone.`))return
     setRefunding(bookingId)
-    const res=await fetch('/api/refund',{method:'POST',headers:{'Content-Type':'application/json','x-admin-secret':secret},body:JSON.stringify({booking_id:bookingId,reason:'Admin refund'})})
+    const res=await fetch('/api/refund',{method:'POST',headers:{'Content-Type':'application/json',...staffHeaders(secret)},body:JSON.stringify({booking_id:bookingId,reason:'Admin refund'})})
     const d=await res.json();setRefunding(null)
     if(res.ok){flash(`✅ Refunded ${fmt(d.amount_refunded)}`);loadBookings()}
     else flash(`❌ Refund failed: ${d.error}`)
@@ -251,19 +258,19 @@ export default function AdminPage() {
 
   async function deleteSession(id:string,title:string){
     if(!confirm(`Delete "${title}"? This cannot be undone.`))return
-    const res=await fetch(`/api/sessions?id=${id}`,{method:'DELETE',headers:{'x-admin-secret':secret}})
+    const res=await fetch(`/api/sessions?id=${id}`,{method:'DELETE',headers:{...staffHeaders(secret)}})
     if(res.ok){flash('✅ Session deleted');setEditing(null);reload();return}
     const d=await res.json()
     if(res.status===409&&d.paid_bookings){
       if(!confirm(`⚠️ This session has ${d.paid_bookings} paid booking(s). Deleting will permanently remove all booking records. Continue?`))return
-      const res2=await fetch(`/api/sessions?id=${id}&force=1`,{method:'DELETE',headers:{'x-admin-secret':secret}})
+      const res2=await fetch(`/api/sessions?id=${id}&force=1`,{method:'DELETE',headers:{...staffHeaders(secret)}})
       if(res2.ok){flash('✅ Session deleted');setEditing(null);reload()}
       else{const d2=await res2.json();flash(`❌ Delete failed: ${d2.error}`)}
     }else{flash(`❌ Delete failed: ${d.error}`)}
   }
 
   async function generateNextRecurring(parentId:string){
-    const res=await fetch('/api/recurring',{method:'POST',headers:{'Content-Type':'application/json','x-admin-secret':secret},body:JSON.stringify({parent_id:parentId})})
+    const res=await fetch('/api/recurring',{method:'POST',headers:{'Content-Type':'application/json',...staffHeaders(secret)},body:JSON.stringify({parent_id:parentId})})
     if(res.ok){flash('✅ Next occurrence created as Draft');reload()}
     else flash('❌ Failed to create next occurrence')
   }
@@ -295,7 +302,7 @@ export default function AdminPage() {
     if(!authed||tab!=='attendees'||!attendeeSearch.trim())return
     if(allBookingsRef.current.length>0)return
     setSearchLoading(true)
-    fetch('/api/admin?type=bookings',{headers:{'x-admin-secret':secret}})
+    fetch('/api/admin?type=bookings',{headers:{...staffHeaders(secret)}})
       .then(r=>r.json())
       .then(d=>{allBookingsRef.current=d.bookings??[]})
       .finally(()=>setSearchLoading(false))
@@ -331,9 +338,13 @@ export default function AdminPage() {
             <div style={{fontSize:11,color:T.muted}}>The Shuttle Social</div>
           </div>
         </div>
-        <input type="password" value={secret} onChange={e=>setSecret(e.target.value)} onKeyDown={e=>e.key==='Enter'&&login()} placeholder="Admin password" style={{...inp(),marginBottom:12}}/>
+        <a href="/account?next=/admin" style={{display:'block',textAlign:'center',width:'100%',boxSizing:'border-box',padding:12,background:T.accent,color:'#080f08',borderRadius:10,fontWeight:700,fontSize:15,textDecoration:'none',marginBottom:10}}>Sign in with your staff email →</a>
         {error&&<div style={{color:T.danger,fontSize:13,marginBottom:10}}>{error}</div>}
-        <button onClick={login} disabled={loading} style={{width:'100%',padding:12,background:T.accent,color:'#080f08',border:'none',borderRadius:10,fontWeight:700,fontSize:15,cursor:'pointer',fontFamily:'inherit'}}>{loading?'Checking…':'Login →'}</button>
+        <details style={{marginTop:6}}>
+          <summary style={{cursor:'pointer',fontSize:12,color:T.muted}}>Emergency owner password</summary>
+          <input type="password" value={secret} onChange={e=>setSecret(e.target.value)} onKeyDown={e=>e.key==='Enter'&&login()} placeholder="Admin password" style={{...inp(),margin:'10px 0'}}/>
+          <button onClick={login} disabled={loading||!secret} style={{width:'100%',padding:10,background:'transparent',color:T.text,border:`1px solid ${T.border}`,borderRadius:10,fontWeight:600,fontSize:14,cursor:'pointer',fontFamily:'inherit'}}>{loading?'Checking…':'Use password'}</button>
+        </details>
       </div>
     </div>
   )
@@ -355,6 +366,10 @@ export default function AdminPage() {
         <div style={{display:'flex',gap:8,alignItems:'center'}}>
           {msg&&<div style={{fontSize:12,color:T.accent,padding:'5px 12px',background:T.accentDim,borderRadius:20,border:`1px solid ${T.accentBorder}`}}>{msg}</div>}
           <a href="/tickets" target="_blank" style={{fontSize:12,color:T.muted,textDecoration:'none',padding:'5px 12px',border:`1px solid ${T.border}`,borderRadius:8}}>View site ↗</a>
+          {staff&&<span title={staff.email??'emergency password'} style={{fontSize:12,color:staff.via==='password'?T.warning:T.muted}}>
+            {staff.via==='password'?'Emergency password':`${staff.email} · ${staff.role==='owner'?'Owner':'Admin'}`}
+          </span>}
+          <button onClick={async()=>{await signOutStaff();setSecret('');setAuthed(false);setStaff(null)}} style={{fontSize:12,color:T.muted,background:'none',padding:'5px 10px',border:`1px solid ${T.border}`,borderRadius:8,cursor:'pointer',fontFamily:'inherit'}}>Sign out</button>
         </div>
       </div>
 

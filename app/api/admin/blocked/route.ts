@@ -1,12 +1,14 @@
+import { requireAdmin } from '@/lib/staff'
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 
-function checkAdmin(req: Request) {
-  return req.headers.get('x-admin-secret') === process.env.ADMIN_SECRET
+/** Owners and admins (personal login, or the owner-only emergency password). */
+async function checkAdmin(req: Request) {
+  return !!(await requireAdmin(req))
 }
 
 export async function GET(req: Request) {
-  if (!checkAdmin(req)) return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
+  if (!(await checkAdmin(req))) return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
   const { data, error } = await supabaseAdmin
     .from('blocked_emails')
     .select('id,email,reason,created_at')
@@ -16,7 +18,7 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  if (!checkAdmin(req)) return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
+  if (!(await checkAdmin(req))) return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
   const { email, reason } = await req.json()
   if (!email) return NextResponse.json({ error: 'email required' }, { status: 400 })
   const { data, error } = await supabaseAdmin
@@ -32,7 +34,7 @@ export async function POST(req: Request) {
 }
 
 export async function DELETE(req: Request) {
-  if (!checkAdmin(req)) return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
+  if (!(await checkAdmin(req))) return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
   const { searchParams } = new URL(req.url)
   const id = searchParams.get('id')
   if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 })

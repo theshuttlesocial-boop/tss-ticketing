@@ -2,6 +2,8 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { T, inp, cardStyle, btn } from '../_components/theme'
+import { StaffGate as Gate } from '../_components/StaffGate'
+import { staffHeaders, whoAmI } from '@/lib/staffClient'
 
 /**
  * Step 1 of a session: name it and open registration. Players then add
@@ -20,7 +22,8 @@ export default function LiveSetupPage() {
 
   useEffect(() => {
     const s = sessionStorage.getItem('tss-admin-secret')
-    if (s) { setSecret(s); setAuthed(true) }
+    if (s) { setSecret(s); setAuthed(true); return }
+    whoAmI().then((w) => { if (w && w.role !== 'session_lead') setAuthed(true) })
   }, [])
 
   const create = async () => {
@@ -28,11 +31,11 @@ export default function LiveSetupPage() {
     try {
       const res = await fetch('/api/live', {
         method: 'POST',
-        headers: { 'Content-Type':'application/json', 'x-admin-secret': secret },
+        headers: { 'Content-Type':'application/json', ...staffHeaders(secret) },
         body: JSON.stringify({ name: name.trim(), courts: Number(courts) || 4, roster: [] }),
       })
       const json = await res.json()
-      if (res.status === 401) { setMsg('That admin secret is not right'); sessionStorage.removeItem('tss-admin-secret'); setAuthed(false); return }
+      if (res.status === 401) { setMsg('Only owners and admins can create sessions.'); sessionStorage.removeItem('tss-admin-secret'); setAuthed(false); return }
       if (!res.ok) { setMsg(json.error ?? 'Could not create session'); return }
       router.push(`/live/${json.id}/admin`)
     } catch (e) { setMsg((e as Error).message) } finally { setBusy(false) }
@@ -42,17 +45,7 @@ export default function LiveSetupPage() {
   const wrap: React.CSSProperties = { minHeight:'100vh', background:T.bg, color:T.text, padding:'24px 16px',
     fontFamily:'DM Sans, system-ui, sans-serif', boxSizing:'border-box' }
 
-  if (!authed) return (
-    <div style={{ ...wrap, display:'grid', placeItems:'center' }}>
-      <div style={{ ...cardStyle, padding:22, width:'100%', maxWidth:340 }}>
-        <h1 style={{ fontSize:20, margin:'0 0 14px' }}>New live session</h1>
-        {msg && <div style={{ color:T.danger, fontSize:13, marginBottom:10 }}>{msg}</div>}
-        <input type="password" placeholder="Admin secret" style={inp({ fontSize:16, padding:'13px' })}
-          value={secret} onChange={e => setSecret(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') unlock() }} />
-        <button style={{ ...btn('primary'), width:'100%', marginTop:12, padding:'13px' }} onClick={unlock}>Unlock</button>
-      </div>
-    </div>
-  )
+  if (!authed) return <Gate secret={secret} setSecret={setSecret} setAuthed={setAuthed} title="New live session" />
 
   return (
     <div style={wrap}>

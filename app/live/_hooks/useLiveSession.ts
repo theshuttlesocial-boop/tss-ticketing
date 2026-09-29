@@ -3,6 +3,7 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import { supabase } from '@/lib/supabase-client'
 import type { Level, Session } from '@/lib/live-session/engine'
 import { clockOffset } from '@/lib/live-session/timer'
+import { staffHeaders } from '@/lib/staffClient'
 
 /** Session metadata. Fields after registrationOpen are admin-only. */
 export interface LiveMeta {
@@ -54,7 +55,9 @@ export function useLiveSession(sessionId: string, adminSecret?: string, enabled 
     try {
       const res = await fetch(`/api/live/${sessionId}`, {
         cache: 'no-store',
-        headers: adminSecret ? { 'x-admin-secret': adminSecret } : undefined,
+        // Admin pages pass a secret ('' when signed in with a staff account);
+        // public pages pass nothing and send no credentials at all.
+        headers: adminSecret !== undefined ? staffHeaders(adminSecret) : undefined,
       })
       const json = await res.json()
       if (mine !== latest.current) return

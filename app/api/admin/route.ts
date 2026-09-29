@@ -1,12 +1,14 @@
+import { requireAdmin } from '@/lib/staff'
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 
-function checkAdmin(req: Request) {
-  return req.headers.get('x-admin-secret') === process.env.ADMIN_SECRET
+/** Owners and admins (personal login, or the owner-only emergency password). */
+async function checkAdmin(req: Request) {
+  return !!(await requireAdmin(req))
 }
 
 export async function GET(req: Request) {
-  if (!checkAdmin(req)) return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
+  if (!(await checkAdmin(req))) return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
   const { searchParams } = new URL(req.url)
   const type = searchParams.get('type') ?? 'overview'
 
@@ -95,7 +97,7 @@ export async function GET(req: Request) {
 }
 
 export async function PATCH(req: Request) {
-  if (!checkAdmin(req)) return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
+  if (!(await checkAdmin(req))) return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
   const body = await req.json()
 
   if (body.setting_key) {

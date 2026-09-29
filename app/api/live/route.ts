@@ -3,7 +3,7 @@ import { checkAdmin } from '@/lib/live-session/auth'
 import { createLiveSession, LiveSessionError } from '@/lib/live-session/actions'
 
 export async function POST(req: Request) {
-  if (!checkAdmin(req)) return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
+  if (!(await checkAdmin(req))) return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
   // Any `config` in the body is ignored: the server builds it (lib/live-session/config.ts).
   const { name, roster, seed, courts } = await req.json()
 

@@ -1,10 +1,10 @@
+import { requireAdmin } from '@/lib/staff'
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 
 // Creates next week's occurrence of a recurring session
 export async function POST(req: Request) {
-  const adminSecret = req.headers.get('x-admin-secret')
-  if (adminSecret !== process.env.ADMIN_SECRET) return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
+  if (!(await requireAdmin(req))) return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
 
   const { parent_id } = await req.json()
 
@@ -37,8 +37,7 @@ export async function POST(req: Request) {
 
 // Auto-generate upcoming sessions for all recurring sessions
 export async function GET(req: Request) {
-  const adminSecret = req.headers.get('x-admin-secret')
-  if (adminSecret !== process.env.ADMIN_SECRET) return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
+  if (!(await requireAdmin(req))) return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
 
   // Find recurring sessions that don't have a next occurrence scheduled
   const { data: recurringSessions } = await supabaseAdmin

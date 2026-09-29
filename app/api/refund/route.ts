@@ -1,10 +1,10 @@
+import { requireAdmin } from '@/lib/staff'
 import { NextResponse } from 'next/server'
 import { stripe } from '@/lib/stripe'
 import { supabaseAdmin } from '@/lib/supabase'
 
 export async function POST(req: Request) {
-  const adminSecret = req.headers.get('x-admin-secret')
-  if (adminSecret !== process.env.ADMIN_SECRET) return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
+  if (!(await requireAdmin(req))) return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
 
   const { booking_id, reason } = await req.json()
   if (!booking_id) return NextResponse.json({ error: 'booking_id required' }, { status: 400 })

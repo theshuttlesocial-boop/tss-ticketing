@@ -1,3 +1,4 @@
+import { requireAdmin } from '@/lib/staff'
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 
@@ -80,7 +81,7 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  if (req.headers.get('x-admin-secret') !== process.env.ADMIN_SECRET)
+  if (!(await requireAdmin(req)))
     return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
 
   const body = await req.json()
@@ -103,7 +104,7 @@ export async function POST(req: Request) {
 }
 
 export async function DELETE(req: Request) {
-  if (req.headers.get('x-admin-secret') !== process.env.ADMIN_SECRET)
+  if (!(await requireAdmin(req)))
     return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
   const { searchParams } = new URL(req.url)
   const id = searchParams.get('id')

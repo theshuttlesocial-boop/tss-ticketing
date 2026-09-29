@@ -1,15 +1,17 @@
+import { requireAdmin } from '@/lib/staff'
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { runCascade } from '@/lib/waitlist-matcher'
 import { logAudit } from '@/lib/audit'
 
-function checkAdmin(req: Request) {
-  return req.headers.get('x-admin-secret') === process.env.ADMIN_SECRET
+/** Owners and admins (personal login, or the owner-only emergency password). */
+async function checkAdmin(req: Request) {
+  return !!(await requireAdmin(req))
 }
 
 // GET — unresolved releases, recently resolved ones, and current live offers.
 export async function GET(req: Request) {
-  if (!checkAdmin(req)) return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
+  if (!(await checkAdmin(req))) return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
 
   const [unresolvedRes, resolvedRes, offersRes] = await Promise.all([
     supabaseAdmin.from('releases')
@@ -32,7 +34,7 @@ export async function GET(req: Request) {
 
 // POST — admin overrides.
 export async function POST(req: Request) {
-  if (!checkAdmin(req)) return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
+  if (!(await checkAdmin(req))) return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
   const { action, session_id, release_id } = await req.json().catch(() => ({}))
 
   if (action === 'release_all') {

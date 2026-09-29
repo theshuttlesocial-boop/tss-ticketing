@@ -1,3 +1,4 @@
+import { requireAdmin } from '@/lib/staff'
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendWaitlistConfirmation, sendAdminWaitlistNotification } from '@/lib/email'
@@ -63,8 +64,7 @@ export async function POST(req: Request) {
 }
 
 export async function GET(req: Request) {
-  const adminSecret = req.headers.get('x-admin-secret')
-  if (adminSecret !== process.env.ADMIN_SECRET) return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
+  if (!(await requireAdmin(req))) return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
   const { searchParams } = new URL(req.url)
   const session_id = searchParams.get('session_id')
   let query = supabaseAdmin.from('waitlist').select('*, sessions(title,date)').order('position')
