@@ -1,7 +1,7 @@
 /**
  * Player accounts (Roadmap Phase 4a). Server only.
  *
- * The browser signs in with Supabase Auth (emailed 6-digit code) and sends its
+ * The browser signs in with Supabase Auth (emailed sign-in code) and sends its
  * access token as `Authorization: Bearer …`. The server checks the token with
  * Supabase, then finds or creates the matching `players` row by email.
  */

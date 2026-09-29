@@ -24,7 +24,7 @@ export default function AccountPage() {
 }
 
 /**
- * Sign in with an emailed 6-digit code (no password), then "My sessions":
+ * Sign in with an emailed sign-in code (no password), then "My sessions":
  * upcoming bookings, past bookings and live sessions played. Bookings made
  * with the same email before the account existed appear automatically.
  */
@@ -74,7 +74,7 @@ function Account() {
       <a href="/tickets" style={{ color:T.muted, fontSize:14, textDecoration:'none' }}>← Sessions</a>
       <h1 style={{ fontSize:30, fontWeight:900, margin:'14px 0 6px' }}>Your TSS account</h1>
       <p style={{ color:T.muted, fontSize:14, lineHeight:1.5, margin:'0 0 20px' }}>
-        Use the email you book with — your bookings appear straight away. We&apos;ll email you a 6-digit code; there&apos;s no password.
+        Use the email you book with — your bookings appear straight away. We&apos;ll email you a sign-in code; there&apos;s no password.
         We use your email only to sign you in and show your bookings.
       </p>
       {err}
@@ -90,7 +90,7 @@ function Account() {
       ) : (
         <>
           <p style={{ fontSize:15, margin:'0 0 12px' }}>We sent a code to <strong>{email}</strong>. It can take a minute; check spam too.</p>
-          <input aria-label="Code" inputMode="numeric" autoComplete="one-time-code" placeholder="123456" maxLength={10}
+          <input aria-label="Code" inputMode="numeric" autoComplete="one-time-code" placeholder="Code" maxLength={10}
             style={inp({ fontSize:28, padding:'14px', letterSpacing:'10px', textAlign:'center', marginBottom:14 })}
             value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 10))}
             onKeyDown={(e) => { if (e.key === 'Enter' && code.length >= 6) verify() }} />
