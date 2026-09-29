@@ -18,7 +18,7 @@ export async function GET(req: Request) {
   }
 }
 
-/** Update your own name and level. Only these fields; nothing else is accepted. */
+/** Update your own name, level and leaderboard choice. Only these fields; nothing else is accepted. */
 export async function PATCH(req: Request) {
   const u = await userFromRequest(req)
   if (!u) return NextResponse.json({ error: 'Not signed in' }, { status: 401 })
@@ -35,6 +35,8 @@ export async function PATCH(req: Request) {
       return NextResponse.json({ error: 'Pick a level' }, { status: 400 })
     update.level_self = b.level
   }
+  // Explicit consent only: a separate, deliberate field, never set by default.
+  if (typeof b.leaderboard === 'boolean') update.leaderboard_opt_in = b.leaderboard
   if (!Object.keys(update).length) return NextResponse.json({ error: 'Nothing to update' }, { status: 400 })
   const p = await ensurePlayer(u)
   const { error } = await supabaseAdmin.from('players').update(update).eq('id', p.id)
