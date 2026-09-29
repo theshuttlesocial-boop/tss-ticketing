@@ -1,4 +1,5 @@
 'use client'
+import { RequireTwoStep } from '@/app/_components/TwoStep'
 import { staffHeaders, whoAmI, signOutStaff } from '@/lib/staffClient'
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 
@@ -77,7 +78,7 @@ const VENUES=['Harrow High School','Frances Bardsley Academy','Dormers Wells Lei
 const REGIONS=['North/West London','East London','South London','Central London']
 const DAYS=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday']
 
-export default function AdminPage() {
+function AdminPageInner() {
   const [secret,setSecret]=useState(''); const [authed,setAuthed]=useState(false)
   const [staff,setStaff]=useState<{email:string|null;role:string;via:string}|null>(null)
   const [sessions,setSessions]=useState<Session[]>([]); const [bookings,setBookings]=useState<Booking[]>([])
@@ -1119,4 +1120,9 @@ function SessionEditor({session,onSave,onCancel,onStatusChange,onSchedule,onGene
       </div>
     </div>
   )
+}
+
+/** Owners and admins pass the authenticator step first (Phase 5d). */
+export default function AdminPage() {
+  return <RequireTwoStep><AdminPageInner /></RequireTwoStep>
 }

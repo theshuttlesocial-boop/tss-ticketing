@@ -1,4 +1,5 @@
 'use client'
+import { RequireTwoStep } from '@/app/_components/TwoStep'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { T, inp, cardStyle, btn } from '../_components/theme'
@@ -11,7 +12,7 @@ import { staffHeaders, whoAmI } from '@/lib/staffClient'
  * the organiser can correct names and levels, add anyone who could not
  * register, and start the session.
  */
-export default function LiveSetupPage() {
+function LiveSetupPageInner() {
   const router = useRouter()
   const [secret, setSecret] = useState('')
   const [authed, setAuthed] = useState(false)
@@ -79,4 +80,9 @@ export default function LiveSetupPage() {
       </div>
     </div>
   )
+}
+
+/** Owners and admins pass the authenticator step first (Phase 5d). */
+export default function LiveSetupPage() {
+  return <RequireTwoStep><LiveSetupPageInner /></RequireTwoStep>
 }

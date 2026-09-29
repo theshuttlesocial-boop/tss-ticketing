@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { staffFromRequest } from '@/lib/staff'
-import { isAdminRole } from '@/lib/staffRules'
+import { fullySignedIn, isAdminRole } from '@/lib/staffRules'
 import { assignmentsFor } from '@/lib/lead'
 import { supabaseAdmin } from '@/lib/supabase'
 import { createLiveSession, LiveSessionError } from '@/lib/live-session/actions'
@@ -9,7 +9,7 @@ export async function POST(req: Request) {
   // Owners and admins; or a session lead assigned to a booking session right
   // now (tonight's), who then runs the live session they create.
   const staff = await staffFromRequest(req)
-  if (!staff) return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
+  if (!staff || !fullySignedIn(staff)) return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
   const ticketAssignment = isAdminRole(staff.role) ? null
     : (await assignmentsFor(staff)).find((a) => a.ticket_session_id) ?? null
   if (!isAdminRole(staff.role) && !ticketAssignment)
