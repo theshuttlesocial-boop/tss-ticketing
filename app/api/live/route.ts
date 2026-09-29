@@ -1,9 +1,19 @@
 import { NextResponse } from 'next/server'
-import { checkAdmin } from '@/lib/live-session/auth'
+import { staffFromRequest } from '@/lib/staff'
+import { isAdminRole } from '@/lib/staffRules'
+import { assignmentsFor } from '@/lib/lead'
+import { supabaseAdmin } from '@/lib/supabase'
 import { createLiveSession, LiveSessionError } from '@/lib/live-session/actions'
 
 export async function POST(req: Request) {
-  if (!(await checkAdmin(req))) return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
+  // Owners and admins; or a session lead assigned to a booking session right
+  // now (tonight's), who then runs the live session they create.
+  const staff = await staffFromRequest(req)
+  if (!staff) return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
+  const ticketAssignment = isAdminRole(staff.role) ? null
+    : (await assignmentsFor(staff)).find((a) => a.ticket_session_id) ?? null
+  if (!isAdminRole(staff.role) && !ticketAssignment)
+    return NextResponse.json({ error: 'Only owners, admins, or the session lead for tonight can create a live session' }, { status: 401 })
   // Any `config` in the body is ignored: the server builds it (lib/live-session/config.ts).
   const { name, roster, seed, courts } = await req.json()
 
@@ -26,6 +36,11 @@ export async function POST(req: Request) {
     // regulars (same people sat out first, same pairings). Random per session.
     const sessionSeed = Number.isInteger(seed) ? seed : Math.floor(Math.random() * 1_000_000_000)
     const id = await createLiveSession(name, roster ?? [], sessionSeed, courts)
+    if (ticketAssignment && staff.email) {
+      const { data: me } = await supabaseAdmin.from('staff').select('id').ilike('email', staff.email).single()
+      await supabaseAdmin.from('session_leads').insert({ staff_id: me!.id, live_session_id: id,
+        valid_from: ticketAssignment.valid_from, valid_to: ticketAssignment.valid_to })
+    }
     return NextResponse.json({ id }, { status: 201 })
   } catch (e) {
     const status = e instanceof LiveSessionError ? 400 : 500
