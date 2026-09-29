@@ -36,7 +36,10 @@ export async function GET() {
     const isScheduledOpen = session.opens_at && new Date(session.opens_at) <= now
     const effectiveStatus = isScheduledOpen ? 'open' : session.status
     if (effectiveStatus === 'draft') {
-      if (session.opens_at && new Date(session.opens_at) > now) comingSoon.push(session)
+      // Only when an admin has switched on "Coming soon" for it (migration 023).
+      // Before that migration the column doesn't exist: keep the old behaviour.
+      const showIt = (session as any).show_coming_soon !== false
+      if (showIt && session.opens_at && new Date(session.opens_at) > now) comingSoon.push(session)
       // else: pure draft, skip
     } else {
       openSessions.push(session)
@@ -85,11 +88,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
 
   const body = await req.json()
-  const { title, label, venue, region, date, time, capacity, price_pence, max_tickets_per_order, status, opens_at, description, is_recurring, recurring_day_of_week } = body
+  const { title, label, venue, region, date, time, capacity, price_pence, max_tickets_per_order, status, opens_at, description, is_recurring, recurring_day_of_week, show_coming_soon } = body
 
   if (!title || !venue || !date || !time) return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
 
-  const { data, error } = await supabaseAdmin.from('sessions').insert({
+  const row: Record<string, unknown> = {
     title, label: label ?? null, venue, region, date, time,
     capacity: capacity ?? 24, price_pence: price_pence ?? 800,
     max_tickets_per_order: max_tickets_per_order ?? 4,
@@ -97,7 +100,14 @@ export async function POST(req: Request) {
     description: description ?? null,
     is_recurring: is_recurring ?? false,
     recurring_day_of_week: recurring_day_of_week ?? null,
-  }).select().single()
+    show_coming_soon: show_coming_soon === true,
+  }
+  let { data, error } = await supabaseAdmin.from('sessions').insert(row).select().single()
+  // Before migration 023 the column doesn't exist: save without it.
+  if (error && error.message.includes('show_coming_soon')) {
+    delete row.show_coming_soon
+    ;({ data, error } = await supabaseAdmin.from('sessions').insert(row).select().single())
+  }
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ session: data }, { status: 201 })
