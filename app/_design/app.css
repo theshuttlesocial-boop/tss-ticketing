@@ -4,6 +4,24 @@
  * Built on the tokens in app/_design/tss.css.
  */
 
+/* App screens (BareFrame/AppFrame: My portal, live, staff, admin) are dark by default:
+   deep green cards on a near-black green page, light text, lime highlights. Picking light
+   with the header switch sets data-theme='light'. The website and tickets page aren't .tss-app. */
+:root:not([data-theme='light']) .tss.tss-app {
+  --page: #07140C; --ink: #F4F7EC; --muted: rgba(244, 247, 236, 0.78);
+  --card: #0E3B24; --card-2: rgba(244, 247, 236, 0.08); --field: #0A2215;
+  --line: rgba(244, 247, 236, 0.16); --chip: rgba(244, 247, 236, 0.12);
+  --accent: #D9F46B; --accent-dim: rgba(217, 244, 107, 0.12); --accent-line: rgba(217, 244, 107, 0.35);
+  --danger: #F28B82; --danger-dim: rgba(242, 139, 130, 0.14);
+  --warn: #F2B35B; --warn-dim: rgba(242, 179, 91, 0.14);
+  --info: #8CC4FF; --info-dim: rgba(140, 196, 255, 0.12);
+  --overlay: rgba(0, 0, 0, 0.72);
+  color-scheme: dark;
+}
+:root:not([data-theme='light']) body:has(.tss-app) { background: #07140C !important; }
+:root:not([data-theme='light']) .tss-app .theme-btn .i-sun { display: block; }
+:root:not([data-theme='light']) .tss-app .theme-btn .i-moon { display: none; }
+
 /* Deep green card with light text and lime highlights (tickets, the player's court card).
    Tokens are re-pointed so everything inside keeps strong contrast. */
 .tss .deep {

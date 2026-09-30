@@ -2,21 +2,26 @@
 import { useEffect, useState } from 'react'
 
 const KEY = 'tss-theme'
+/** The app screens (My portal, live, staff, admin) keep their own choice: they're dark unless the visitor picks light. */
+const APP_KEY = 'tss-app-theme'
 
-/** Follows the device setting until the visitor picks; the choice is remembered in this browser only. */
-export function ThemeToggle() {
+/**
+ * Website and tickets: follows the device setting until the visitor picks.
+ * App screens (`app`): dark until the visitor picks light. The choice is remembered in this browser only.
+ */
+export function ThemeToggle({ app = false }: { app?: boolean }) {
   const [dark, setDark] = useState<boolean | null>(null)
 
   useEffect(() => {
     const set = document.documentElement.dataset.theme
-    setDark(set ? set === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches)
-  }, [])
+    setDark(set ? set === 'dark' : app || matchMedia('(prefers-color-scheme: dark)').matches)
+  }, [app])
 
   function toggle() {
     const next = !dark
     setDark(next)
     document.documentElement.dataset.theme = next ? 'dark' : 'light'
-    try { localStorage.setItem(KEY, next ? 'dark' : 'light') } catch { /* private mode */ }
+    try { localStorage.setItem(app ? APP_KEY : KEY, next ? 'dark' : 'light') } catch { /* private mode */ }
   }
 
   return (
@@ -32,3 +37,5 @@ export function ThemeToggle() {
  * that JavaScript is on, which is what lets reveal-on-scroll hide content until it's shown.
  */
 export const themeScript = `(function(){var d=document.documentElement;d.classList.add('tss-js');try{var t=localStorage.getItem('${KEY}');if(t==='light'||t==='dark')d.dataset.theme=t}catch(e){}})()`
+/** Same for app screens, with their own saved choice (none saved = dark, set in app.css). */
+export const appThemeScript = `(function(){var d=document.documentElement;d.classList.add('tss-js');delete d.dataset.theme;try{var t=localStorage.getItem('${APP_KEY}');if(t==='light'||t==='dark')d.dataset.theme=t}catch(e){}})()`

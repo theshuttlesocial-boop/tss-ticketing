@@ -44,7 +44,8 @@ export const doneMark: CSSProperties = {
 /** Stripe's payment form can't read CSS variables: give it real colours for the current theme. */
 export function stripeAppearance() {
   const set = document.documentElement.dataset.theme
-  const dark = set ? set === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches
+  const app = !!document.querySelector('.tss-app')   // app screens are dark unless light was picked
+  const dark = set ? set === 'dark' : app || matchMedia('(prefers-color-scheme: dark)').matches
   return {
     fonts: [{ cssSrc: 'https://fonts.googleapis.com/css2?family=Urbanist:wght@500;600;700&display=swap' }],
     appearance: {
