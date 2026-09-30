@@ -745,7 +745,7 @@ export default function TicketsPage() {
         </div>
       </div>
 
-      <main id="main-content" className="wrap t-main">
+      <main id="main-content" className="t-band"><div className="wrap t-main">
         {loading?(
           <div className="t-loading" role="status">
             <div className="dot-row" aria-hidden="true"><span/><span/><span/></div>
@@ -771,13 +771,13 @@ export default function TicketsPage() {
             )}
             {open.length===0&&comingSoon.length===0&&(
               <div className="t-empty">
-                <div className="t-title" style={{marginBottom:'0.5rem',color:'var(--ink)'}}>No sessions open right now</div>
-                <div className="small">New sessions are announced first on <a href={INSTAGRAM} target="_blank" rel="noopener" style={{color:'var(--accent)'}}>Instagram</a> and <a href={TIKTOK} target="_blank" rel="noopener" style={{color:'var(--accent)'}}>TikTok</a>.</div>
+                <div className="t-title" style={{marginBottom:'0.5rem'}}>No sessions open right now</div>
+                <div className="small">New sessions are announced first on <a href={INSTAGRAM} target="_blank" rel="noopener">Instagram</a> and <a href={TIKTOK} target="_blank" rel="noopener">TikTok</a>.</div>
               </div>
             )}
           </>
         )}
-      </main>
+      </div></main>
 
       <footer className="wrap t-foot">
         {/* Already booked? Self-service spot release */}
