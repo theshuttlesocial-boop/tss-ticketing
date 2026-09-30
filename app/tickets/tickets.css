@@ -40,7 +40,8 @@
 .tss .t-date { display: flex; flex-direction: column; gap: 0.375rem; }
 .tss .t-date .disp { font-size: clamp(2.5rem, 4.5vw, 3.5rem); white-space: nowrap; }
 /* On the deep green cards, the date, title and price are brand lime, not white */
-.tss .t-card .t-date .disp, .tss .t-card .t-title, .tss .t-card .t-price .num { color: #D9F46B; }
+.tss .t-card .t-date .disp, .tss .t-card .t-title { color: #D9F46B; }
+.tss .t-card .t-price .num { color: #F4F7EC; font-size: 1.125rem; }
 .tss .t-tags { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.375rem; }
 .tss .t-tag { padding: 0.375rem 0.75rem; border-radius: 999px; font-size: var(--fs-kicker); font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; background: var(--chip); color: var(--ink); white-space: nowrap; }
 .tss .t-tag.full { background: var(--danger-dim); color: var(--danger); }
