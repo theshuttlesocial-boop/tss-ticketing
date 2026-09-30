@@ -90,6 +90,32 @@
   --s-how: linear-gradient(170deg, #0B1F14 0%, #0F2A1C 100%);
   --s-real: linear-gradient(170deg, #101C0B 0%, #16260F 100%);
 }
+/* Always-dark area (e.g. the TV board), whatever the page theme */
+.tss .is-dark {
+  --page: #07140C;
+  --ink: #EEF3E6;
+  --muted: #A9B8A4;
+  --card: #10241A;
+  --line: rgba(238, 243, 230, 0.13);
+  --chip: #1A3324;
+  --accent: #D9F46B;
+  --accent-dim: rgba(217, 244, 107, 0.1);
+  --accent-line: rgba(217, 244, 107, 0.3);
+  --card-2: #142D20;
+  --field: #0C1D14;
+  --danger: #F28B82;
+  --danger-dim: rgba(242, 139, 130, 0.12);
+  --warn: #F2B35B;
+  --warn-dim: rgba(242, 179, 91, 0.12);
+  --info: #8CC4FF;
+  --info-dim: rgba(140, 196, 255, 0.1);
+  --overlay: rgba(0, 0, 0, 0.72);
+  --s-week: #07140C;
+  --s-how: linear-gradient(170deg, #0B1F14 0%, #0F2A1C 100%);
+  --s-real: linear-gradient(170deg, #101C0B 0%, #16260F 100%);
+  background: var(--page);
+  color: var(--ink);
+}
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) .tss {
     --page: #07140C;

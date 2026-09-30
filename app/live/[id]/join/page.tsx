@@ -1,7 +1,7 @@
 'use client'
 import { use, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { T, inp, btn } from '../../_components/theme'
+import { T, inp, btn } from '@/app/_design/theme'
 import { LEVEL_INFO } from '@/lib/live-session/levels'
 import type { Level } from '@/lib/live-session/engine'
 import { authHeader } from '@/lib/accountClient'
@@ -107,12 +107,12 @@ export default function JoinPage({ params }: { params: Promise<{ id: string }> }
 
   if (!checked) return (
     <div style={{ minHeight:'100vh', background:T.bg, color:T.muted, display:'grid',
-      placeItems:'center', fontFamily:'DM Sans, system-ui, sans-serif' }}>Loading…</div>
+      placeItems:'center', fontFamily:'inherit' }}>Loading…</div>
   )
 
   const wrap: React.CSSProperties = {
     minHeight:'100vh', background:T.bg, color:T.text, padding:'28px 20px',
-    fontFamily:'DM Sans, system-ui, sans-serif', boxSizing:'border-box',
+    fontFamily:'inherit', boxSizing:'border-box',
     maxWidth:520, margin:'0 auto',
   }
 

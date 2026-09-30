@@ -2,7 +2,7 @@
 import { RequireTwoStep } from '@/app/_components/TwoStep'
 import { use, useState, useMemo, useEffect } from 'react'
 import { useLiveSession } from '../../_hooks/useLiveSession'
-import { T, inp, cardStyle, btn } from '../../_components/theme'
+import { T, inp, cardStyle, btn } from '@/app/_design/theme'
 import { FormBadges } from '../../_components/Form'
 import { RoundTimer } from '../../_components/RoundTimer'
 import { ScoreCard } from './ScoreCard'
@@ -129,7 +129,7 @@ function LiveAdminPageInner({ params }: { params: Promise<{ id: string }> }) {
   if (error || !session) return <Centre colour={T.danger}>{error}</Centre>
   if (isAdmin === false) return (
     <div style={{ minHeight:'100vh', background:T.bg, display:'grid', placeItems:'center',
-      fontFamily:'DM Sans, system-ui, sans-serif', padding:20 }}>
+      fontFamily:'inherit', padding:20 }}>
       <div style={{ ...cardStyle, padding:24, maxWidth:340, textAlign:'center' }}>
         <div style={{ color:T.danger, fontSize:16, fontWeight:700, marginBottom:6 }}>
           No access to this session
@@ -161,7 +161,7 @@ function LiveAdminPageInner({ params }: { params: Promise<{ id: string }> }) {
   return (
     <div style={{
       minHeight:'100vh', background:T.bg, color:T.text,
-      fontFamily:'DM Sans, system-ui, sans-serif', boxSizing:'border-box',
+      fontFamily:'inherit', boxSizing:'border-box',
       paddingBottom:40,
     }}>
       {/* header */}
@@ -532,7 +532,7 @@ function LiveAdminPageInner({ params }: { params: Promise<{ id: string }> }) {
 
 const Centre = ({ children, colour = T.muted }: { children: React.ReactNode; colour?: string }) => (
   <div style={{ minHeight:'100vh', background:T.bg, color:colour, display:'grid',
-    placeItems:'center', fontFamily:'DM Sans, system-ui, sans-serif' }}>{children}</div>
+    placeItems:'center', fontFamily:'inherit' }}>{children}</div>
 )
 
 
@@ -547,12 +547,12 @@ const Centre = ({ children, colour = T.muted }: { children: React.ReactNode; col
  */
 function ReviewSheet({ round, session, nm, onCancel, onConfirm }: any) {
   return (
-    <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.75)', zIndex:50,
+    <div style={{ position:'fixed', inset:0, background:'var(--overlay)', zIndex:50,
       display:'flex', alignItems:'flex-end', justifyContent:'center' }} onClick={onCancel}>
       <div onClick={e => e.stopPropagation()} style={{
         background:T.card, borderTop:`1px solid ${T.border}`, borderRadius:'16px 16px 0 0',
         padding:18, width:'100%', maxWidth:560, maxHeight:'85vh', overflowY:'auto',
-        fontFamily:'DM Sans, system-ui, sans-serif',
+        fontFamily:'inherit',
       }}>
         <h2 style={{ fontSize:19, fontWeight:900, margin:'0 0 4px', color:T.text }}>
           Check round {round.index} before moving on

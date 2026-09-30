@@ -1,7 +1,7 @@
 'use client'
 import { use, useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase-client'
-import { T } from '../../../_components/theme'
+import { T } from '@/app/_design/theme'
 import { FormBadges, RatingTrend, LastDelta } from '../../../_components/Form'
 import { displayNames } from '@/lib/live-session/displayNames'
 import { clockOffset } from '@/lib/live-session/timer'
@@ -53,7 +53,7 @@ export default function PlayerPage({ params }: { params: Promise<{ id: string; p
   const shell = (m: string) => (
     <div style={{ minHeight:'100vh', background:T.bg, color:T.muted, display:'grid',
       placeItems:'center', padding:24, textAlign:'center',
-      fontFamily:'DM Sans, system-ui, sans-serif' }}>{m}</div>
+      fontFamily:'inherit' }}>{m}</div>
   )
   if (loading) return shell('Loading…')
   if (error || !view) return shell(error ?? 'Not found')
@@ -85,13 +85,13 @@ export default function PlayerPage({ params }: { params: Promise<{ id: string; p
 
   return (
     <div style={{ minHeight:'100vh', background:T.bg, color:T.text, padding:'28px 20px',
-      fontFamily:'DM Sans, system-ui, sans-serif', boxSizing:'border-box',
+      fontFamily:'inherit', boxSizing:'border-box',
       maxWidth:520, margin:'0 auto' }}>
       <div style={{ fontSize:13, color:T.muted, letterSpacing:'1px',
         textTransform:'uppercase', fontWeight:600 }}>
         {round ? `Round ${round.index}` : 'Not started'}
       </div>
-      <h1 style={{ fontSize:34, fontWeight:900, margin:'4px 0 22px', letterSpacing:'-0.5px' }}>
+      <h1 style={{ fontSize:38, fontWeight:900, margin:'4px 0 22px', letterSpacing:'-0.03em', lineHeight:1.05 }}>
         {view.name}
       </h1>
 
@@ -101,10 +101,9 @@ export default function PlayerPage({ params }: { params: Promise<{ id: string; p
         </div>
       )}
 
-      <div style={{
-        background: sittingNow ? T.infoDim : T.card,
-        border:`1px solid ${sittingNow ? T.info : T.accentBorder}`,
-        borderRadius:14, padding:'22px 20px', marginBottom:14,
+      <div className={sittingNow ? undefined : 'deep'} style={{
+        ...(sittingNow ? { background:T.infoDim, border:`1px solid ${T.info}` } : {}),
+        borderRadius:24, padding:'22px 20px', marginBottom:14,
       }}>
         {sittingNow ? (
           <>
@@ -119,7 +118,7 @@ export default function PlayerPage({ params }: { params: Promise<{ id: string; p
           <>
             <div style={{ fontSize:13, color:T.muted, textTransform:'uppercase',
               letterSpacing:'1px', fontWeight:600, marginBottom:4 }}>Your court</div>
-            <div style={{ fontSize:52, fontWeight:900, color:T.accent, lineHeight:1, marginBottom:18 }}>
+            <div style={{ fontSize:72, fontWeight:900, fontStyle:'italic', letterSpacing:'-0.04em', color:T.accent, lineHeight:1, marginBottom:18 }}>
               {match.court}
             </div>
             <Row label="Partner">{partner}</Row>
@@ -130,7 +129,7 @@ export default function PlayerPage({ params }: { params: Promise<{ id: string; p
         )}
       </div>
 
-      <div style={{ background:T.card, border:`1px solid ${T.border}`, borderRadius:14,
+      <div style={{ background:T.card, border:`1px solid ${T.border}`, borderRadius:24,
         padding:'18px 18px 12px' }}>
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
           <div>

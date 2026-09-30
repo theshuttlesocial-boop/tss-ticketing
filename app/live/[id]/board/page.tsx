@@ -2,7 +2,7 @@
 import { use } from 'react'
 import { useLiveSession } from '../../_hooks/useLiveSession'
 import { CourtCard } from '../../_components/CourtCard'
-import { T } from '../../_components/theme'
+import { T } from '@/app/_design/theme'
 import { displayNames } from '@/lib/live-session/displayNames'
 import { RoundTimer } from '../../_components/RoundTimer'
 
@@ -11,8 +11,8 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
   const { session, error, loading, offset } = useLiveSession(id)
 
   const shell = (msg: string) => (
-    <div style={{ minHeight:'100vh', background:T.bg, color:T.muted, display:'grid',
-      placeItems:'center', fontFamily:'DM Sans, system-ui, sans-serif', fontSize:24 }}>{msg}</div>
+    <div className="is-dark" style={{ minHeight:'100vh', color:T.muted, display:'grid',
+      placeItems:'center', fontFamily:'inherit', fontSize:24 }}>{msg}</div>
   )
   if (loading) return shell('Loading…')
   if (error || !session) return shell(error ?? 'Session not found')
@@ -25,12 +25,13 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
     session.results.find(r => r.round === round.index && r.court === court)
 
   return (
-    <div style={{
-      minHeight:'100vh', background:T.bg, color:T.text, padding:'28px 32px',
-      fontFamily:'DM Sans, system-ui, sans-serif', boxSizing:'border-box',
+    // The TV board is always dark: best contrast on a big screen in a sports hall.
+    <div className="is-dark" style={{
+      minHeight:'100vh', color:T.text, padding:'28px 32px',
+      fontFamily:'inherit', boxSizing:'border-box',
     }}>
       <div style={{ display:'flex', alignItems:'baseline', gap:16, marginBottom:22 }}>
-        <div style={{ fontSize:44, fontWeight:900, letterSpacing:'-1px' }}>Round {round.index}</div>
+        <div style={{ fontSize:52, fontWeight:900, letterSpacing:'-0.03em' }}>Round <span style={{ color:T.accent, fontStyle:'italic' }}>{round.index}</span></div>
         <div style={{ fontSize:20, color:T.muted }}>
           {round.matches.length} courts
         </div>
@@ -53,7 +54,7 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
       {round.sitOuts.length > 0 && (
         <div style={{
           marginTop:22, background:T.card, border:`1px solid ${T.border}`,
-          borderRadius:12, padding:'16px 20px',
+          borderRadius:24, padding:'18px 22px',
         }}>
           <div style={{ fontSize:13, color:T.muted, textTransform:'uppercase',
             letterSpacing:'1px', fontWeight:600, marginBottom:10 }}>

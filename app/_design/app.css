@@ -4,6 +4,15 @@
  * Built on the tokens in app/_design/tss.css.
  */
 
+/* Deep green card with light text and lime highlights (tickets, the player's court card).
+   Tokens are re-pointed so everything inside keeps strong contrast. */
+.tss .deep {
+  --ink: #F4F7EC; --page: #0F2A1A; --muted: rgba(244, 247, 236, 0.78); --accent: #D9F46B;
+  --line: rgba(244, 247, 236, 0.16); --chip: rgba(244, 247, 236, 0.12); --card-2: rgba(244, 247, 236, 0.08);
+  background: radial-gradient(28rem 16rem at 100% 0%, rgba(63, 166, 106, 0.35), rgba(63, 166, 106, 0) 70%), linear-gradient(155deg, #0B2416 0%, #0E3B24 60%, #155A34 100%);
+  color: var(--ink); border: 1px solid var(--line);
+}
+
 /* ── Compact page header (AppFrame) ─────────────────────── */
 .tss .a-head { position: relative; margin: 0.75rem; padding-bottom: 1.125rem; border-radius: clamp(1.75rem, 3vw, 2.75rem); overflow: hidden; color: var(--on-dark); background: linear-gradient(135deg, #0B2E1B 0%, #155A34 45%, #2E9A5C 85%, #9BDB7A 100%); }
 .tss .a-main { max-width: 38rem; margin: 0 auto; padding: clamp(1.5rem, 4vw, 2.5rem) 1.125rem 3.5rem; }

@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { T, inp, btn } from '../../_components/theme'
+import { T, inp, btn } from '@/app/_design/theme'
 import { displayNames } from '@/lib/live-session/displayNames'
 import type { Match, Player, GameResult } from '@/lib/live-session/engine'
 

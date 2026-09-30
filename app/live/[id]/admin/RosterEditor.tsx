@@ -1,6 +1,6 @@
 'use client'
 import { useRef, useState, useEffect } from 'react'
-import { T, inp, btn } from '../../_components/theme'
+import { T, inp, btn } from '@/app/_design/theme'
 import { LEVEL_INFO, LEVELS } from '@/lib/live-session/levels'
 import type { LevelChange } from '@/lib/live-session/engine'
 import type { PreviousLevel } from '../../_hooks/useLiveSession'

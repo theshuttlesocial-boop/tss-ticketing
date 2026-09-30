@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { T, btn } from './theme'
+import { T, btn } from '@/app/_design/theme'
 
 const get = (k: string) => { try { return localStorage.getItem(k) } catch { return null } }
 const set = (k: string, v: string) => { try { localStorage.setItem(k, v) } catch { /* private mode */ } }
