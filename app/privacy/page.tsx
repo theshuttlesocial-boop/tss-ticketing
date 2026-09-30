@@ -76,6 +76,8 @@ export default function PrivacyPage() {
           <li><strong>Bookings and payments:</strong> 6 years, because UK tax law requires it. After that your name, email and
             phone are deleted automatically; only the anonymous amounts stay.</li>
           <li><strong>Waitlist entries:</strong> 1 year, then deleted automatically.</li>
+          <li><strong>&ldquo;Manage my booking&rdquo; email links and &ldquo;find my booking&rdquo; attempts</strong> (which record your IP address, to stop
+            people guessing emails): 1 month.</li>
           <li><strong>TSS accounts:</strong> while you use them. After 3 years with no sign-in, booking or session, the account is deleted
             automatically and your live-session results become &ldquo;Former player&rdquo;.</li>
           <li><strong>Live-session results without an account:</strong> kept as the record of that session. Ask us and we&apos;ll replace your name with &ldquo;Former player&rdquo;.</li>

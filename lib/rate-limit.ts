@@ -12,9 +12,8 @@ export function clientIp(req: Request): string {
 export async function allowReleaseLookup(ip: string, max = 5, windowMinutes = 15): Promise<boolean> {
   const since = new Date(Date.now() - windowMinutes * 60 * 1000).toISOString()
 
-  // Self-cleaning: drop this IP's stale rows first.
-  await supabaseAdmin.from('release_lookup_attempts').delete().eq('ip', ip).lt('created_at', since)
-
+  // Old rows are kept for a month, then removed by the nightly retention job
+  // (migration 024), which the owner can switch off in Admin → Settings.
   const { count } = await supabaseAdmin
     .from('release_lookup_attempts')
     .select('id', { count: 'exact', head: true })

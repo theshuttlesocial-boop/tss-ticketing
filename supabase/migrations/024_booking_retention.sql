@@ -12,8 +12,11 @@
 --     names, emails and phones.
 --   - audit log entries older than 6 years are deleted (they can hold emails).
 --   - waitlist entries are not payments, so they are deleted after 1 year.
---   - sign-in links and "find my booking" attempts are deleted after 1 day
---     (they are only ever valid for minutes).
+--   - "Manage my booking" sign-in links (emailed links that let someone release
+--     or transfer their spot; valid 30 minutes) and "find my booking" attempts
+--     (the IP address of each lookup, used to stop people guessing emails) are
+--     deleted after 1 month. The owner can switch this off in Admin → Settings
+--     (site_settings key auto_delete_signin_records = 'off').
 --
 -- Scheduled daily at 03:30 with pg_cron, next to the 03:20 account job
 -- (migration 018). Runs only as the service role.
@@ -48,8 +51,10 @@ BEGIN
   DELETE FROM waitlist WHERE created_at < now() - INTERVAL '1 year';
   GET DIAGNOSTICS n_wait = ROW_COUNT;
 
-  DELETE FROM release_magic_links     WHERE created_at < now() - INTERVAL '1 day';
-  DELETE FROM release_lookup_attempts WHERE created_at < now() - INTERVAL '1 day';
+  IF COALESCE((SELECT value FROM site_settings WHERE key = 'auto_delete_signin_records'), 'on') <> 'off' THEN
+    DELETE FROM release_magic_links     WHERE created_at < now() - INTERVAL '1 month';
+    DELETE FROM release_lookup_attempts WHERE created_at < now() - INTERVAL '1 month';
+  END IF;
 
   RETURN jsonb_build_object('bookings', n_book, 'credits', n_credit, 'transfers', n_transfer,
                             'audit_log', n_audit, 'waitlist', n_wait);
