@@ -1,5 +1,5 @@
 /** Choices and questions on the website forms (checked again on the server). */
-export const TOPICS = ['General question', 'Booking or refund', 'Partnerships and sponsorship', 'Venues', 'Press', 'Something else']
+export const TOPICS = ['General question', 'Booking or refund', 'Partnerships and sponsorship', 'Venues', 'Something else']
 export const AREAS = ['West London', 'East London', 'South London', 'Anywhere']
 
 /** Join us (volunteering to start with). */

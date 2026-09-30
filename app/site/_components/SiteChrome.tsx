@@ -12,9 +12,9 @@ export function Arrow() {
 }
 
 /**
- * Site header: name, the homepage section links (Sessions, About us, How it works, FAQs),
- * theme switch, a menu with every page, and Book. On phones the section links live in
- * the menu too (a native <details>, so it works before JavaScript loads).
+ * Site header: name, links (homepage sections, then Community, Join us, Contact), theme
+ * switch and Book. On phones the links move into a menu (a native <details>, so it works
+ * before JavaScript loads).
  */
 export function SiteNav({ current }: { current?: string }) {
   const link = ([href, label]: [string, string]) => (
@@ -23,7 +23,7 @@ export function SiteNav({ current }: { current?: string }) {
   return (
     <header className="nav">
       <a href="/" className="brand">the shuttle social</a>
-      <nav aria-label="Homepage sections" className="nav-links">{NAV.map(link)}</nav>
+      <nav aria-label="Main" className="nav-links">{NAV.map(link)}{PAGES.map(link)}</nav>
       <div className="nav-right">
         <ThemeToggle />
         <details className="menu">
@@ -32,7 +32,7 @@ export function SiteNav({ current }: { current?: string }) {
           </summary>
           <nav aria-label="All pages" className="menu-panel">
             <a href="/">Home</a>
-            <span className="menu-sections">{NAV.map(link)}</span>
+            {NAV.map(link)}
             {PAGES.map(link)}
           </nav>
         </details>

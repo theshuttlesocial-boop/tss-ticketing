@@ -7,7 +7,7 @@ import { PageHero, SiteFooter } from '../_components/SiteChrome'
 
 export const metadata: Metadata = {
   title: 'Contact',
-  description: 'Get in touch with The Shuttle Social: questions, bookings, partnerships, venues and press.',
+  description: 'Get in touch with The Shuttle Social: questions, bookings, partnerships and venues.',
   alternates: { canonical: '/contact' },
 }
 
@@ -23,7 +23,7 @@ export default function ContactPage() {
       <PageHero current="/contact" kicker="Contact"
         srTitle="Say hello."
         title={<>Say <RotatingWord words={['hello.', 'hi.', 'hiya.']} /></>}
-        lead="Questions, partnerships, venues or press: send us a message and we’ll reply by email."
+        lead="Questions, partnerships or venues: send us a message and we’ll reply by email."
         chips={[<><Icon name="mail" size={18} />We reply by email</>, <>DMs <strong>open</strong></>, <><Icon name="bulb" size={18} />Ideas welcome</>]} />
 
       <main id="main">
