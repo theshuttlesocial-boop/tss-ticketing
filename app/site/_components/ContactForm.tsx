@@ -13,7 +13,8 @@ const DONE: Record<Kind, [string, string]> = {
 
 /**
  * The website's forms: contact, Join us (volunteering application) and suggestions.
- * Sends to /api/contact, which emails the club inbox. Nothing is kept on the site.
+ * Sends to /api/contact, which emails the club inbox; Join us and suggestions are also
+ * kept for Admin → Inbox (12 months).
  * Contact and Join us need consent; suggestions can be anonymous, and only ask for
  * consent when someone leaves an email for a reply.
  */
@@ -119,7 +120,10 @@ export function ContactForm({ kind = 'contact' }: { kind?: Kind }) {
           <input type="checkbox" name="consent" value="yes" required />
           <span>
             I agree to The Shuttle Social using these details to {kind === 'join' ? 'consider my application and contact me about it' : 'reply to me'}.
-            They’re sent to our email inbox and not added to any mailing list. <a href="/privacy">Privacy notice</a>
+            {kind === 'contact'
+              ? 'They’re sent to our email inbox and not added to any mailing list. '
+              : 'They’re sent to our team by email and kept in our admin page for up to 12 months, never added to a mailing list. '}
+            <a href="/privacy">Privacy notice</a>
           </span>
         </label>
       )}

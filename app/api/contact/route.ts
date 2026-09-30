@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { sendContactMessage } from '@/lib/email'
 import { allowReleaseLookup, clientIp } from '@/lib/rate-limit'
+import { supabaseAdmin } from '@/lib/supabase'
 import { AREAS, JOIN_INTERESTS, JOIN_QUESTIONS, SUGGESTION_TOPICS, TOPICS } from '@/lib/site/forms'
 
 const clean = (v: unknown, max: number) => String(v ?? '').slice(0, max).trim()
@@ -8,8 +9,8 @@ const bad = (error: string) => NextResponse.json({ error }, { status: 400 })
 
 /**
  * Website forms on theshuttlesocial.com: contact, Join us (volunteering application) and
- * suggestions. Emails the club inbox (reply-to the sender when they gave an email);
- * nothing is stored. Consent is required whenever someone gives their details. A hidden
+ * suggestions. Emails the club inbox (reply-to the sender when they gave an email); Join us
+ * and suggestions are also saved for Admin → Inbox (deleted after 12 months). Consent is required whenever someone gives their details. A hidden
  * field catches bots, and each address can send 5 an hour.
  */
 export async function POST(req: Request) {
@@ -57,11 +58,20 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Too many messages from here. Please try again in an hour, or DM us on Instagram.' }, { status: 429 })
   }
 
+  // Join us applications and suggestions also go to Admin → Inbox (migration 025), so
+  // the team can mark them reviewed. It succeeds if either the inbox or the email worked.
+  let stored = false
+  if (kind !== 'contact') {
+    const { error } = await supabaseAdmin.from('form_messages').insert({ kind, name: name || null, email: email || null, fields, message: text })
+    if (error) console.error('[contact] inbox save failed', error.message)
+    else stored = true
+  }
+
   try {
     await sendContactMessage({ kind, name: name || 'Anonymous', email: email || undefined, fields, message: text })
   } catch (e) {
     console.error('[contact] send failed', e)
-    return NextResponse.json({ error: 'We couldn’t send that just now. Please email theshuttlesocial@gmail.com instead.' }, { status: 502 })
+    if (!stored) return NextResponse.json({ error: 'We couldn’t send that just now. Please email theshuttlesocial@gmail.com instead.' }, { status: 502 })
   }
   return NextResponse.json({ ok: true })
 }

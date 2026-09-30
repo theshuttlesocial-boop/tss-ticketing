@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+import { NextResponse, after } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getReleasableBookingForEmail, emailForMagicToken } from '@/lib/release-server'
 import { runCascade } from '@/lib/waitlist-matcher'
@@ -49,14 +49,20 @@ export async function POST(req: Request) {
 
   await logAudit('release', { bookingId: booking.id, sessionId: booking.session.id, spaces: nSpaces, refundPreference }, result.release_id)
 
-  // Open the freed spot(s) to the waitlist. Never let a notify failure 500 the release.
-  runCascade(booking.session.id).catch(err => console.error('[release] cascade failed:', err))
-
-  sendReleaseConfirmation({
-    to: booking.email, name: booking.name, bookingRef: booking.booking_ref,
-    sessionTitle: booking.session.title, sessionDate: booking.session.date,
-    spaces: nSpaces, refundPreference,
-  }).catch(err => console.error('[release] confirmation email failed:', err))
+  // After the response: open the freed spot(s) to the waitlist and send the confirmation.
+  // after() keeps the function running until both finish (a bare promise can be cut off
+  // when the serverless function stops). A failure never affects the release itself, and
+  // the 2-minute cascade job is still there as a safety net.
+  after(async () => {
+    await Promise.allSettled([
+      runCascade(booking.session.id).catch(err => console.error('[release] cascade failed:', err)),
+      sendReleaseConfirmation({
+        to: booking.email, name: booking.name, bookingRef: booking.booking_ref,
+        sessionTitle: booking.session.title, sessionDate: booking.session.date,
+        spaces: nSpaces, refundPreference,
+      }).catch(err => console.error('[release] confirmation email failed:', err)),
+    ])
+  })
 
   return NextResponse.json({ success: true, spaces: nSpaces, refundPreference })
 }

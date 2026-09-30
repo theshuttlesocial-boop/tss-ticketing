@@ -44,7 +44,8 @@ export default function PrivacyPage() {
           <li><strong>Forms on theshuttlesocial.com (contact, Join us applications and the suggestions box):</strong> your name, email
             and what you tell us, so we can reply or consider your application (for Join us, also your answers, the areas you&apos;d like
             to help with and where in London suits you). You tick a box to agree before sending; suggestions can be sent anonymously. Each form is emailed to our
-            inbox; nothing is stored on the website or added to a mailing list. We note your IP address for up to 1 month to stop spam.</li>
+            inbox. Join us applications and suggestions are also kept in our admin page so the team can review them. Nothing is
+            added to a mailing list. We note your IP address for up to 1 month to stop spam.</li>
           <li><strong>Emails:</strong> booking confirmations, sign-in codes and messages about sessions you booked. We don&apos;t send marketing emails.</li>
         </ul>
         <P>We only collect what these need. We don&apos;t collect your date of birth, address or anything about your health.</P>
@@ -83,7 +84,8 @@ export default function PrivacyPage() {
           <li><strong>Waitlist entries:</strong> 1 year, then deleted automatically.</li>
           <li><strong>&ldquo;Manage my booking&rdquo; email links and &ldquo;find my booking&rdquo; attempts</strong> (which record your IP address, to stop
             people guessing emails): 1 month.</li>
-          <li><strong>Website form messages:</strong> in our inbox only as long as we need them to reply or to organise volunteering, then deleted.</li>
+          <li><strong>Website form messages:</strong> in our email inbox only as long as we need them to reply or to organise volunteering, then
+            deleted. Join us applications and suggestions in our admin page are deleted automatically after 12 months.</li>
           <li><strong>TSS accounts:</strong> while you use them. After 3 years with no sign-in, booking or session, the account is deleted
             automatically and your live-session results become &ldquo;Former player&rdquo;.</li>
           <li><strong>Live-session results without an account:</strong> kept as the record of that session. Ask us and we&apos;ll replace your name with &ldquo;Former player&rdquo;.</li>
