@@ -735,7 +735,7 @@ export default function TicketsPage() {
         <header className="nav">
           <a href="/tickets" className="brand">the shuttle social</a>
           <div className="nav-right">
-            <a href="/account" className="pill t-pill-nav small">My TSS</a>
+            <a href="/account" className="book small">My portal<Arrow/></a>
             <ThemeToggle/>
           </div>
         </header>

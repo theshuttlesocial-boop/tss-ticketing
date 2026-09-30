@@ -143,4 +143,10 @@
 @media (max-width: 767px) {
   .tss .t-actions > * { flex: 1 1 100%; justify-content: space-between; }
   .tss .nav .t-pill-nav { padding: 0.75em 1em; }
+  /* Keep brand, My portal and the theme switch on one line on small phones */
+  .tss .nav { gap: 0.5rem; padding-left: 1rem; }
+  .tss .nav .brand { font-size: 1rem; }
+  .tss .nav .book { gap: 0.5rem; padding: 0.4em 0.4em 0.4em 1em; }
+  .tss .nav .book-arrow { width: 2em; height: 2em; }
+  .tss .nav .theme-btn { width: 2.5rem; height: 2.5rem; }
 }
