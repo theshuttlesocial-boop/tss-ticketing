@@ -109,8 +109,16 @@ Motion is a key part of the site: dynamic, never still, but never in the way.
 - Phone-first: check every screen at 390px. Touch targets at least 44px.
 - Lighthouse performance above 90.
 
-## 9. Scope
+## 9. Scope and where things live
 
-- Marketing site (theshuttlesocial.com): follows this brief now.
-- Tickets and admin pages (tickets.theshuttlesocial.com): to be brought into this system next; functional
-  screens use the same type, colours and components with less decorative motion.
+Everything uses this system: the marketing site (theshuttlesocial.com) and every app screen on
+tickets.theshuttlesocial.com (tickets, My portal and player pages, live-session screens, lead, staff, admin).
+
+- `app/_design/tss.css`: tokens, dark mode (including the always-dark `.is-dark` area), type, buttons.
+- `app/_design/app.css`: app components (fields, notes, pop-ups, the deep green `.deep` card, compact header).
+- `app/_design/theme.ts`: inline-style helpers (`T`, `inp`, `btn`, `cardStyle`, `stripeAppearance`) on the same tokens.
+- Layouts: `AppFrame` (compact green header) for player and staff pages, `BareFrame` (no header) for court
+  screens, the TV board, lead and admin. The marketing site has its own layout in `app/site`.
+- Functional screens use the same type, colours and components with less decorative motion. The TV board is
+  always dark. QR codes stay black on white.
+- Emails (`lib/email.ts`) still use the older look; bring them in line separately.

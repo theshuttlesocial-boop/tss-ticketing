@@ -1,7 +1,7 @@
 'use client'
 import { RequireTwoStep } from '@/app/_components/TwoStep'
 import { useCallback, useEffect, useState } from 'react'
-import { T, btn, cardStyle } from '../live/_components/theme'
+import { T, btn, cardStyle } from '@/app/_design/theme'
 import { staffHeaders, whoAmI, signOutStaff } from '@/lib/staffClient'
 
 type Console = {
@@ -13,7 +13,7 @@ type Console = {
 }
 
 const wrap: React.CSSProperties = { minHeight:'100vh', background:T.bg, color:T.text, padding:'20px 16px 48px',
-  fontFamily:'DM Sans, system-ui, sans-serif', boxSizing:'border-box', maxWidth:560, margin:'0 auto' }
+  fontFamily:'inherit', boxSizing:'border-box', maxWidth:560, margin:'0 auto' }
 
 /**
  * Session lead console (Roadmap Phase 5b). Only what running the night needs:

@@ -1,9 +1,8 @@
 import type { CSSProperties } from 'react'
 
 /**
- * Inline-style helpers for app screens in the V5 design. Same names as the old
- * app/live/_components/theme.ts, but every colour is a design-system variable, so it
- * follows light/dark mode. Only use inside a .tss wrapper (AppFrame or a layout that
+ * Inline-style helpers for app screens in the V5 design (T, inp, btn, cardStyle).
+ * Every colour is a design-system variable, so it follows light/dark mode. Only use inside a .tss wrapper (AppFrame or a layout that
  * renders one). Stripe and other third parties need real colours: see stripeAppearance.
  */
 export const T = {

@@ -1,7 +1,7 @@
 'use client'
 import { RequireTwoStep } from '@/app/_components/TwoStep'
 import { useCallback, useEffect, useState } from 'react'
-import { T, btn, inp, cardStyle } from '../live/_components/theme'
+import { T, btn, inp, cardStyle } from '@/app/_design/theme'
 import { staffHeaders, whoAmI } from '@/lib/staffClient'
 
 type Member = { id: string; email: string; role: 'owner' | 'admin' | 'session_lead'; active: boolean; created_at: string; revoked_at: string | null
@@ -13,7 +13,7 @@ type Data = { staff: Member[]; upcoming: { id: string; title: string; venue: str
 
 const ROLE: Record<string, string> = { owner: 'Owner', admin: 'Admin', session_lead: 'Session lead' }
 const wrap: React.CSSProperties = { minHeight:'100vh', background:T.bg, color:T.text, padding:'20px 16px 48px',
-  fontFamily:'DM Sans, system-ui, sans-serif', boxSizing:'border-box', maxWidth:680, margin:'0 auto' }
+  fontFamily:'inherit', boxSizing:'border-box', maxWidth:680, margin:'0 auto' }
 const when = (iso: string | null) => iso ? new Date(iso).toLocaleString('en-GB', { weekday:'short', day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' }) : ''
 
 /** One plain line per audit entry. */

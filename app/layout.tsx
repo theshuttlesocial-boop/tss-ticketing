@@ -14,18 +14,13 @@ export const metadata: Metadata = {
   appleWebApp: { capable: true, title: 'TSS', statusBarStyle: 'black-translucent' },
 }
 
-export const viewport: Viewport = { themeColor: '#080f08' }
+export const viewport: Viewport = { themeColor: '#0E3B24' }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     // suppressHydrationWarning: the marketing site sets its theme/JS flags on <html> before React loads.
     <html lang="en" suppressHydrationWarning>
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com"/>
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous"/>
-        <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700;900&display=swap" rel="stylesheet"/>
-      </head>
-      <body style={{ margin:0, padding:0, background:'#0a0a0a' }}><AppShell />{children}</body>
+      <body style={{ margin:0, padding:0, background:'#F6F7F1' }}><AppShell />{children}</body>
     </html>
   )
 }

@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase-client'
 import { whoAmI, staffHeadersReady } from '@/lib/staffClient'
-import { T, btn, inp } from '../live/_components/theme'
+import { T, btn, inp } from '@/app/_design/theme'
 
 /**
  * Two-step login for owners and admins (Roadmap Phase 5d).
@@ -55,7 +55,7 @@ function TwoStep({ onDone }: { onDone: () => void }) {
 
   return (
     <main style={{ minHeight:'100vh', background:T.bg, color:T.text, display:'grid', placeItems:'center', padding:20,
-      fontFamily:'DM Sans, system-ui, sans-serif', boxSizing:'border-box' }}>
+      fontFamily:'inherit', boxSizing:'border-box' }}>
       <div style={{ width:'100%', maxWidth:380 }}>
         <h1 style={{ fontSize:24, fontWeight:900, margin:'0 0 6px' }}>{qr ? 'Set up two-step login' : 'Enter your code'}</h1>
         {qr ? (

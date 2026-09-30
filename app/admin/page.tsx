@@ -1,16 +1,10 @@
 'use client'
 import { RequireTwoStep } from '@/app/_components/TwoStep'
+import { T, inp } from '@/app/_design/theme'
 import { staffHeaders, whoAmI, signOutStaff } from '@/lib/staffClient'
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 
 // ── Midnight Green Theme ──────────────────────────────────────────────────────
-const T = {
-  bg:'#080f08', card:'#0f180f', card2:'#142014', border:'#1e3220', borderHover:'#2d4a2d',
-  accent:'#6fcf40', accentDim:'rgba(111,207,64,0.1)', accentBorder:'rgba(111,207,64,0.25)',
-  text:'#edf5ed', muted:'#6b8a6b', danger:'#e05555', dangerDim:'rgba(224,85,85,0.1)',
-  warning:'#e09040', info:'#60b4ff', infoDim:'rgba(96,180,255,0.08)',
-}
-const inp = (extra?:object):React.CSSProperties => ({ width:'100%', background:T.card2, border:`1px solid ${T.border}`, borderRadius:8, padding:'10px 13px', color:T.text, fontSize:14, outline:'none', boxSizing:'border-box' as const, fontFamily:'inherit', ...extra })
 const cardStyle:React.CSSProperties = { background:T.card, border:`1px solid ${T.border}`, borderRadius:12, overflow:'hidden', marginBottom:16 }
 
 const fmt = (p:number) => `£${(p/100).toFixed(2)}`
@@ -329,10 +323,10 @@ function AdminPageInner() {
 
   // ── Login ─────────────────────────────────────────────────────────────────
   if(!authed) return(
-    <div style={{...{minHeight:'100vh',background:T.bg,color:T.text,fontFamily:'system-ui,sans-serif'},display:'flex',alignItems:'center',justifyContent:'center'}}>
+    <div style={{...{minHeight:'100vh',background:T.bg,color:T.text,fontFamily:'inherit'},display:'flex',alignItems:'center',justifyContent:'center'}}>
       <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:16,padding:32,width:'100%',maxWidth:360}}>
         <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:20}}>
-          <div style={{width:44,height:44,borderRadius:'50%',background:'#1a3a1a',border:`2px solid ${T.border}`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,overflow:'hidden'}}>
+          <div style={{width:44,height:44,borderRadius:'50%',background:'#0E3B24',border:`2px solid ${T.border}`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,overflow:'hidden'}}>
             <img src="/logo.jpg" alt="" style={{width:'100%',height:'100%',objectFit:'cover'}} onError={e=>{(e.target as HTMLImageElement).style.display='none'}}/>
           </div>
           <div>
@@ -340,7 +334,7 @@ function AdminPageInner() {
             <div style={{fontSize:11,color:T.muted}}>The Shuttle Social</div>
           </div>
         </div>
-        <a href="/account?next=/admin" style={{display:'block',textAlign:'center',width:'100%',boxSizing:'border-box',padding:12,background:T.accent,color:'#080f08',borderRadius:10,fontWeight:700,fontSize:15,textDecoration:'none',marginBottom:10}}>Sign in with your staff email →</a>
+        <a href="/account?next=/admin" style={{display:'block',textAlign:'center',width:'100%',boxSizing:'border-box',padding:12,background:T.cta,color:T.onCta,boxShadow:T.ctaGlow,borderRadius:999,fontWeight:700,fontSize:15,textDecoration:'none',marginBottom:10}}>Sign in with your staff email →</a>
         {error&&<div style={{color:T.danger,fontSize:13,marginBottom:10}}>{error}</div>}
         <details style={{marginTop:6}}>
           <summary style={{cursor:'pointer',fontSize:12,color:T.muted}}>Emergency owner password</summary>
@@ -351,7 +345,7 @@ function AdminPageInner() {
     </div>
   )
 
-  const base:React.CSSProperties={minHeight:'100vh',background:T.bg,color:T.text,fontFamily:'system-ui,sans-serif'}
+  const base:React.CSSProperties={minHeight:'100vh',background:T.bg,color:T.text,fontFamily:'inherit'}
   const tabs=[['overview','📊'],['sessions','📅'],['create','➕'],['bookings','🎟'],['attendees','👥'],['waitlist','📋'],['releases','🔄'],['transfers','↔️'],['credits','💷'],['analytics','📈'],['settings','⚙️'],['blocked','🚫']]
   const tabLabels:Record<string,string>={overview:'Overview',sessions:'Sessions',create:'New Session',bookings:'Bookings',attendees:'Attendees',waitlist:'Waitlist',releases:'Releases',transfers:'Transfers',credits:'Credits',analytics:'Analytics',settings:'Settings',blocked:'Blocked'}
 
@@ -360,7 +354,7 @@ function AdminPageInner() {
       {/* Header */}
       <div style={{borderBottom:`1px solid ${T.border}`,padding:'14px 20px',display:'flex',justifyContent:'space-between',alignItems:'center',position:'sticky',top:0,background:T.bg,zIndex:10}}>
         <div style={{display:'flex',alignItems:'center',gap:10}}>
-          <div style={{width:38,height:38,borderRadius:'50%',background:'#1a3a1a',border:`2px solid ${T.border}`,display:'flex',alignItems:'center',justifyContent:'center',overflow:'hidden'}}>
+          <div style={{width:38,height:38,borderRadius:'50%',background:'#0E3B24',border:`2px solid ${T.border}`,display:'flex',alignItems:'center',justifyContent:'center',overflow:'hidden'}}>
             <img src="/logo.jpg" alt="" style={{width:'100%',height:'100%',objectFit:'cover'}} onError={e=>{(e.target as HTMLImageElement).style.display='none';(e.target as HTMLImageElement).parentElement!.textContent='🏸'}}/>
           </div>
           <div style={{fontWeight:800,fontSize:16,color:T.accent}}>TSS Admin</div>
@@ -399,12 +393,12 @@ function AdminPageInner() {
             <div style={cardStyle}>
               <div style={{padding:'12px 18px',borderBottom:`1px solid ${T.border}`,fontWeight:600,fontSize:12,color:T.muted,textTransform:'uppercase',letterSpacing:1}}>Session Status</div>
               {sessions.slice(0,8).map(s=>{const ds=displayStatus(s);return(
-                <div key={s.id} style={{padding:'11px 18px',borderBottom:`1px solid #0a140a`,display:'flex',alignItems:'center',gap:12}}>
+                <div key={s.id} style={{padding:'11px 18px',borderBottom:`1px solid var(--card-2)`,display:'flex',alignItems:'center',gap:12}}>
                   <div style={{minWidth:36}}><div style={{fontWeight:700,fontSize:15,color:T.accent}}>{new Date(s.date).getDate()}</div><div style={{fontSize:9,color:T.muted}}>{new Date(s.date).toLocaleString('en-GB',{month:'short'})}</div></div>
                   <div style={{flex:1}}><div style={{fontWeight:600,fontSize:13}}>{s.title}</div><div style={{fontSize:11,color:T.muted}}>{s.venue}</div></div>
                   <div style={{fontSize:13,color:T.muted}}>{s.booked}/{s.capacity}</div>
                   {s.waitlist_count>0&&<div style={{fontSize:11,color:T.info}}>+{s.waitlist_count} waitlist</div>}
-                  <div style={{padding:'2px 9px',borderRadius:20,fontSize:11,fontWeight:600,background:`${ds.color}18`,color:ds.color,whiteSpace:'nowrap' as const}}>{ds.label}</div>
+                  <div style={{padding:'2px 9px',borderRadius:20,fontSize:11,fontWeight:600,background:`color-mix(in srgb, ${ds.color} 10%, transparent)`,color:ds.color,whiteSpace:'nowrap' as const}}>{ds.label}</div>
                 </div>
               )})}
             </div>
@@ -421,7 +415,7 @@ function AdminPageInner() {
               <div style={{flex:1,fontWeight:600,fontSize:12,color:T.muted,textTransform:'uppercase',letterSpacing:1,alignSelf:'center'}}>All Sessions — tap to edit</div>
               <div style={{display:'flex',gap:6}}>
                 {[['List','list'],['Calendar','cal']].map(([label,key])=>(
-                  <button key={key} onClick={()=>setCalView(key==='cal')} style={{padding:'6px 14px',borderRadius:8,border:'none',cursor:'pointer',fontSize:12,fontWeight:600,background:calView===(key==='cal')?T.accentDim:'#142014',color:calView===(key==='cal')?T.accent:T.muted,outline:calView===(key==='cal')?`1px solid ${T.accentBorder}`:'none',fontFamily:'inherit'}}>{label}</button>
+                  <button key={key} onClick={()=>setCalView(key==='cal')} style={{padding:'6px 14px',borderRadius:8,border:'none',cursor:'pointer',fontSize:12,fontWeight:600,background:calView===(key==='cal')?T.accentDim:'var(--card-2)',color:calView===(key==='cal')?T.accent:T.muted,outline:calView===(key==='cal')?`1px solid ${T.accentBorder}`:'none',fontFamily:'inherit'}}>{label}</button>
                 ))}
               </div>
               {!calView&&<select value={filterStatus} onChange={e=>setFilterStatus(e.target.value)} style={{...inp({width:'auto',padding:'5px 10px',fontSize:12})}}>
@@ -439,7 +433,7 @@ function AdminPageInner() {
               {sessions.filter(s=>!filterStatus||s.status===filterStatus).map(s=>{
                 const pct=Math.round((s.booked/s.capacity)*100); const ds=displayStatus(s)
                 return(
-                  <div key={s.id} onClick={()=>setEditing(s)} style={{padding:'13px 18px',borderBottom:`1px solid #0a140a`,display:'flex',alignItems:'center',gap:12,cursor:'pointer',transition:'background 0.1s'}} onMouseEnter={e=>(e.currentTarget.style.background=T.card2)} onMouseLeave={e=>(e.currentTarget.style.background='transparent')}>
+                  <div key={s.id} onClick={()=>setEditing(s)} style={{padding:'13px 18px',borderBottom:`1px solid var(--card-2)`,display:'flex',alignItems:'center',gap:12,cursor:'pointer',transition:'background 0.1s'}} onMouseEnter={e=>(e.currentTarget.style.background=T.card2)} onMouseLeave={e=>(e.currentTarget.style.background='transparent')}>
                     <div style={{minWidth:44,textAlign:'center',background:T.accentDim,borderRadius:8,padding:'5px 0'}}>
                       <div style={{fontWeight:800,fontSize:17,color:T.accent,lineHeight:1}}>{new Date(s.date).getDate()}</div>
                       <div style={{fontSize:9,color:T.muted}}>{new Date(s.date).toLocaleString('en-GB',{month:'short'})}</div>
@@ -456,7 +450,7 @@ function AdminPageInner() {
                     <div style={{textAlign:'right',minWidth:80}}>
                       <div style={{fontSize:13,fontWeight:700,color:T.accent}}>{s.booked}/{s.capacity}</div>
                       {s.waitlist_count>0&&<div style={{fontSize:10,color:T.info}}>+{s.waitlist_count}</div>}
-                      <div style={{padding:'2px 7px',borderRadius:20,fontSize:10,fontWeight:600,marginTop:3,background:`${ds.color}18`,color:ds.color,display:'inline-block'}}>{ds.label}</div>
+                      <div style={{padding:'2px 7px',borderRadius:20,fontSize:10,fontWeight:600,marginTop:3,background:`color-mix(in srgb, ${ds.color} 10%, transparent)`,color:ds.color,display:'inline-block'}}>{ds.label}</div>
                     </div>
                     <div style={{color:T.muted,fontSize:16}}>›</div>
                   </div>
@@ -491,7 +485,7 @@ function AdminPageInner() {
               </Field>
 
               {/* Recurring */}
-              <div style={{padding:'14px',background:'#0a140a',borderRadius:10,marginBottom:16}}>
+              <div style={{padding:'14px',background:'var(--card-2)',borderRadius:10,marginBottom:16}}>
                 <label style={{display:'flex',alignItems:'center',gap:10,cursor:'pointer',marginBottom:form.is_recurring?12:0}}>
                   <input type="checkbox" checked={form.is_recurring} onChange={e=>setForm(f=>({...f,is_recurring:e.target.checked}))} style={{accentColor:T.accent,width:16,height:16}}/>
                   <span style={{fontSize:13,fontWeight:600,color:T.text}}>↻ Recurring session (auto-creates weekly)</span>
@@ -509,11 +503,11 @@ function AdminPageInner() {
               </div>
 
               {/* Release mode */}
-              <div style={{padding:'14px',background:'#0a140a',borderRadius:10,marginBottom:16}}>
+              <div style={{padding:'14px',background:'var(--card-2)',borderRadius:10,marginBottom:16}}>
                 <div style={{fontSize:12,color:T.muted,marginBottom:10,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.5px'}}>🎯 Ticket Release</div>
                 <div style={{display:'flex',gap:8,marginBottom:12}}>
                   {[['manual','🔒 Keep Draft'],['now','✅ Open Now'],['scheduled','⏰ Schedule Drop']].map(([k,l])=>(
-                    <button key={k} onClick={()=>setForm(f=>({...f,releaseMode:k,status:k==='now'?'open':'draft'}))} style={{padding:'8px 12px',borderRadius:8,border:'none',cursor:'pointer',fontSize:12,fontWeight:600,flex:1,background:form.releaseMode===k?T.accentDim:'#142014',color:form.releaseMode===k?T.accent:T.muted,outline:form.releaseMode===k?`1px solid ${T.accentBorder}`:'none',fontFamily:'inherit'}}>{l}</button>
+                    <button key={k} onClick={()=>setForm(f=>({...f,releaseMode:k,status:k==='now'?'open':'draft'}))} style={{padding:'8px 12px',borderRadius:8,border:'none',cursor:'pointer',fontSize:12,fontWeight:600,flex:1,background:form.releaseMode===k?T.accentDim:'var(--card-2)',color:form.releaseMode===k?T.accent:T.muted,outline:form.releaseMode===k?`1px solid ${T.accentBorder}`:'none',fontFamily:'inherit'}}>{l}</button>
                   ))}
                 </div>
                 {form.releaseMode==='scheduled'&&(<>
@@ -528,7 +522,7 @@ function AdminPageInner() {
               </div>
 
               {error&&<div style={{color:T.danger,marginBottom:12,fontSize:13}}>{error}</div>}
-              <button onClick={create} disabled={loading||!form.date||!form.venue||(form.venue==='Other'&&!form.customVenue)} style={{padding:'12px 28px',background:T.accent,color:'#080f08',border:'none',borderRadius:10,fontWeight:700,fontSize:15,cursor:'pointer',fontFamily:'inherit',opacity:loading?0.6:1}}>
+              <button onClick={create} disabled={loading||!form.date||!form.venue||(form.venue==='Other'&&!form.customVenue)} style={{padding:'12px 28px',background:T.cta,color:T.onCta,boxShadow:T.ctaGlow,border:'none',borderRadius:999,fontWeight:700,fontSize:15,cursor:'pointer',fontFamily:'inherit',opacity:loading?0.6:1}}>
                 {loading?'Creating…':'➕ Create Session'}
               </button>
             </div>
@@ -556,12 +550,12 @@ function AdminPageInner() {
                 const isRefunded=b.stripe_status==='refunded'
                 const attendees=b.additional_attendees?(typeof b.additional_attendees==='string'?JSON.parse(b.additional_attendees):b.additional_attendees):[]
                 return(
-                  <div key={b.id} style={{padding:'13px 18px',borderBottom:i<bookings.length-1?`1px solid #0a140a`:'none',display:'flex',justifyContent:'space-between',alignItems:'flex-start',opacity:isRefunded?0.6:1}}>
+                  <div key={b.id} style={{padding:'13px 18px',borderBottom:i<bookings.length-1?`1px solid var(--card-2)`:'none',display:'flex',justifyContent:'space-between',alignItems:'flex-start',opacity:isRefunded?0.6:1}}>
                     <div>
                       <div style={{fontWeight:600,fontSize:14,color:isRefunded?T.muted:T.text}}>{b.name} {isRefunded&&<span style={{fontSize:11,color:T.danger,background:T.dangerDim,padding:'1px 6px',borderRadius:10}}>refunded</span>}</div>
                       <div style={{fontSize:12,color:T.muted}}>{b.email}{b.phone?` · ${b.phone}`:''}</div>
                       {attendees.length>0&&<div style={{fontSize:11,color:T.muted,marginTop:2}}>+{attendees.map((a:any)=>a.name??a).join(', ')}</div>}
-                      <div style={{fontSize:11,color:'#2a4a2a',marginTop:2}}>{b.booking_ref} · {new Date(b.created_at).toLocaleString('en-GB')}</div>
+                      <div style={{fontSize:11,color:'var(--muted)',marginTop:2}}>{b.booking_ref} · {new Date(b.created_at).toLocaleString('en-GB')}</div>
                     </div>
                     <div style={{textAlign:'right',display:'flex',flexDirection:'column' as const,alignItems:'flex-end',gap:6}}>
                       <div style={{color:T.accent,fontWeight:700,fontSize:15}}>{fmt(b.total_pence)}</div>
@@ -599,12 +593,12 @@ function AdminPageInner() {
                 {searchResults.map((b,i)=>{
                   const attendees=b.additional_attendees?(typeof b.additional_attendees==='string'?JSON.parse(b.additional_attendees):b.additional_attendees):[]
                   return(
-                    <div key={b.id} style={{padding:'10px 18px',borderBottom:i<searchResults.length-1?`1px solid #0a140a`:'none',display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
+                    <div key={b.id} style={{padding:'10px 18px',borderBottom:i<searchResults.length-1?`1px solid var(--card-2)`:'none',display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
                       <div>
                         <div style={{fontWeight:600,fontSize:14}}>{b.name}</div>
                         {attendees.map((a:any,j:number)=><div key={j} style={{fontSize:12,color:T.muted}}>↳ {a.name??a}</div>)}
                         <div style={{fontSize:12,color:T.muted}}>{b.email}{b.phone?` · ${b.phone}`:''}</div>
-                        <div style={{fontSize:11,color:'#2a4a2a',marginTop:2}}>{b.booking_ref} · {new Date(b.created_at).toLocaleString('en-GB')}</div>
+                        <div style={{fontSize:11,color:'var(--muted)',marginTop:2}}>{b.booking_ref} · {new Date(b.created_at).toLocaleString('en-GB')}</div>
                       </div>
                       <div style={{textAlign:'right',minWidth:100}}>
                         <div style={{fontSize:12,fontWeight:600,color:T.text}}>{b.sessions?.title??''}</div>
@@ -646,7 +640,7 @@ function AdminPageInner() {
                   {bookings.filter(b=>b.stripe_status==='succeeded').map((b,i,arr)=>{
                     const attendees=b.additional_attendees?(typeof b.additional_attendees==='string'?JSON.parse(b.additional_attendees):b.additional_attendees):[]
                     return(
-                      <div key={b.id} style={{padding:'10px 18px',borderBottom:i<arr.length-1?`1px solid #0a140a`:'none',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                      <div key={b.id} style={{padding:'10px 18px',borderBottom:i<arr.length-1?`1px solid var(--card-2)`:'none',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
                         <div>
                           <div style={{fontWeight:600,fontSize:14}}>{b.name}</div>
                           {attendees.map((a:any,j:number)=><div key={j} style={{fontSize:12,color:T.muted}}>↳ {a.name??a}</div>)}
@@ -668,7 +662,7 @@ function AdminPageInner() {
                       Waitlist ({waitlist.length})
                     </div>
                     {waitlist.map((w,i)=>(
-                      <div key={w.id} style={{padding:'10px 18px',borderBottom:i<waitlist.length-1?`1px solid #0a140a`:'none',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                      <div key={w.id} style={{padding:'10px 18px',borderBottom:i<waitlist.length-1?`1px solid var(--card-2)`:'none',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
                         <div style={{display:'flex',alignItems:'center',gap:10}}>
                           <div style={{width:28,height:28,borderRadius:'50%',background:T.infoDim,border:`1px solid rgba(96,180,255,0.25)`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:700,color:T.info}}>#{w.position}</div>
                           <div>
@@ -705,7 +699,7 @@ function AdminPageInner() {
               </div>
               {waitlist.length===0&&<div style={{padding:40,textAlign:'center',color:T.muted}}>No waitlist entries{filterSession?' for this session':''}</div>}
               {waitlist.map((w,i)=>(
-                <div key={w.id} style={{padding:'12px 18px',borderBottom:i<waitlist.length-1?`1px solid #0a140a`:'none',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                <div key={w.id} style={{padding:'12px 18px',borderBottom:i<waitlist.length-1?`1px solid var(--card-2)`:'none',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
                   <div style={{display:'flex',alignItems:'center',gap:12}}>
                     <div style={{width:32,height:32,borderRadius:'50%',background:T.infoDim,border:`1px solid rgba(96,180,255,0.25)`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:700,color:T.info,flexShrink:0}}>#{w.position}</div>
                     <div>
@@ -745,7 +739,7 @@ function AdminPageInner() {
                   const maxRev=Math.max(...analytics.revenueBySession.map((x:any)=>x.revenue))
                   const pct=Math.round((s.revenue/maxRev)*100)
                   return(
-                    <div key={i} style={{padding:'11px 18px',borderBottom:`1px solid #0a140a`,display:'flex',alignItems:'center',gap:12}}>
+                    <div key={i} style={{padding:'11px 18px',borderBottom:`1px solid var(--card-2)`,display:'flex',alignItems:'center',gap:12}}>
                       <div style={{minWidth:36}}><div style={{fontWeight:700,fontSize:14,color:T.accent}}>{new Date(s.session.date).getDate()}</div><div style={{fontSize:9,color:T.muted}}>{new Date(s.session.date).toLocaleString('en-GB',{month:'short'})}</div></div>
                       <div style={{flex:1}}>
                         <div style={{fontWeight:600,fontSize:13,marginBottom:4}}>{s.session.title}</div>
@@ -768,7 +762,7 @@ function AdminPageInner() {
                   <button onClick={()=>exportCSV(analytics.topAttendees,'tss-top-attendees.csv')} style={{padding:'5px 12px',background:T.accentDim,color:T.accent,border:`1px solid ${T.accentBorder}`,borderRadius:6,cursor:'pointer',fontSize:12,fontFamily:'inherit'}}>📥 Export</button>
                 </div>
                 {analytics.topAttendees.slice(0,15).map((a:any,i:number)=>(
-                  <div key={i} style={{padding:'10px 18px',borderBottom:`1px solid #0a140a`,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                  <div key={i} style={{padding:'10px 18px',borderBottom:`1px solid var(--card-2)`,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
                     <div style={{display:'flex',alignItems:'center',gap:10}}>
                       <div style={{width:26,height:26,borderRadius:'50%',background:T.accentDim,display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:700,color:T.accent}}>#{i+1}</div>
                       <div>
@@ -796,15 +790,15 @@ function AdminPageInner() {
               </div>
               {releasesData.unresolved.length===0&&<div style={{padding:40,textAlign:'center',color:T.muted}}>No spots awaiting a replacement</div>}
               {releasesData.unresolved.map((r:any,i:number)=>(
-                <div key={r.id} style={{padding:'13px 18px',borderBottom:i<releasesData.unresolved.length-1?`1px solid #0a140a`:'none',display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:12,flexWrap:'wrap' as const}}>
+                <div key={r.id} style={{padding:'13px 18px',borderBottom:i<releasesData.unresolved.length-1?`1px solid var(--card-2)`:'none',display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:12,flexWrap:'wrap' as const}}>
                   <div style={{flex:1,minWidth:180}}>
                     <div style={{fontWeight:600,fontSize:14}}>{r.sessions?.title??'—'} <span style={{fontSize:11,color:T.muted}}>{r.sessions?.date?fmtDate(r.sessions.date):''}</span></div>
                     <div style={{fontSize:12,color:T.muted,marginTop:2}}>{r.bookings?.name} · {r.bookings?.email} · {r.spaces} space{r.spaces>1?'s':''} · {r.refund_preference}</div>
-                    <div style={{fontSize:11,color:'#2a4a2a',marginTop:2}}>{r.bookings?.booking_ref} · released {new Date(r.released_at).toLocaleString('en-GB')}</div>
+                    <div style={{fontSize:11,color:'var(--muted)',marginTop:2}}>{r.bookings?.booking_ref} · released {new Date(r.released_at).toLocaleString('en-GB')}</div>
                   </div>
                   <div style={{display:'flex',gap:8,flexShrink:0}}>
                     <button onClick={()=>releaseAll(r.session_id, r.sessions?.title??'session')} style={{padding:'6px 10px',background:T.accentDim,color:T.accent,border:`1px solid ${T.accentBorder}`,borderRadius:6,cursor:'pointer',fontSize:11,fontWeight:600,fontFamily:'inherit'}}>Release to everyone</button>
-                    <button onClick={()=>markReplaced(r.id)} style={{padding:'6px 10px',background:'#142014',color:T.muted,border:`1px solid ${T.border}`,borderRadius:6,cursor:'pointer',fontSize:11,fontWeight:600,fontFamily:'inherit'}}>Mark replaced</button>
+                    <button onClick={()=>markReplaced(r.id)} style={{padding:'6px 10px',background:'var(--card-2)',color:T.muted,border:`1px solid ${T.border}`,borderRadius:6,cursor:'pointer',fontSize:11,fontWeight:600,fontFamily:'inherit'}}>Mark replaced</button>
                   </div>
                 </div>
               ))}
@@ -814,7 +808,7 @@ function AdminPageInner() {
               <div style={{padding:'12px 18px',borderBottom:`1px solid ${T.border}`,fontWeight:600,fontSize:12,color:T.muted,textTransform:'uppercase',letterSpacing:1}}>Live offers ({releasesData.offers.length})</div>
               {releasesData.offers.length===0&&<div style={{padding:24,textAlign:'center',color:T.muted,fontSize:13}}>No offers currently out</div>}
               {releasesData.offers.map((o:any,i:number)=>(
-                <div key={o.id} style={{padding:'11px 18px',borderBottom:i<releasesData.offers.length-1?`1px solid #0a140a`:'none',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                <div key={o.id} style={{padding:'11px 18px',borderBottom:i<releasesData.offers.length-1?`1px solid var(--card-2)`:'none',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
                   <div>
                     <div style={{fontWeight:600,fontSize:13}}>{o.name} <span style={{fontSize:11,color:T.muted}}>· {o.email}</span></div>
                     <div style={{fontSize:11,color:T.muted}}>{o.sessions?.title} · {o.claim_spaces} space{o.claim_spaces>1?'s':''} · offered ×{o.times_offered}</div>
@@ -828,7 +822,7 @@ function AdminPageInner() {
               <div style={cardStyle}>
                 <div style={{padding:'12px 18px',borderBottom:`1px solid ${T.border}`,fontWeight:600,fontSize:12,color:T.muted,textTransform:'uppercase',letterSpacing:1}}>Recently resolved</div>
                 {releasesData.resolved.map((r:any,i:number)=>(
-                  <div key={r.id} style={{padding:'10px 18px',borderBottom:i<releasesData.resolved.length-1?`1px solid #0a140a`:'none',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                  <div key={r.id} style={{padding:'10px 18px',borderBottom:i<releasesData.resolved.length-1?`1px solid var(--card-2)`:'none',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
                     <div style={{fontSize:13}}>{r.sessions?.title} <span style={{fontSize:11,color:T.muted}}>· {r.bookings?.email}</span></div>
                     <div style={{fontSize:11,color:r.outcome==='replaced'?T.accent:T.muted}}>{r.outcome}{r.admin_fee_pence>0?` · fee ${fmt(r.admin_fee_pence)}`:''}</div>
                   </div>
@@ -846,13 +840,13 @@ function AdminPageInner() {
             {transfers.map((t:any,i:number)=>{
               const c=t.status==='confirmed'?T.accent:t.status==='expired'?T.danger:T.warning
               return(
-                <div key={t.id} style={{padding:'13px 18px',borderBottom:i<transfers.length-1?`1px solid #0a140a`:'none',display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
+                <div key={t.id} style={{padding:'13px 18px',borderBottom:i<transfers.length-1?`1px solid var(--card-2)`:'none',display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
                   <div>
                     <div style={{fontWeight:600,fontSize:14}}>{t.from_name} → {t.to_name}</div>
                     <div style={{fontSize:12,color:T.muted,marginTop:2}}>{t.to_email}{t.to_phone?` · ${t.to_phone}`:''} · {t.spaces} space{t.spaces>1?'s':''}</div>
-                    <div style={{fontSize:11,color:'#2a4a2a',marginTop:2}}>{t.bookings?.sessions?.title} · {t.bookings?.booking_ref} · requested {new Date(t.requested_at).toLocaleString('en-GB')}</div>
+                    <div style={{fontSize:11,color:'var(--muted)',marginTop:2}}>{t.bookings?.sessions?.title} · {t.bookings?.booking_ref} · requested {new Date(t.requested_at).toLocaleString('en-GB')}</div>
                   </div>
-                  <div style={{padding:'2px 9px',borderRadius:20,fontSize:11,fontWeight:600,background:`${c}18`,color:c,whiteSpace:'nowrap' as const}}>{t.status}</div>
+                  <div style={{padding:'2px 9px',borderRadius:20,fontSize:11,fontWeight:600,background:`color-mix(in srgb, ${c} 10%, transparent)`,color:c,whiteSpace:'nowrap' as const}}>{t.status}</div>
                 </div>
               )
             })}
@@ -873,7 +867,7 @@ function AdminPageInner() {
                   <label style={{fontSize:12,color:T.muted,display:'block',marginBottom:5}}>Amount (£) *</label>
                   <input value={creditForm.amount} onChange={e=>setCreditForm(f=>({...f,amount:e.target.value}))} placeholder="8.00" type="number" step="0.5" min="0" style={inp()}/>
                 </div>
-                <button onClick={issueCredit} disabled={!creditForm.email||!creditForm.amount} style={{padding:'10px 20px',background:T.accent,color:'#080f08',border:'none',borderRadius:8,fontWeight:700,fontSize:13,cursor:'pointer',fontFamily:'inherit',flexShrink:0,opacity:(!creditForm.email||!creditForm.amount)?0.5:1}}>Issue</button>
+                <button onClick={issueCredit} disabled={!creditForm.email||!creditForm.amount} style={{padding:'10px 20px',background:T.cta,color:T.onCta,boxShadow:T.ctaGlow,border:'none',borderRadius:999,fontWeight:700,fontSize:13,cursor:'pointer',fontFamily:'inherit',flexShrink:0,opacity:(!creditForm.email||!creditForm.amount)?0.5:1}}>Issue</button>
               </div>
             </div>
             <div style={cardStyle}>
@@ -884,13 +878,13 @@ function AdminPageInner() {
                 const status=c.used_at?'used':(new Date(c.expires_at)<now?'expired':'active')
                 const col=status==='active'?T.accent:status==='used'?T.muted:T.danger
                 return(
-                  <div key={c.id} style={{padding:'12px 18px',borderBottom:i<credits.length-1?`1px solid #0a140a`:'none',display:'flex',justifyContent:'space-between',alignItems:'center',gap:12}}>
+                  <div key={c.id} style={{padding:'12px 18px',borderBottom:i<credits.length-1?`1px solid var(--card-2)`:'none',display:'flex',justifyContent:'space-between',alignItems:'center',gap:12}}>
                     <div style={{flex:1,minWidth:0}}>
                       <div style={{fontWeight:600,fontSize:14,color:col}}>{fmt(c.amount_pence)} <span style={{fontSize:12,color:T.muted}}>· {c.email}</span></div>
-                      <div style={{fontSize:11,color:'#2a4a2a',marginTop:2}}>issued {new Date(c.created_at).toLocaleDateString('en-GB')} · expires {new Date(c.expires_at).toLocaleDateString('en-GB')}{c.used_at?` · used ${new Date(c.used_at).toLocaleDateString('en-GB')}`:''}</div>
+                      <div style={{fontSize:11,color:'var(--muted)',marginTop:2}}>issued {new Date(c.created_at).toLocaleDateString('en-GB')} · expires {new Date(c.expires_at).toLocaleDateString('en-GB')}{c.used_at?` · used ${new Date(c.used_at).toLocaleDateString('en-GB')}`:''}</div>
                     </div>
                     <div style={{display:'flex',alignItems:'center',gap:10,flexShrink:0}}>
-                      <span style={{padding:'2px 9px',borderRadius:20,fontSize:11,fontWeight:600,background:`${col}18`,color:col}}>{status}</span>
+                      <span style={{padding:'2px 9px',borderRadius:20,fontSize:11,fontWeight:600,background:`color-mix(in srgb, ${col} 10%, transparent)`,color:col}}>{status}</span>
                       {status==='active'&&<button onClick={()=>voidCredit(c.id)} style={{padding:'5px 10px',background:T.dangerDim,color:T.danger,border:`1px solid rgba(224,85,85,0.25)`,borderRadius:6,cursor:'pointer',fontSize:11,fontWeight:600,fontFamily:'inherit'}}>Void</button>}
                     </div>
                   </div>
@@ -915,7 +909,7 @@ function AdminPageInner() {
                   <label style={{fontSize:12,color:T.muted,display:'block',marginBottom:5}}>Reason (optional)</label>
                   <input value={blockForm.reason} onChange={e=>setBlockForm(f=>({...f,reason:e.target.value}))} onKeyDown={e=>e.key==='Enter'&&blockForm.email&&addBlocked()} placeholder="e.g. No-show x3, chargeback" style={inp()}/>
                 </div>
-                <button onClick={addBlocked} disabled={!blockForm.email||blockLoading} style={{padding:'10px 20px',background:T.danger,color:'#fff',border:'none',borderRadius:8,fontWeight:700,fontSize:13,cursor:'pointer',fontFamily:'inherit',flexShrink:0,opacity:(!blockForm.email||blockLoading)?0.5:1}}>
+                <button onClick={addBlocked} disabled={!blockForm.email||blockLoading} style={{padding:'10px 20px',background:T.danger,color:T.bg,border:'none',borderRadius:8,fontWeight:700,fontSize:13,cursor:'pointer',fontFamily:'inherit',flexShrink:0,opacity:(!blockForm.email||blockLoading)?0.5:1}}>
                   {blockLoading?'Blocking…':'Block'}
                 </button>
               </div>
@@ -929,11 +923,11 @@ function AdminPageInner() {
               </div>
               {blocked.length===0&&<div style={{padding:40,textAlign:'center',color:T.muted}}>No blocked emails</div>}
               {blocked.map((b,i)=>(
-                <div key={b.id} style={{padding:'12px 18px',borderBottom:i<blocked.length-1?`1px solid #0a140a`:'none',display:'flex',justifyContent:'space-between',alignItems:'center',gap:12}}>
+                <div key={b.id} style={{padding:'12px 18px',borderBottom:i<blocked.length-1?`1px solid var(--card-2)`:'none',display:'flex',justifyContent:'space-between',alignItems:'center',gap:12}}>
                   <div style={{flex:1,minWidth:0}}>
                     <div style={{fontWeight:600,fontSize:14,color:T.danger}}>{b.email}</div>
                     {b.reason&&<div style={{fontSize:12,color:T.muted,marginTop:2}}>{b.reason}</div>}
-                    <div style={{fontSize:11,color:'#2a4a2a',marginTop:2}}>Blocked {new Date(b.created_at).toLocaleString('en-GB',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})}</div>
+                    <div style={{fontSize:11,color:'var(--muted)',marginTop:2}}>Blocked {new Date(b.created_at).toLocaleString('en-GB',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})}</div>
                   </div>
                   <button onClick={()=>removeBlocked(b.id,b.email)} style={{padding:'5px 12px',background:T.dangerDim,color:T.danger,border:`1px solid rgba(224,85,85,0.25)`,borderRadius:6,cursor:'pointer',fontSize:12,fontWeight:600,fontFamily:'inherit',flexShrink:0}}>
                     Remove
@@ -952,12 +946,12 @@ function AdminPageInner() {
               <Field label="About Section — shown on the public booking page">
                 <DebouncedTextarea value={settings.about_text??''} onChange={v=>setSettings(s=>({...s,about_text:v}))} rows={4} placeholder="Tell players who The Shuttle Social is…" style={inp({resize:'vertical',lineHeight:1.7})}/>
               </Field>
-              <button onClick={()=>saveSetting('about_text',settings.about_text??'')} style={{marginBottom:24,padding:'9px 20px',background:T.accent,color:'#080f08',border:'none',borderRadius:8,fontWeight:700,fontSize:13,cursor:'pointer',fontFamily:'inherit'}}>💾 Save About Text</button>
+              <button onClick={()=>saveSetting('about_text',settings.about_text??'')} style={{marginBottom:24,padding:'9px 20px',background:T.cta,color:T.onCta,boxShadow:T.ctaGlow,border:'none',borderRadius:999,fontWeight:700,fontSize:13,cursor:'pointer',fontFamily:'inherit'}}>💾 Save About Text</button>
 
               <Field label="Terms & Conditions — full text shown to players before booking">
                 <DebouncedTextarea value={settings.terms_and_conditions??''} onChange={v=>setSettings(s=>({...s,terms_and_conditions:v}))} rows={10} placeholder="Enter your full terms and conditions…" style={inp({resize:'vertical',lineHeight:1.7,fontFamily:'monospace'})}/>
               </Field>
-              <button onClick={()=>saveSetting('terms_and_conditions',settings.terms_and_conditions??'')} style={{padding:'9px 20px',background:T.accent,color:'#080f08',border:'none',borderRadius:8,fontWeight:700,fontSize:13,cursor:'pointer',fontFamily:'inherit'}}>💾 Save Terms & Conditions</button>
+              <button onClick={()=>saveSetting('terms_and_conditions',settings.terms_and_conditions??'')} style={{padding:'9px 20px',background:T.cta,color:T.onCta,boxShadow:T.ctaGlow,border:'none',borderRadius:999,fontWeight:700,fontSize:13,cursor:'pointer',fontFamily:'inherit'}}>💾 Save Terms & Conditions</button>
             </div>
           </div>
         )}
@@ -988,7 +982,7 @@ function CalendarView({sessions,onEdit}:{sessions:Session[];onEdit:(s:Session)=>
     if(sy===year&&sm-1===month){if(!byDate[d])byDate[d]=[];byDate[d].push(s)}
   })
 
-  const SC2:Record<string,string>={open:'#6fcf40',draft:'#6b8a6b',closed:'#e09040',cancelled:'#e05555'}
+  const SC2:Record<string,string>={open:'var(--accent)',draft:'var(--muted)',closed:'var(--warn)',cancelled:'var(--danger)'}
 
   const cells:Array<number|null>=[...Array(firstDow).fill(null),...Array.from({length:daysInMonth},(_,i)=>i+1)]
   // Pad to full rows of 7
@@ -997,34 +991,34 @@ function CalendarView({sessions,onEdit}:{sessions:Session[];onEdit:(s:Session)=>
   return(
     <div>
       {/* Month navigation */}
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12,padding:'10px 16px',background:'#0a140a',borderRadius:10}}>
-        <button onClick={prevMonth} style={{background:'none',border:`1px solid #1e3220`,color:'#6b8a6b',padding:'6px 12px',borderRadius:8,cursor:'pointer',fontSize:14,fontFamily:'inherit'}}>‹</button>
-        <div style={{fontWeight:700,fontSize:15,color:'#edf5ed'}}>{monthLabel}</div>
-        <button onClick={nextMonth} style={{background:'none',border:`1px solid #1e3220`,color:'#6b8a6b',padding:'6px 12px',borderRadius:8,cursor:'pointer',fontSize:14,fontFamily:'inherit'}}>›</button>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12,padding:'10px 16px',background:'var(--card-2)',borderRadius:10}}>
+        <button onClick={prevMonth} style={{background:'none',border:`1px solid var(--line)`,color:'var(--muted)',padding:'6px 12px',borderRadius:8,cursor:'pointer',fontSize:14,fontFamily:'inherit'}}>‹</button>
+        <div style={{fontWeight:700,fontSize:15,color:'var(--ink)'}}>{monthLabel}</div>
+        <button onClick={nextMonth} style={{background:'none',border:`1px solid var(--line)`,color:'var(--muted)',padding:'6px 12px',borderRadius:8,cursor:'pointer',fontSize:14,fontFamily:'inherit'}}>›</button>
       </div>
       {/* Day-of-week headers */}
       <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:2,marginBottom:2}}>
         {['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(d=>(
-          <div key={d} style={{textAlign:'center',fontSize:10,color:'#6b8a6b',padding:'4px 0',fontWeight:600}}>{d}</div>
+          <div key={d} style={{textAlign:'center',fontSize:10,color:'var(--muted)',padding:'4px 0',fontWeight:600}}>{d}</div>
         ))}
       </div>
       {/* Calendar grid */}
       <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:2}}>
         {cells.map((day,i)=>{
-          if(day===null)return<div key={`e${i}`} style={{minHeight:70,background:'#060c06',borderRadius:6}}/>
+          if(day===null)return<div key={`e${i}`} style={{minHeight:70,background:'var(--page)',borderRadius:6}}/>
           const dateStr=`${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`
           const daySessions=byDate[dateStr]??[]
           const isToday=dateStr===todayStr
           return(
-            <div key={dateStr} style={{minHeight:70,background:'#0f180f',border:`1px solid ${isToday?'#6fcf40':'#1e3220'}`,borderRadius:6,padding:'4px 3px'}}>
-              <div style={{fontSize:10,fontWeight:isToday?700:400,color:isToday?'#6fcf40':'#6b8a6b',marginBottom:2,textAlign:'right',paddingRight:2}}>{day}</div>
+            <div key={dateStr} style={{minHeight:70,background:'var(--card)',border:`1px solid ${isToday?'var(--accent)':'var(--line)'}`,borderRadius:6,padding:'4px 3px'}}>
+              <div style={{fontSize:10,fontWeight:isToday?700:400,color:isToday?'var(--accent)':'var(--muted)',marginBottom:2,textAlign:'right',paddingRight:2}}>{day}</div>
               {daySessions.map(s=>{
-                const c=SC2[s.status]??'#6b8a6b'
+                const c=SC2[s.status]??'var(--muted)'
                 const spotsLeft=s.capacity-(s.booked??0)
                 return(
-                  <div key={s.id} onClick={()=>onEdit(s)} style={{padding:'2px 3px',borderRadius:3,background:`${c}18`,border:`1px solid ${c}33`,color:c,fontSize:9,cursor:'pointer',marginBottom:1,lineHeight:1.3,overflow:'hidden'}}>
+                  <div key={s.id} onClick={()=>onEdit(s)} style={{padding:'2px 3px',borderRadius:3,background:`color-mix(in srgb, ${c} 10%, transparent)`,border:`1px solid color-mix(in srgb, ${c} 20%, transparent)`,color:c,fontSize:9,cursor:'pointer',marginBottom:1,lineHeight:1.3,overflow:'hidden'}}>
                     <div style={{fontWeight:700,whiteSpace:'nowrap' as const,overflow:'hidden',textOverflow:'ellipsis'}}>{s.label||''} {s.time}</div>
-                    <div style={{color:'#6b8a6b',fontSize:8}}>{spotsLeft}/{s.capacity} left</div>
+                    <div style={{color:'var(--muted)',fontSize:8}}>{spotsLeft}/{s.capacity} left</div>
                   </div>
                 )
               })}
@@ -1060,11 +1054,11 @@ function SessionEditor({session,onSave,onCancel,onStatusChange,onSchedule,onComi
       <div style={{padding:20}}>
 
         {/* Status + Release */}
-        <div style={{marginBottom:20,padding:'14px',background:'#0a140a',borderRadius:10}}>
+        <div style={{marginBottom:20,padding:'14px',background:'var(--card-2)',borderRadius:10}}>
           <div style={{fontSize:12,color:T.muted,marginBottom:10,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.5px'}}>🎯 Ticket Release Control</div>
           <div style={{display:'flex',gap:8,flexWrap:'wrap' as const,marginBottom:12}}>
             {[['draft','🔒 Keep Hidden'],['open','✅ Open Now'],['closed','🚫 Close'],['cancelled','❌ Cancel']].map(([s,l])=>(
-              <button key={s} onClick={()=>onStatusChange(s)} style={{padding:'8px 12px',borderRadius:8,border:'none',cursor:'pointer',fontSize:12,fontWeight:600,background:session.status===s?`${SC2[s]}18`:'#142014',color:session.status===s?SC2[s]:T.muted,outline:session.status===s?`1px solid ${SC2[s]}44`:'none',fontFamily:'inherit'}}>{l}</button>
+              <button key={s} onClick={()=>onStatusChange(s)} style={{padding:'8px 12px',borderRadius:8,border:'none',cursor:'pointer',fontSize:12,fontWeight:600,background:session.status===s?`color-mix(in srgb, ${SC2[s]} 10%, transparent)`:'var(--card-2)',color:session.status===s?SC2[s]:T.muted,outline:session.status===s?`1px solid color-mix(in srgb, ${SC2[s]} 27%, transparent)`:'none',fontFamily:'inherit'}}>{l}</button>
             ))}
           </div>
           <div style={{borderTop:`1px solid ${T.border}`,paddingTop:12}}>
@@ -1125,7 +1119,7 @@ function SessionEditor({session,onSave,onCancel,onStatusChange,onSchedule,onComi
           </div>
         </div>
         <div style={{display:'flex',gap:10,flexWrap:'wrap' as const}}>
-          <button onClick={async()=>{setSaving(true);await onSave(vRef.current);setSaving(false)}} style={{padding:'11px 26px',background:T.accent,color:'#080f08',border:'none',borderRadius:10,fontWeight:700,fontSize:14,cursor:'pointer',fontFamily:'inherit'}}>{saving?'Saving…':'💾 Save Changes'}</button>
+          <button onClick={async()=>{setSaving(true);await onSave(vRef.current);setSaving(false)}} style={{padding:'11px 26px',background:T.cta,color:T.onCta,boxShadow:T.ctaGlow,border:'none',borderRadius:999,fontWeight:700,fontSize:14,cursor:'pointer',fontFamily:'inherit'}}>{saving?'Saving…':'💾 Save Changes'}</button>
           <button onClick={onCancel} style={{padding:'11px 18px',background:'none',color:T.muted,border:`1px solid ${T.border}`,borderRadius:10,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>Cancel</button>
           <button onClick={onDelete} style={{marginLeft:'auto',padding:'11px 18px',background:T.dangerDim,color:T.danger,border:`1px solid rgba(224,85,85,0.3)`,borderRadius:10,fontWeight:600,fontSize:13,cursor:'pointer',fontFamily:'inherit'}}>🗑 Delete Session</button>
         </div>

@@ -1,7 +1,7 @@
 import type { MetadataRoute } from 'next'
 
 /**
- * Installable web app (Roadmap Phase 4c). Opens on My TSS, full screen with
+ * Installable web app (Roadmap Phase 4c). Opens on My portal, full screen with
  * no browser bars. Served at /manifest.webmanifest.
  */
 export default function manifest(): MetadataRoute.Manifest {
@@ -13,8 +13,8 @@ export default function manifest(): MetadataRoute.Manifest {
     start_url: '/account?source=app',
     scope: '/',
     display: 'standalone',
-    background_color: '#080f08',
-    theme_color: '#080f08',
+    background_color: '#F6F7F1',
+    theme_color: '#0E3B24',
     icons: [
       { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
       { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
