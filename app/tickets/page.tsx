@@ -745,7 +745,7 @@ export default function TicketsPage() {
         </div>
       </div>
 
-      <main id="main-content" className="t-band"><div className="wrap t-main">
+      <main id="main-content" className="wrap t-main">
         {loading?(
           <div className="t-loading" role="status">
             <div className="dot-row" aria-hidden="true"><span/><span/><span/></div>
@@ -777,7 +777,7 @@ export default function TicketsPage() {
             )}
           </>
         )}
-      </div></main>
+      </main>
 
       <footer className="wrap t-foot">
         {/* Already booked? Self-service spot release */}
