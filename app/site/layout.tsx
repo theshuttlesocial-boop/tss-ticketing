@@ -1,17 +1,9 @@
 import type { Metadata } from 'next'
-import { Urbanist } from 'next/font/google'
+import { urbanist } from '@/app/_design/font'
+import { themeScript } from '@/app/_design/ThemeToggle'
 import { Motion } from './_components/Motion'
-import { themeScript } from './_components/ThemeToggle'
+import '@/app/_design/tss.css'
 import './site.css'
-
-// Self-hosted by Next, swapped in without blocking text.
-const urbanist = Urbanist({
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700', '800', '900'],
-  style: ['normal', 'italic'],
-  variable: '--font-urbanist',
-  display: 'swap',
-})
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://theshuttlesocial.com'),

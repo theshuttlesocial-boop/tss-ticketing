@@ -1,0 +1,152 @@
+/*
+ * Tickets page (tickets.theshuttlesocial.com/tickets) in the V5 design.
+ * Tokens, type, buttons and dark mode come from app/_design/tss.css.
+ */
+
+/* ── Hero band ──────────────────────────────────────────── */
+.tss .t-hero { position: relative; margin: 0.75rem; border-radius: clamp(1.75rem, 3vw, 2.75rem); overflow: hidden; color: var(--on-dark); background: linear-gradient(135deg, #0B2E1B 0%, #155A34 40%, #2E9A5C 78%, #9BDB7A 100%); padding-bottom: clamp(2rem, 5vw, 3.5rem); }
+.tss .t-hero::after { content: ''; position: absolute; right: -8rem; top: -10rem; width: 34rem; height: 34rem; border-radius: 50%; background: radial-gradient(circle, rgba(217, 244, 107, 0.45), rgba(217, 244, 107, 0) 70%); pointer-events: none; animation: tss-drift 14s ease-in-out infinite; }
+.tss .t-hero-copy { position: relative; z-index: 1; display: flex; flex-direction: column; gap: 1.25rem; padding-top: clamp(2rem, 5vw, 3.5rem); }
+.tss .t-hero .h1 { font-size: clamp(2.75rem, 6vw, 5rem); }
+.tss .t-word { position: relative; display: inline-block; white-space: nowrap; padding: 0 0.16em 0.08em; border: 2px solid rgba(217, 244, 107, 0.9); border-radius: 0.5rem; color: var(--lime); }
+.tss .t-word::before, .tss .t-word::after { content: ''; position: absolute; width: 0.75rem; height: 0.75rem; border-radius: 50%; background: var(--lime); }
+.tss .t-word::before { left: -0.44rem; top: -0.44rem; }
+.tss .t-word::after { right: -0.44rem; bottom: -0.44rem; }
+.tss .t-about { max-width: 46ch; color: var(--on-dark-2); white-space: pre-wrap; }
+.tss .t-facts { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.tss .t-fact { padding: 0.5rem 0.875rem; border-radius: 999px; background: rgba(255, 255, 255, 0.12); font-size: var(--fs-small); font-weight: 600; }
+.tss .t-pill-nav { background: rgba(255, 255, 255, 0.13); color: var(--on-dark); padding: 0.75em 1.25em; }
+
+/* ── Sessions ───────────────────────────────────────────── */
+.tss .t-main { padding-block: clamp(2.5rem, 6vw, 4.5rem); }
+.tss .t-group + .t-group { margin-top: clamp(2.5rem, 5vw, 3.5rem); }
+.tss .t-group-h { display: flex; align-items: center; gap: 0.625rem; margin-bottom: 1.25rem; color: var(--muted); }
+.tss .t-group-h::before { content: ''; width: 0.5rem; height: 0.5rem; border-radius: 50%; background: #2E8B3A; }
+.tss .t-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 27rem), 1fr)); gap: 1.25rem; }
+.tss .t-card {
+  /* Deep green card: light text, lime highlights. Tokens are re-pointed here so every
+     part of the card (tags, status, links, buttons, map) keeps enough contrast. */
+  --ink: #F4F7EC; --page: #0F2A1A; --muted: rgba(244, 247, 236, 0.78); --accent: #D9F46B;
+  --line: rgba(244, 247, 236, 0.16); --chip: rgba(244, 247, 236, 0.12); --card-2: rgba(244, 247, 236, 0.08);
+  --danger: #FFB4AB; --danger-dim: rgba(255, 180, 171, 0.16); --warn: #F8C77E; --warn-dim: rgba(248, 199, 126, 0.16);
+  --info: #AFD5FF; --info-dim: rgba(175, 213, 255, 0.14);
+  display: flex; flex-direction: column; gap: 1.125rem; padding: clamp(1.375rem, 2.4vw, 1.875rem); border-radius: 1.75rem;
+  background: radial-gradient(28rem 16rem at 100% 0%, rgba(63, 166, 106, 0.35), rgba(63, 166, 106, 0) 70%), linear-gradient(155deg, #0B2416 0%, #0E3B24 60%, #155A34 100%);
+  color: var(--ink); border: 1px solid var(--line); transition: transform 0.3s var(--ease), box-shadow 0.3s ease, border-color 0.3s; }
+.tss .t-card:hover { transform: translateY(-3px); box-shadow: 0 30px 60px -30px rgba(0, 0, 0, 0.6); }
+.tss .t-card.is-hot { border-color: rgba(248, 199, 126, 0.55); }
+.tss .t-card.is-soon { border-color: rgba(175, 213, 255, 0.5); }
+.tss .t-card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; }
+.tss .t-date { display: flex; flex-direction: column; gap: 0.375rem; }
+.tss .t-date .disp { font-size: clamp(2.5rem, 4.5vw, 3.5rem); white-space: nowrap; }
+/* On the deep green cards, the date, title and price are brand lime, not white */
+.tss .t-card .t-date .disp, .tss .t-card .t-title { color: #D9F46B; }
+.tss .t-card .t-price .num { color: #F4F7EC; font-size: 1.125rem; }
+.tss .t-tags { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.375rem; }
+.tss .t-tag { padding: 0.375rem 0.75rem; border-radius: 999px; font-size: var(--fs-kicker); font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; background: var(--chip); color: var(--ink); white-space: nowrap; }
+.tss .t-tag.full { background: var(--danger-dim); color: var(--danger); }
+.tss .t-tag.hot { background: var(--warn-dim); color: var(--warn); }
+.tss .t-tag.soon { background: var(--info-dim); color: var(--info); }
+.tss .t-title { font-size: var(--fs-h3); font-weight: 800; letter-spacing: -0.02em; line-height: 1.2; }
+.tss .t-meta { display: flex; flex-direction: column; gap: 0.25rem; color: var(--muted); font-size: var(--fs-small); font-weight: 600; }
+.tss .t-desc { color: var(--muted); font-size: var(--fs-small); line-height: 1.6; white-space: pre-wrap; }
+.tss .t-link { background: none; border: 0; padding: 0; color: var(--accent); font-weight: 700; font-size: var(--fs-small); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+.tss .t-avail { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; flex-wrap: wrap; font-size: var(--fs-small); font-weight: 700; }
+.tss .t-status { display: inline-flex; align-items: center; gap: 0.5rem; }
+.tss .t-status::before { content: ''; width: 0.5rem; height: 0.5rem; border-radius: 50%; background: currentColor; }
+.tss .t-status.ok { color: var(--accent); }
+.tss .t-status.hot { color: var(--warn); }
+.tss .t-status.full { color: var(--danger); }
+.tss .t-price { color: var(--ink); }
+.tss .t-price .num { font-size: 1.5rem; }
+.tss .t-bar { height: 0.375rem; border-radius: 999px; background: var(--line); overflow: hidden; }
+.tss .t-bar > span { display: block; height: 100%; border-radius: inherit; background: var(--warn); }
+.tss .t-actions { display: flex; gap: 0.625rem; flex-wrap: wrap; align-items: center; }
+.tss .t-soon { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.875rem 1.25rem; border-radius: 999px; background: var(--info-dim); color: var(--info); font-weight: 700; font-size: var(--fs-small); }
+.tss .t-share { display: flex; gap: 0.5rem; align-items: center; color: var(--muted); font-size: var(--fs-small); }
+.tss .t-share a { width: 2rem; height: 2rem; border-radius: 50%; display: grid; place-items: center; transition: transform 0.3s var(--ease); }
+.tss .t-share a:hover { transform: scale(1.1); }
+.tss .t-map { border-radius: 1.25rem; overflow: hidden; border: 1px solid var(--line); }
+.tss .t-map iframe { display: block; width: 100%; height: 13.75rem; border: 0; }
+.tss .t-map a { display: block; padding: 0.75rem 1rem; background: var(--card-2); color: var(--accent); font-size: var(--fs-small); font-weight: 700; text-decoration: none; }
+.tss .t-empty, .tss .t-loading { text-align: center; padding: clamp(3rem, 8vw, 5rem) 1rem; border: 1px dashed var(--line); border-radius: 1.75rem; color: var(--muted); }
+.tss .t-empty .t-title { color: var(--ink); }
+.tss .t-empty a { color: var(--accent); }
+.tss .t-loading .dot-row { display: inline-flex; gap: 0.375rem; margin-bottom: 1rem; }
+.tss .t-loading .dot-row span { width: 0.625rem; height: 0.625rem; border-radius: 50%; background: var(--accent); animation: tss-pulse 1.2s infinite; }
+.tss .t-loading .dot-row span:nth-child(2) { animation-delay: 0.2s; }
+.tss .t-loading .dot-row span:nth-child(3) { animation-delay: 0.4s; }
+
+/* ── Buttons ────────────────────────────────────────────── */
+.tss .book.t-wide { width: 100%; justify-content: space-between; font-size: 1.125rem; min-height: 3.5rem; border: 0; cursor: pointer; }
+.tss .book:disabled { cursor: default; opacity: 0.5; box-shadow: none; transform: none; }
+.tss .book:disabled::after { animation: none; }
+.tss .t-btn { display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; min-height: 3rem; padding: 0.75rem 1.5rem; border-radius: 999px; border: 0; font-weight: 800; cursor: pointer; text-decoration: none; transition: transform 0.3s var(--ease), opacity 0.2s; }
+.tss .t-btn:hover:not(:disabled) { transform: translateY(-2px); }
+.tss .t-btn:disabled { opacity: 0.45; cursor: default; }
+.tss .t-btn-ink { background: var(--ink); color: var(--page); }
+.tss .t-btn-line { background: transparent; border: 1px solid var(--line); color: var(--ink); }
+.tss .t-btn-block { width: 100%; }
+
+/* ── Pop-ups (booking, waitlist, terms) ─────────────────── */
+.tss .t-overlay { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 1rem; background: var(--overlay); }
+.tss .t-overlay.top { z-index: 2000; }
+.tss .t-modal { position: relative; width: 100%; max-width: 30rem; max-height: 92vh; overflow-y: auto; padding: clamp(1.5rem, 4vw, 2rem); border-radius: 1.75rem; background: var(--card); color: var(--ink); box-shadow: 0 40px 80px -30px rgba(0, 0, 0, 0.55); animation: tss-in 0.3s var(--ease); }
+.tss .t-modal.wide { max-width: 34rem; max-height: 80vh; }
+.tss .t-close { position: absolute; top: 1rem; right: 1rem; width: 2.5rem; height: 2.5rem; border-radius: 50%; border: 1px solid var(--line); background: var(--card); color: var(--muted); font-size: 1rem; cursor: pointer; display: grid; place-items: center; }
+.tss .t-modal-h { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1.25rem; padding-right: 2.5rem; }
+.tss .t-modal-title { font-size: clamp(1.5rem, 3vw, 1.875rem); font-weight: 800; letter-spacing: -0.03em; line-height: 1.1; }
+.tss .t-field-row { margin-bottom: 0.875rem; }
+.tss .t-label { display: block; margin-bottom: 0.375rem; font-size: var(--fs-small); font-weight: 700; color: var(--muted); }
+.tss .t-input { width: 100%; padding: 0.75rem 1rem; border-radius: 0.875rem; border: 1px solid var(--line); background: var(--field); color: var(--ink); font: inherit; font-size: 1rem; outline: none; transition: border-color 0.2s, box-shadow 0.2s; }
+.tss .t-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); }
+.tss .t-input::placeholder { color: var(--muted); opacity: 0.7; }
+.tss .t-choices { display: flex; gap: 0.5rem; }
+.tss .t-choice { flex: 1; min-height: 3rem; border-radius: 0.875rem; border: 1px solid var(--line); background: var(--card-2); color: var(--ink); font-weight: 800; font-size: 1.0625rem; cursor: pointer; transition: border-color 0.2s, background-color 0.2s; }
+.tss .t-choice[aria-pressed='true'] { border-color: var(--accent); background: var(--accent-dim); color: var(--accent); }
+.tss .t-option { display: flex; align-items: center; gap: 0.625rem; width: 100%; text-align: left; padding: 0.625rem 0.75rem; border-radius: 0.875rem; border: 1px solid var(--line); background: var(--card-2); color: var(--ink); cursor: pointer; }
+.tss .t-option[aria-pressed='true'] { border-color: var(--accent); background: var(--accent-dim); }
+.tss .t-option-n { width: 1.25rem; height: 1.25rem; border-radius: 0.375rem; border: 1px solid var(--line); display: grid; place-items: center; font-size: 0.75rem; font-weight: 900; flex-shrink: 0; }
+.tss .t-option[aria-pressed='true'] .t-option-n { background: var(--accent); border-color: var(--accent); color: var(--page); }
+.tss .t-box { padding: 0.875rem; border-radius: 1rem; border: 1px solid var(--line); background: var(--card-2); margin-bottom: 1rem; }
+.tss .t-check { display: flex; align-items: flex-start; gap: 0.625rem; cursor: pointer; font-size: var(--fs-small); color: var(--muted); line-height: 1.5; }
+.tss .t-check input { margin-top: 0.125rem; width: 1.125rem; height: 1.125rem; accent-color: var(--accent); flex-shrink: 0; }
+.tss .t-hint { margin-top: 0.375rem; font-size: 0.8125rem; color: var(--muted); }
+.tss .t-note { padding: 0.75rem 1rem; border-radius: 1rem; font-size: var(--fs-small); line-height: 1.55; margin-bottom: 1rem; background: var(--accent-dim); color: var(--accent); border: 1px solid var(--accent-line); }
+.tss .t-note.info { background: var(--info-dim); color: var(--info); border-color: transparent; }
+.tss .t-note.danger { background: var(--danger-dim); color: var(--danger); border-color: transparent; }
+.tss .t-note.plain { background: var(--card-2); color: var(--muted); border-color: var(--line); }
+.tss .t-desc-box { white-space: pre-wrap; }
+.tss .t-total { padding-top: 0.875rem; border-top: 1px solid var(--line); margin-bottom: 1rem; }
+.tss .t-total-row { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; font-size: var(--fs-small); color: var(--muted); }
+.tss .t-total-row + .t-total-row { margin-top: 0.375rem; }
+.tss .t-total-row strong { color: var(--ink); }
+.tss .t-total-row .num { font-size: 1.75rem; color: var(--ink); }
+.tss .t-strike { text-decoration: line-through; }
+.tss .t-saved { display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; }
+.tss .t-timer { font-variant-numeric: tabular-nums; font-weight: 800; }
+.tss .t-done { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 0.75rem; }
+.tss .t-done-mark { width: 4.5rem; height: 4.5rem; border-radius: 50%; background: var(--lime); color: var(--ink-900); display: grid; place-items: center; font-size: 2rem; font-weight: 900; }
+.tss .t-done .num { font-size: 3.5rem; color: var(--accent); }
+.tss .t-terms { white-space: pre-wrap; font: inherit; font-size: var(--fs-small); color: var(--muted); line-height: 1.7; }
+
+/* ── Footer ─────────────────────────────────────────────── */
+.tss .t-foot { padding-block: 0 2.5rem; display: flex; flex-direction: column; gap: 1rem; }
+.tss .t-release { display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; flex-wrap: wrap; padding: 1.125rem 1.375rem; border-radius: 1.5rem; color: rgba(244, 247, 236, 0.85); border: 1px solid rgba(244, 247, 236, 0.16);
+  background: radial-gradient(24rem 12rem at 100% 0%, rgba(63, 166, 106, 0.35), rgba(63, 166, 106, 0) 70%), linear-gradient(155deg, #0B2416 0%, #0E3B24 60%, #155A34 100%); }
+.tss .t-release .muted { color: rgba(244, 247, 236, 0.85); }
+.tss .t-release a { color: #D9F46B; font-weight: 800; text-decoration: none; }
+.tss .t-release a:hover { text-decoration: underline; text-underline-offset: 3px; }
+.tss .t-foot-links { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; color: var(--muted); font-size: var(--fs-small); }
+.tss .t-foot-links nav { display: flex; gap: 1.25rem; flex-wrap: wrap; }
+
+@media (max-width: 767px) {
+  .tss .t-actions > * { flex: 1 1 100%; justify-content: space-between; }
+  .tss .nav .t-pill-nav { padding: 0.75em 1em; }
+  /* Keep brand, My portal and the theme switch on one line on small phones */
+  .tss .nav { gap: 0.5rem; padding-left: 1rem; }
+  .tss .nav .brand { font-size: 1rem; }
+  .tss .nav .book { gap: 0.5rem; padding: 0.4em 0.4em 0.4em 1em; }
+  .tss .nav .book-arrow { width: 2em; height: 2em; }
+  .tss .nav .theme-btn { width: 2.5rem; height: 2.5rem; }
+}
