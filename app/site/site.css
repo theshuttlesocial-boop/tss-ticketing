@@ -1,0 +1,332 @@
+/*
+ * The Shuttle Social marketing site. Everything is scoped under .tss so none of it
+ * reaches the ticketing app. Stage 1: typography system, tokens, layout, dark mode.
+ */
+
+/* ── Tokens ─────────────────────────────────────────────── */
+.tss {
+  /* Type: Urbanist everywhere; heavy for display, heavy italic for numbers */
+  --f-sans: var(--font-urbanist), system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --w-display: 800;
+  --w-hero: 900;
+  --w-num: 900;
+  --ls-display: -0.035em;
+
+  /* Fluid type scale (no fixed px sizes) */
+  --fs-hero: clamp(3rem, 5.8vw, 5.75rem);
+  --fs-h2: clamp(2.5rem, 6vw, 5.5rem);
+  --fs-h3: clamp(1.25rem, 1.7vw, 1.625rem);
+  --fs-lead: clamp(1.0625rem, 1.45vw, 1.375rem);
+  --fs-body: clamp(1rem, 1.15vw, 1.1875rem);
+  --fs-small: clamp(0.875rem, 0.95vw, 0.9375rem);
+  --fs-kicker: clamp(0.6875rem, 0.8vw, 0.8125rem);
+  --fs-date: clamp(2.75rem, 5vw, 4.5rem);
+
+  --pad-y: clamp(5rem, 12vh, 10rem);
+  --gutter: clamp(1.25rem, 5vw, 5.5rem);
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  /* Brand */
+  --ink-900: #0F2A1A;
+  --forest: #0E3B24;
+  --lime: #D9F46B;
+  --on-dark: #F4F7EC;
+  --on-dark-2: rgba(244, 247, 236, 0.8);
+
+  /* Theme (light) */
+  --page: #F6F7F1;
+  --ink: #0F2A1A;
+  --muted: #4A5A45;
+  --card: #FFFFFF;
+  --line: rgba(15, 42, 26, 0.12);
+  --chip: #E6EFDD;
+
+  /* Section rhythm: each section its own space */
+  --s-week: #F6F7F1;
+  --s-stats: #0B2416;
+  --s-how: linear-gradient(170deg, #E4F3E7 0%, #D2ECDB 100%);
+  --s-faq: linear-gradient(170deg, #0E3B24 0%, #155A34 55%, #2A8552 100%);
+  --s-real: linear-gradient(170deg, #F1F7DC 0%, #E4EFC2 100%);
+  --s-cta: radial-gradient(56rem 30rem at 78% 100%, rgba(217, 244, 107, 0.34), rgba(217, 244, 107, 0) 70%),
+           radial-gradient(44rem 26rem at 10% 0%, rgba(46, 139, 87, 0.45), rgba(46, 139, 87, 0) 70%),
+           #06170D;
+}
+
+:root[data-theme='dark'] .tss {
+  --page: #07140C;
+  --ink: #EEF3E6;
+  --muted: #A9B8A4;
+  --card: #10241A;
+  --line: rgba(238, 243, 230, 0.13);
+  --chip: #1A3324;
+  --s-week: #07140C;
+  --s-how: linear-gradient(170deg, #0B1F14 0%, #0F2A1C 100%);
+  --s-real: linear-gradient(170deg, #101C0B 0%, #16260F 100%);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .tss {
+    --page: #07140C;
+    --ink: #EEF3E6;
+    --muted: #A9B8A4;
+    --card: #10241A;
+    --line: rgba(238, 243, 230, 0.13);
+    --chip: #1A3324;
+    --s-week: #07140C;
+    --s-how: linear-gradient(170deg, #0B1F14 0%, #0F2A1C 100%);
+    --s-real: linear-gradient(170deg, #101C0B 0%, #16260F 100%);
+  }
+}
+
+/* The app's root layout paints the body near-black inline; the site owns its own canvas. */
+body:has(.tss) { background: #F6F7F1 !important; }
+:root[data-theme='dark'] body:has(.tss) { background: #07140C !important; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme='light']) body:has(.tss) { background: #07140C !important; } }
+
+/* ── Base ───────────────────────────────────────────────── */
+.tss {
+  display: flow-root; /* keep the hero's margin inside the page colour */
+  min-height: 100vh;
+  background: var(--page);
+  color: var(--ink);
+  font-family: var(--f-sans);
+  font-size: var(--fs-body);
+  font-weight: 500;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  transition: background-color 0.4s, color 0.4s;
+}
+.tss *, .tss *::before, .tss *::after { box-sizing: border-box; }
+:where(.tss) a { color: inherit; }
+:where(.tss) button { font: inherit; color: inherit; }
+:where(.tss) h1, :where(.tss) h2, :where(.tss) h3, :where(.tss) p, :where(.tss) ol, :where(.tss) figure { margin: 0; }
+.tss :focus-visible { outline: 3px solid var(--lime); outline-offset: 3px; border-radius: 0.75rem; }
+.tss .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.tss .skip { position: absolute; left: 1rem; top: -4rem; z-index: 50; background: var(--lime); color: var(--ink-900); padding: 0.75rem 1rem; border-radius: 0.75rem; font-weight: 700; }
+.tss .skip:focus { top: 1rem; }
+
+/* ── Typography ─────────────────────────────────────────── */
+.tss .disp { font-weight: var(--w-display); letter-spacing: var(--ls-display); line-height: 0.95; }
+.tss .h1 { font-size: var(--fs-hero); font-weight: var(--w-hero); }
+.tss .h2 { font-size: var(--fs-h2); }
+.tss .h3 { font-size: var(--fs-h3); font-weight: 700; line-height: 1.25; }
+.tss .lead { font-size: var(--fs-lead); line-height: 1.5; }
+.tss .small { font-size: var(--fs-small); }
+.tss .kicker { font-size: var(--fs-kicker); letter-spacing: 0.14em; text-transform: uppercase; font-weight: 700; }
+.tss .num { font-weight: var(--w-num); font-style: italic; letter-spacing: -0.04em; line-height: 0.9; font-variant-numeric: tabular-nums; }
+.tss .muted { color: var(--muted); }
+
+/* ── Layout ─────────────────────────────────────────────── */
+.tss .wrap { max-width: 81rem; margin: 0 auto; padding-inline: var(--gutter); }
+.tss .sec { position: relative; padding-block: var(--pad-y); overflow: clip; } /* clip, not hidden: keeps position: sticky working */
+.tss .head-row { display: flex; justify-content: space-between; align-items: flex-end; gap: 1.25rem; flex-wrap: wrap; margin-bottom: clamp(1.75rem, 3vw, 2.5rem); }
+
+/* ── Buttons ────────────────────────────────────────────── */
+.tss .pill { display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; border-radius: 999px; text-decoration: none; font-weight: 700; padding: 0.95em 1.6em; transition: transform 0.3s var(--ease), background-color 0.3s; }
+.tss .pill:hover { transform: translateY(-2px); }
+.tss .pill-ghost { background: rgba(255, 255, 255, 0.13); color: var(--on-dark); }
+.tss .pill-cream { background: #F4F7EC; color: var(--ink-900); }
+.tss .pill-line { border: 1px solid var(--line); }
+
+/* The one primary action: Book a session */
+.tss .book {
+  position: relative; isolation: isolate; overflow: hidden;
+  display: inline-flex; align-items: center; gap: 0.875rem;
+  padding: 0.5em 0.5em 0.5em 1.5em; border-radius: 999px;
+  background: linear-gradient(115deg, #F2FF9E 0%, #D9F46B 45%, #9FE8BE 100%);
+  color: var(--ink-900); font-weight: 800; letter-spacing: -0.01em; text-decoration: none; white-space: nowrap;
+  box-shadow: 0 0 0 4px rgba(217, 244, 107, 0.22), 0 16px 34px -12px rgba(190, 240, 90, 0.75);
+  transition: transform 0.3s var(--ease), box-shadow 0.3s var(--ease);
+}
+.tss .book:hover { transform: translateY(-2px) scale(1.03); box-shadow: 0 0 0 7px rgba(217, 244, 107, 0.28), 0 22px 44px -12px rgba(190, 240, 90, 0.85); }
+.tss .book-arrow { flex: 0 0 auto; width: 2.35em; height: 2.35em; border-radius: 50%; background: var(--ink-900); display: grid; place-items: center; transition: transform 0.35s var(--ease); }
+.tss .book:hover .book-arrow { transform: rotate(-45deg); }
+.tss .book::after { content: ''; position: absolute; inset: 0; z-index: -1; background: linear-gradient(105deg, transparent 35%, rgba(255, 255, 255, 0.75) 50%, transparent 65%); transform: translateX(-130%); animation: tss-shine 4.2s ease-in-out infinite; }
+.tss .book-lg { font-size: clamp(1.0625rem, 1.3vw, 1.25rem); padding: 0.6em 0.6em 0.6em 1.7em; }
+.tss .book-short { display: none; }
+
+/* ── Header ─────────────────────────────────────────────── */
+.tss .nav { position: relative; z-index: 5; margin: 1.125rem clamp(0.75rem, 2.2vw, 2rem) 0; display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; padding: 0.5rem 0.5rem 0.5rem 1.375rem; border-radius: 999px; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.18); color: var(--on-dark); }
+.tss .brand { font-weight: var(--w-display); font-size: clamp(1.0625rem, 1.4vw, 1.375rem); letter-spacing: -0.02em; text-decoration: none; white-space: nowrap; }
+.tss .nav-links { display: flex; gap: 1.75rem; align-items: center; font-size: var(--fs-small); font-weight: 600; }
+.tss .nav-links a { text-decoration: none; }
+.tss .nav-links a:hover { text-decoration: underline; text-underline-offset: 4px; }
+.tss .nav-right { display: flex; gap: 0.5rem; align-items: center; }
+.tss .theme-btn { width: 2.875rem; height: 2.875rem; border-radius: 50%; border: 1px solid rgba(255, 255, 255, 0.22); background: rgba(255, 255, 255, 0.08); display: grid; place-items: center; cursor: pointer; transition: transform 0.3s var(--ease); }
+.tss .theme-btn:hover { transform: rotate(-15deg); }
+.tss .theme-btn .i-sun { display: none; }
+:root[data-theme='dark'] .tss .theme-btn .i-sun { display: block; }
+:root[data-theme='dark'] .tss .theme-btn .i-moon { display: none; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .tss .theme-btn .i-sun { display: block; }
+  :root:not([data-theme='light']) .tss .theme-btn .i-moon { display: none; }
+}
+
+/* ── Hero ───────────────────────────────────────────────── */
+.tss .hero { position: relative; margin: 0.75rem; border-radius: clamp(1.75rem, 3vw, 2.75rem); overflow: hidden; color: var(--on-dark); background: linear-gradient(135deg, #0B2E1B 0%, #155A34 38%, #2E9A5C 72%, #9BDB7A 100%); }
+.tss .hero-glow { position: absolute; left: 0; top: 0; width: 44rem; height: 44rem; margin: -22rem 0 0 -22rem; border-radius: 50%; background: radial-gradient(circle, rgba(217, 244, 107, 0.26), rgba(217, 244, 107, 0) 60%); pointer-events: none; transform: translate3d(var(--gx, 60vw), var(--gy, 20rem), 0); transition: transform 0.25s ease-out; }
+.tss .hero-grid { display: grid; grid-template-columns: 1.2fr 1fr; gap: 1.5rem; align-items: center; padding-top: clamp(1.5rem, 4vw, 3rem); }
+.tss .hero-copy { display: flex; flex-direction: column; gap: 1.75rem; position: relative; z-index: 2; }
+.tss .badge { align-self: flex-start; display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0.875rem; border-radius: 999px; background: rgba(255, 255, 255, 0.12); font-size: var(--fs-small); font-weight: 600; }
+.tss .dot { width: 0.5rem; height: 0.5rem; border-radius: 50%; background: #2E8B3A; animation: tss-pulse 1.6s infinite; }
+.tss .badge .dot { background: var(--lime); }
+.tss .word-box { position: relative; display: inline-block; white-space: nowrap; padding: 0 0.16em 0.08em; border: 2px solid rgba(217, 244, 107, 0.9); border-radius: 0.5rem; }
+.tss .word { display: inline-block; background: linear-gradient(90deg, #D9F46B, #8BE3B0); -webkit-background-clip: text; background-clip: text; color: transparent; animation: tss-in 0.36s ease; }
+.tss .handle { position: absolute; width: 0.75rem; height: 0.75rem; border-radius: 50%; background: var(--lime); }
+.tss .hero-actions { display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center; }
+
+.tss .hero-vis { position: relative; height: 40rem; }
+.tss .phone { position: absolute; right: 6%; top: 1.125rem; width: 18.125rem; height: 36.875rem; border-radius: 3rem; background: #0B1F12; padding: 0.75rem; box-shadow: 0 40px 80px -30px rgba(0, 0, 0, 0.6); transform: perspective(75rem) rotateY(var(--ry, 0deg)) rotateX(var(--rx, 0deg)) rotate(3deg); transition: transform 0.2s ease-out; }
+.tss .screen { width: 100%; height: 100%; border-radius: 2.375rem; background: linear-gradient(180deg, #F6F7F1 0%, #E3F1D6 100%); color: var(--ink-900); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1.125rem; padding: 1.5rem; }
+.tss .ring { position: relative; width: 11.875rem; height: 11.875rem; }
+.tss .ring-label { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.25rem; }
+.tss .ring-label .kicker { letter-spacing: 0.08em; font-size: clamp(0.5625rem, 0.7vw, 0.75rem); }
+.tss .shuttle { position: absolute; left: 4%; top: 14.75rem; width: 21.875rem; height: 25.7rem; z-index: 3; overflow: visible; filter: drop-shadow(0 24px 30px rgba(4, 20, 10, 0.35)); }
+.tss .chip { position: absolute; z-index: 4; border-radius: 1rem; padding: 0.75rem 1rem; font-size: var(--fs-small); font-weight: 600; box-shadow: 0 16px 32px -16px rgba(0, 0, 0, 0.45); animation: tss-float 6s ease-in-out infinite; }
+.tss .chip-a { right: 0; top: 3.25rem; background: #fff; color: var(--ink-900); display: flex; gap: 0.5rem; align-items: center; }
+.tss .chip-a span { width: 1.375rem; height: 1.375rem; border-radius: 50%; background: var(--lime); display: grid; place-items: center; font-size: 0.75rem; }
+.tss .chip-b { right: -0.5rem; top: 29.4rem; background: var(--ink-900); color: var(--on-dark); animation-duration: 7s; }
+.tss .chip-b strong { color: var(--lime); }
+.tss .chip-c { right: 10%; bottom: 0; background: var(--lime); color: var(--ink-900); animation-duration: 8s; }
+
+/* Stats strip (animated in stage 6) */
+.tss .strip { position: relative; padding: 2.125rem 0 2.375rem; overflow: hidden; }
+.tss .strip-track { display: flex; width: max-content; animation: tss-marq 48s linear infinite; }
+.tss .strip:hover .strip-track { animation-play-state: paused; }
+.tss .strip-set { display: flex; list-style: none; margin: 0; padding: 0; }
+/* margin, not gap, so each copy is exactly half the track and the loop is seamless */
+.tss .strip-set li { display: flex; align-items: center; gap: 0.875rem; margin-right: 0.875rem; }
+.tss .mchip:hover { transform: rotate(0deg) scale(1.05); }
+.tss .mchip { flex: 0 0 auto; display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1.375rem 0.75rem 1.125rem; border-radius: 1.25rem; box-shadow: 0 12px 24px -16px rgba(0, 0, 0, 0.5); transform: rotate(var(--rot, 0deg)); transition: transform 0.3s var(--ease); }
+.tss .mchip .num { font-size: clamp(1.75rem, 2.6vw, 2.5rem); letter-spacing: -0.03em; }
+.tss .mchip .mt { font-size: var(--fs-small); font-weight: 700; line-height: 1.2; max-width: 15ch; }
+.tss .msep { flex: 0 0 auto; align-self: center; width: 2.125rem; height: 2.125rem; }
+
+/* ── This week ──────────────────────────────────────────── */
+.tss .live { display: inline-flex; gap: 0.5rem; align-items: center; color: var(--muted); }
+.tss .days { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr)); gap: 1.25rem; }
+.tss .day { text-decoration: none; border-radius: 1.75rem; padding: clamp(1.375rem, 2.4vw, 2rem); display: flex; flex-direction: column; gap: 1.375rem; border: 1px solid var(--line); background: var(--card); color: var(--ink); transition: transform 0.3s ease; }
+.tss .day:hover { transform: scale(1.02); }
+.tss .day-first { background: linear-gradient(150deg, #0E3B24, #1E6B3E 60%, #3FA66A); color: var(--on-dark); border-color: transparent; }
+.tss .day-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; }
+.tss .day-date { font-size: var(--fs-date); }
+.tss .tag { padding: 0.4375rem 0.875rem; border-radius: 999px; background: var(--chip); color: var(--ink); font-size: var(--fs-small); font-weight: 700; white-space: nowrap; }
+.tss .day-first .tag { background: var(--lime); color: var(--ink-900); }
+.tss .day-cta { font-size: var(--fs-small); font-weight: 700; }
+.tss .empty { border-radius: 1.75rem; padding: 2rem; border: 1px dashed var(--line); }
+
+/* ── Stats ──────────────────────────────────────────────── */
+.tss .stats { color: var(--on-dark); background: var(--s-stats); }
+.tss .stat-grid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: clamp(0.75rem, 1.4vw, 1.25rem); }
+.tss .tile { grid-column: span var(--span); min-height: clamp(13rem, 17vw, 15.5rem); border-radius: 1.875rem; padding: clamp(1.25rem, 2.2vw, 1.875rem); display: flex; flex-direction: column; justify-content: space-between; gap: 1.125rem; position: relative; overflow: hidden; transition: transform 0.3s ease, box-shadow 0.3s ease; }
+.tss .tile:hover { transform: scale(1.03); box-shadow: 0 30px 60px -30px rgba(0, 0, 0, 0.6); }
+.tss .tile .num { font-size: var(--tn); letter-spacing: -0.045em; }
+.tss .bubble { align-self: flex-start; padding: 0.6875rem 1rem; border-radius: 1.25rem 1.25rem 1.25rem 0.375rem; font-size: var(--fs-small); font-weight: 700; line-height: 1.3; max-width: 26ch; }
+
+/* ── How it works (heading + visual pin while steps scroll) ── */
+.tss .how { display: grid; grid-template-columns: 5fr 7fr; gap: clamp(2rem, 5vw, 5rem); }
+.tss .how-pin { position: sticky; top: clamp(1.5rem, 12vh, 7.5rem); align-self: start; display: flex; flex-direction: column; gap: 1.75rem; }
+.tss .how-vis { position: relative; height: 26.25rem; border-radius: 2rem; overflow: hidden; background: linear-gradient(135deg, #0E3B24 0%, #1E6B3E 55%, #7FD1A0 100%); display: flex; align-items: center; justify-content: center; }
+.tss .how-card { position: relative; width: min(18.75rem, 80%); border-radius: 1.625rem; background: #F6F7F1; color: var(--ink-900); padding: 1.625rem; display: flex; flex-direction: column; gap: 0.75rem; box-shadow: 0 30px 60px -30px rgba(0, 0, 0, 0.5); }
+.tss .steps { list-style: none; padding: 0; display: flex; flex-direction: column; }
+.tss .step { min-height: clamp(15rem, 34vh, 23.75rem); display: flex; flex-direction: column; justify-content: center; gap: 0.75rem; padding-block: 1.5rem; border-top: 1px solid var(--line); transition: opacity 0.4s ease; }
+.tss .step[data-active='false'] { opacity: 0.45; }
+.tss .how-card { animation: tss-in 0.42s ease; }
+.tss .how-glow { width: 22.5rem; height: 22.5rem; background: radial-gradient(circle, rgba(217, 244, 107, 0.5), rgba(217, 244, 107, 0) 70%); animation: tss-drift 10s ease-in-out infinite; }
+.tss .step-n { font-size: clamp(1rem, 1.2vw, 1.125rem); letter-spacing: 0.12em; font-variant: all-small-caps; font-weight: 800; color: var(--muted); }
+.tss .step h3 { font-weight: var(--w-display); font-size: clamp(1.75rem, 3.2vw, 3rem); letter-spacing: var(--ls-display); line-height: 1; }
+
+/* ── FAQs (accordion in stage 4) ────────────────────────── */
+.tss .faq-sec { background: var(--s-faq); color: var(--on-dark); }
+.tss .faq { display: grid; grid-template-columns: 4fr 8fr; gap: clamp(2rem, 4vw, 4rem); }
+.tss .faq-title { color: var(--lime); }
+.tss .faq-list { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 0.75rem; }
+.tss .faq-item { border-radius: 1.5rem; border: 1px solid rgba(244, 247, 236, 0.14); background: rgba(244, 247, 236, 0.04); transition: transform 0.35s var(--ease), box-shadow 0.35s ease, border-color 0.35s ease, background-color 0.35s ease; }
+.tss .faq-item:hover { border-color: rgba(217, 244, 107, 0.45); }
+.tss .faq-item[data-open='true'] { transform: scale(1.012); border-color: rgba(217, 244, 107, 0.6); background: rgba(244, 247, 236, 0.09); box-shadow: 0 24px 48px -28px rgba(0, 0, 0, 0.6); }
+.tss .faq-h { font: inherit; }
+.tss .faq-btn { width: 100%; display: grid; grid-template-columns: clamp(3.25rem, 6vw, 5rem) 1fr 2.5rem; align-items: center; gap: 0.75rem; padding: 1.125rem clamp(1rem, 2vw, 1.5rem); background: none; border: 0; text-align: left; cursor: pointer; color: var(--on-dark); border-radius: 1.5rem; }
+.tss .faq-btn .num { font-size: clamp(1.75rem, 3vw, 2.75rem); color: var(--lime); }
+.tss .faq-q { font-size: var(--fs-h3); font-weight: 700; line-height: 1.25; }
+.tss .faq-icon { width: 2.25rem; height: 2.25rem; border-radius: 50%; display: grid; place-items: center; background: rgba(244, 247, 236, 0.1); font-size: 1.25rem; transition: transform 0.35s var(--ease), background-color 0.35s, color 0.35s; }
+.tss .faq-item[data-open='true'] .faq-icon { transform: rotate(45deg); background: var(--lime); color: var(--ink-900); }
+.tss .faq-panel { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 0.45s var(--ease); }
+.tss .faq-item[data-open='true'] .faq-panel { grid-template-rows: 1fr; }
+.tss .faq-panel > div { overflow: hidden; }
+.tss .faq-a { color: var(--on-dark-2); padding: 0 clamp(1rem, 4vw, 4rem) 1.5rem calc(clamp(3.25rem, 6vw, 5rem) + clamp(1rem, 2vw, 1.5rem) + 0.75rem); opacity: 0; translate: 0 -6px; transition: opacity 0.25s ease, translate 0.25s ease; }
+.tss .faq-item[data-open='true'] .faq-a { opacity: 1; translate: none; transition-delay: 0.1s; }
+
+/* ── Real nights ────────────────────────────────────────── */
+.tss .real { position: relative; background: var(--s-real); }
+.tss .real.is-pinned .real-inner { position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; justify-content: center; overflow: clip; }
+.tss .real.is-pinned .gallery-view { overflow: clip; }
+.tss .real.is-pinned .clip-media { height: min(clamp(22.5rem, 34vw, 31.25rem), 52vh); }
+.tss .gallery-view { overflow-x: auto; margin-top: clamp(1.75rem, 3vw, 2.5rem); scrollbar-width: none; scroll-snap-type: x mandatory; }
+.tss .gtrack { display: flex; gap: 1.375rem; width: max-content; padding-inline: var(--gutter); will-change: transform; }
+.tss .clip { scroll-snap-align: start; scroll-margin-left: var(--gutter); }
+.tss .clip { flex: 0 0 clamp(15rem, 26vw, 23.75rem); display: flex; flex-direction: column; gap: 0.75rem; }
+.tss .clip-media { height: clamp(22.5rem, 34vw, 31.25rem); border-radius: 1.75rem; display: flex; align-items: center; justify-content: center; font-size: var(--fs-small); overflow: hidden; transition: transform 0.3s ease; }
+.tss .clip:hover .clip-media { transform: scale(1.03); }
+.tss .clip figcaption { font-size: var(--fs-small); color: var(--muted); }
+
+/* ── Closing call to action ─────────────────────────────── */
+.tss .cta-sec { background: var(--s-cta); }
+.tss .cta { display: flex; justify-content: space-between; align-items: flex-end; gap: 1.75rem; flex-wrap: wrap; color: var(--on-dark); }
+.tss .cta-side { display: flex; flex-direction: column; gap: 0.875rem; align-items: flex-start; }
+
+/* ── Footer ─────────────────────────────────────────────── */
+.tss .foot { padding-block: 1.75rem 2.25rem; display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; color: var(--muted); font-size: var(--fs-small); }
+.tss .foot nav { display: flex; gap: 1.375rem; flex-wrap: wrap; }
+
+/* ── Motion ─────────────────────────────────────────────── */
+/* Reveal on scroll (Motion.tsx). Only hides things when JavaScript is running.
+   Uses the separate `translate` property so hover `transform`s keep working. */
+.tss-js .tss [data-reveal] {
+  opacity: 0; translate: 0 30px;
+  transition: opacity 0.7s var(--ease), translate 0.7s var(--ease), transform 0.3s var(--ease), box-shadow 0.3s ease, border-color 0.35s ease, background-color 0.35s ease;
+}
+.tss-js .tss [data-reveal][data-shown] { opacity: 1; translate: none; }
+.tss .decor { position: absolute; pointer-events: none; border-radius: 50%; will-change: transform; }
+.tss .decor-lime { background: radial-gradient(circle, rgba(217, 244, 107, 0.55), rgba(217, 244, 107, 0) 70%); }
+.tss .decor-green { background: radial-gradient(circle, rgba(46, 139, 87, 0.45), rgba(46, 139, 87, 0) 70%); }
+.tss .sec > .wrap, .tss .sec > .how { position: relative; }
+
+@keyframes tss-shine { 0%, 55% { transform: translateX(-130%); } 85%, 100% { transform: translateX(130%); } }
+@keyframes tss-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+@keyframes tss-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@keyframes tss-marq { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+@keyframes tss-drift { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(2.5rem, -1.875rem) scale(1.12); } }
+@keyframes tss-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+
+/* ── Mobile: single column, no pinning ──────────────────── */
+@media (max-width: 767px) {
+  .tss { --pad-y: clamp(4.5rem, 12vh, 6rem); }
+  .tss .nav { padding-left: 1.125rem; }
+  .tss .nav-links, .tss .book-long { display: none; }
+  .tss .book-short { display: inline; }
+  .tss .hero-grid, .tss .how, .tss .faq { grid-template-columns: 1fr; }
+  .tss .hero-vis { height: 29.4rem; }
+  .tss .phone { width: 13.125rem; height: 26.875rem; right: 1.125rem; top: 0; border-radius: 2.375rem; padding: 0.5625rem; }
+  .tss .screen { border-radius: 1.875rem; gap: 0.75rem; }
+  .tss .ring { width: 8.75rem; height: 8.75rem; }
+  .tss .shuttle { left: 0; top: 10.6rem; width: 12.5rem; height: 14.7rem; }
+  .tss .chip-a { left: 0.5rem; right: auto; top: 1.5rem; }
+  .tss .chip-b { right: 0.375rem; top: 25rem; }
+  .tss .chip-c { display: none; }
+  .tss .stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .tss .tile { grid-column: span var(--pspan); min-height: 10.6rem; border-radius: 1.5rem; }
+  .tss .tile .num { font-size: var(--tnp); }
+  .tss .how-pin { position: static; }
+  .tss .how-vis { height: 20rem; }
+  .tss .step { min-height: 0; }
+  .tss .step[data-active='false'] { opacity: 1; }
+  .tss .faq-a { padding-left: clamp(1rem, 4vw, 1.5rem); }
+  .tss .decor { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tss *, .tss *::before, .tss *::after { animation: none !important; transition: none !important; }
+  .tss-js .tss [data-reveal] { opacity: 1; translate: none; }
+  .tss .strip { overflow-x: auto; }
+  .tss .strip-set[aria-hidden] { display: none; }
+}
