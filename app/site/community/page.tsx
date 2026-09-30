@@ -1,0 +1,78 @@
+import type { Metadata } from 'next'
+import { CLUB_STATS } from '@/lib/site/stats'
+import { INSTAGRAM, TIKTOK } from '@/lib/site/links'
+import { ContactForm } from '../_components/ContactForm'
+import { Icon } from '../_components/Icon'
+import { RotatingWord } from '../_components/RotatingWord'
+import { PageHero, SiteFooter } from '../_components/SiteChrome'
+
+export const metadata: Metadata = {
+  title: 'Community',
+  description: 'Join The Shuttle Social community: our WhatsApp group, Instagram and TikTok, the leaderboard and a suggestions box.',
+  alternates: { canonical: '/community' },
+}
+
+export default function CommunityPage() {
+  const whatsapp = CLUB_STATS.whatsapp.toLocaleString('en-GB')
+  return (
+    <>
+      <PageHero current="/community" kicker="Community"
+        srTitle="More than a game."
+        title={<>More than <RotatingWord words={['a game.', 'a club.', 'badminton.']} /></>}
+        lead={`${whatsapp}+ people in our WhatsApp community, and new faces every week.`}
+        chips={[<><Icon name="chat" size={18} />{whatsapp}+ on WhatsApp</>, <>New faces <strong>every week</strong></>, <><Icon name="bulb" size={18} />Your ideas welcome</>]}
+        strip={{ label: 'Our community', items: [[`${whatsapp}+`, 'on WhatsApp'], [`${CLUB_STATS.players}+`, 'different players'], [`${CLUB_STATS.regulars}+`, 'regulars'], ['All', 'levels welcome'], ['1', 'suggestions box, always open']] }}>
+        <a href="#suggestions" className="pill pill-cream">Share a suggestion</a>
+      </PageHero>
+
+      <main id="main">
+        <section className="sec" style={{ background: 'var(--s-week)' }} aria-labelledby="join-h">
+          <span className="decor decor-lime" data-parallax="0.35" aria-hidden="true" style={{ right: '6%', top: '10%', width: '7rem', height: '7rem' }} />
+          <div className="wrap">
+            <div className="head-row" data-reveal="">
+              <h2 id="join-h" className="disp h2">Join in</h2>
+            </div>
+            <div className="cards" data-reveal-stagger="">
+              <div className="card card-deep" data-reveal="">
+                <span className="icon"><Icon name="chat" /></span>
+                <h3 className="h3">WhatsApp community</h3>
+                <p>Session announcements and ticket releases land here first. The link is in our Instagram bio.</p>
+                <a href={INSTAGRAM} className="pill pill-cream small" style={{ alignSelf: 'flex-start' }}>Find the link</a>
+              </div>
+              <div className="card c-lime" data-reveal="">
+                <span className="icon"><Icon name="camera" /></span>
+                <h3 className="h3" style={{ fontWeight: 800 }}>Instagram &amp; TikTok</h3>
+                <p className="muted">Clips from the nights, results and what’s coming up.</p>
+                <span style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                  <a href={INSTAGRAM} className="pill pill-line small">Instagram</a>
+                  <a href={TIKTOK} className="pill pill-line small">TikTok</a>
+                </span>
+              </div>
+              <div className="card c-teal" data-reveal="">
+                <span className="icon"><Icon name="trophy" /></span>
+                <h3 className="h3" style={{ fontWeight: 800 }}>Leaderboard</h3>
+                <p className="muted">See who’s on form. You only appear if you switch it on in My portal.</p>
+                <a href="/leaderboard" className="pill pill-line small" style={{ alignSelf: 'flex-start' }}>View the leaderboard</a>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="sec" id="suggestions" style={{ background: 'var(--s-how)' }} aria-labelledby="sug-h">
+          <span className="decor decor-green" data-parallax="0.3" aria-hidden="true" style={{ left: '-6rem', top: '10%', width: '24rem', height: '24rem' }} />
+          <div className="wrap split">
+            <div data-reveal="" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <span className="kicker muted">Suggestions box</span>
+              <h2 id="sug-h" className="disp h2">Tell us what you think</h2>
+              <p className="lead muted">Advice, ideas, opinions, things we could do better. The community shapes the nights, so we’d love to hear it. You can stay anonymous.</p>
+            </div>
+            <div className="card card-deep static" data-reveal="" style={{ gap: '1.5rem' }}>
+              <ContactForm kind="suggestion" />
+            </div>
+          </div>
+        </section>
+      </main>
+      <SiteFooter />
+    </>
+  )
+}

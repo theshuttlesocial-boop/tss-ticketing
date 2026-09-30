@@ -7,16 +7,16 @@ import { Gallery, type Clip } from './_components/Gallery'
 import { HeroVisual } from './_components/HeroVisual'
 import { HowItWorks, type Step } from './_components/HowItWorks'
 import { RotatingWord } from './_components/RotatingWord'
-import { ThemeToggle } from '@/app/_design/ThemeToggle'
+import { Arrow, SiteFooter, SiteNav } from './_components/SiteChrome'
+import { ScrollText } from './_components/ScrollText'
+import { STORY } from '@/lib/site/story'
+import { BOOK, INSTAGRAM, TIKTOK } from '@/lib/site/links'
 
 // Availability and the session count refresh every minute.
 export const revalidate = 60
 
 export const metadata = { alternates: { canonical: '/' } }
 
-const BOOK = '/tickets'
-const INSTAGRAM = 'https://www.instagram.com/theshuttlesocial'
-const TIKTOK = 'https://www.tiktok.com/@theshuttlesocial'
 const WORDS = ['social.', 'competitive.', 'for beginners.', 'every week.']
 
 const INK = '#0F2A1A', CREAM = '#F4F7EC'
@@ -58,14 +58,6 @@ const CLIPS: Clip[] = [
 const fmt = (n: number) => n.toLocaleString('en-GB')
 /** CSS custom properties for an inline style. */
 const vars = (v: Record<`--${string}`, string | number>) => v as CSSProperties
-
-function Arrow() {
-  return (
-    <span className="book-arrow" aria-hidden="true">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#D9F46B" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
-    </span>
-  )
-}
 
 /** Next sessions for the "This week" cards: up to the next 7 days, else the next two coming up. */
 function pickUpcoming(sessions: PublicSession[], now = new Date()) {
@@ -128,19 +120,7 @@ export default async function Home() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c') }} />
       <div className="hero">
         <div className="hero-glow" aria-hidden="true" />
-        <header className="nav">
-          <a href="/" className="brand">the shuttle social</a>
-          <nav aria-label="Main" className="nav-links">
-            <a href="#sessions">Sessions</a>
-            <a href="#how">How it works</a>
-            <a href="#faqs">FAQs</a>
-            <a href={INSTAGRAM}>Instagram</a>
-          </nav>
-          <div className="nav-right">
-            <ThemeToggle />
-            <a href={BOOK} className="book small"><span className="book-long">Book a session</span><span className="book-short">Book</span><Arrow /></a>
-          </div>
-        </header>
+        <SiteNav />
 
         <div className="wrap hero-grid">
           <div className="hero-copy">
@@ -237,6 +217,22 @@ export default async function Home() {
           </div>
         </section>
 
+        <section className="sec story-sec" id="story" aria-labelledby="story-h">
+          <span className="decor decor-green" data-parallax="0.4" aria-hidden="true" style={{ right: '-6rem', top: '10%', width: '24rem', height: '24rem' }} />
+          <div className="wrap split">
+            <div data-reveal="" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', alignItems: 'flex-start' }}>
+              <span className="kicker muted">Since August 2025</span>
+              <h2 id="story-h" className="disp h2">Our story</h2>
+            </div>
+            <div>
+              <ScrollText paragraphs={STORY} />
+              <div className="story-sig" data-reveal="">
+                <a href="/join-us" className="pill pill-ghost small">Join us</a>
+              </div>
+            </div>
+          </div>
+        </section>
+
         <section className="sec" id="how" style={{ background: 'var(--s-how)' }} aria-labelledby="how-h">
           <HowItWorks steps={STEPS} />
         </section>
@@ -275,15 +271,7 @@ export default async function Home() {
         </section>
       </main>
 
-      <footer className="wrap foot">
-        <span>The Shuttle Social · <a href="mailto:theshuttlesocial@gmail.com">theshuttlesocial@gmail.com</a></span>
-        <nav aria-label="Footer">
-          <a href={INSTAGRAM}>Instagram</a>
-          <a href={TIKTOK}>TikTok</a>
-          <a href="/privacy">Privacy</a>
-          <span>No tracking cookies</span>
-        </nav>
-      </footer>
+      <SiteFooter />
     </>
   )
 }

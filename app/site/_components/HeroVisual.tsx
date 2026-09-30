@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
 import { shuttleGeometry } from '@/lib/site/shuttle'
+import { Icon } from './Icon'
 
 const ROUND_SECS = 480
 const RING = 339.3 // circumference of r=54
@@ -106,7 +107,7 @@ export function HeroVisual() {
         </g>
       </svg>
 
-      <div className="chip chip-a" aria-hidden="true"><span>✓</span>Checked in</div>
+      <div className="chip chip-a" aria-hidden="true"><span><Icon name="check" size={13} /></span>Checked in</div>
       <div className="chip chip-b" aria-hidden="true">Next up · <strong>new partner</strong></div>
       <div className="chip chip-c" aria-hidden="true">Grand final at the end of the night</div>
     </div>

@@ -88,7 +88,12 @@
 .tss .t-foot-links { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; color: var(--muted); font-size: var(--fs-small); }
 .tss .t-foot-links nav { display: flex; gap: 1.25rem; flex-wrap: wrap; }
 
+/* Top-left: Home, styled like the homepage's "See this week" button */
+.tss .nav:has(.t-home) { padding-left: 0.5rem; }
+.tss .nav .t-home { padding: 0.8em 1.6em; }
+
 @media (max-width: 767px) {
+  .tss .nav .t-home { padding: 0.7em 1.3em; }
   .tss .t-actions > * { flex: 1 1 100%; justify-content: space-between; }
   .tss .nav .t-pill-nav { padding: 0.75em 1em; }
   /* Keep brand, My portal and the theme switch on one line on small phones */

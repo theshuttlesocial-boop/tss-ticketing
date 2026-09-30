@@ -7,7 +7,7 @@ export type Step = { title: string; body: string; kicker: string; big: string; s
  * Heading and phone-card visual pin (CSS sticky) while the three steps scroll past;
  * the card shows whichever step is in the middle of the screen.
  */
-export function HowItWorks({ steps }: { steps: Step[] }) {
+export function HowItWorks({ steps, title = 'How a night works', headingId = 'how-h', intro }: { steps: Step[]; title?: string; headingId?: string; intro?: string }) {
   const [active, setActive] = useState(0)
   const list = useRef<HTMLOListElement>(null)
 
@@ -25,7 +25,8 @@ export function HowItWorks({ steps }: { steps: Step[] }) {
   return (
     <div className="wrap how">
       <div className="how-pin" data-reveal="">
-        <h2 id="how-h" className="disp h2">How a night works</h2>
+        <h2 id={headingId} className="disp h2">{title}</h2>
+        {intro && <p className="lead muted" style={{ maxWidth: '34ch' }}>{intro}</p>}
         <div className="how-vis" aria-hidden="true">
           <span className="decor how-glow" />
           <div className="how-card" key={active}>
