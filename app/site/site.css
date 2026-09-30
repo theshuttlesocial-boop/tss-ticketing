@@ -191,7 +191,12 @@ body:has(.tss) { background: #F6F7F1 !important; }
 
 /* Stats strip (animated in stage 6) */
 .tss .strip { position: relative; padding: 2.125rem 0 2.375rem; overflow: hidden; }
-.tss .strip-track { display: flex; gap: 0.875rem; width: max-content; padding-inline: var(--gutter); }
+.tss .strip-track { display: flex; width: max-content; animation: tss-marq 48s linear infinite; }
+.tss .strip:hover .strip-track { animation-play-state: paused; }
+.tss .strip-set { display: flex; list-style: none; margin: 0; padding: 0; }
+/* margin, not gap, so each copy is exactly half the track and the loop is seamless */
+.tss .strip-set li { display: flex; align-items: center; gap: 0.875rem; margin-right: 0.875rem; }
+.tss .mchip:hover { transform: rotate(0deg) scale(1.05); }
 .tss .mchip { flex: 0 0 auto; display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1.375rem 0.75rem 1.125rem; border-radius: 1.25rem; box-shadow: 0 12px 24px -16px rgba(0, 0, 0, 0.5); transform: rotate(var(--rot, 0deg)); transition: transform 0.3s var(--ease); }
 .tss .mchip .num { font-size: clamp(1.75rem, 2.6vw, 2.5rem); letter-spacing: -0.03em; }
 .tss .mchip .mt { font-size: var(--fs-small); font-weight: 700; line-height: 1.2; max-width: 15ch; }
@@ -282,10 +287,14 @@ body:has(.tss) { background: #F6F7F1 !important; }
 }
 .tss-js .tss [data-reveal][data-shown] { opacity: 1; translate: none; }
 .tss .decor { position: absolute; pointer-events: none; border-radius: 50%; will-change: transform; }
+.tss .decor-lime { background: radial-gradient(circle, rgba(217, 244, 107, 0.55), rgba(217, 244, 107, 0) 70%); }
+.tss .decor-green { background: radial-gradient(circle, rgba(46, 139, 87, 0.45), rgba(46, 139, 87, 0) 70%); }
+.tss .sec > .wrap, .tss .sec > .how { position: relative; }
 
 @keyframes tss-shine { 0%, 55% { transform: translateX(-130%); } 85%, 100% { transform: translateX(130%); } }
 @keyframes tss-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
 @keyframes tss-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@keyframes tss-marq { from { transform: translateX(0); } to { transform: translateX(-50%); } }
 @keyframes tss-drift { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(2.5rem, -1.875rem) scale(1.12); } }
 @keyframes tss-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
 
@@ -318,4 +327,6 @@ body:has(.tss) { background: #F6F7F1 !important; }
 @media (prefers-reduced-motion: reduce) {
   .tss *, .tss *::before, .tss *::after { animation: none !important; transition: none !important; }
   .tss-js .tss [data-reveal] { opacity: 1; translate: none; }
+  .tss .strip { overflow-x: auto; }
+  .tss .strip-set[aria-hidden] { display: none; }
 }

@@ -138,22 +138,27 @@ export default async function Home() {
           <HeroVisual />
         </div>
 
-        <div className="strip" aria-label="The Shuttle Social in numbers">
-          <ul className="strip-track" style={{ listStyle: 'none', margin: 0 }}>
-            {strip.map((m) => (
-              <li key={m.t} style={{ display: 'flex', gap: '0.875rem', alignItems: 'center' }}>
-                <span className="mchip" style={{ background: m.background, color: m.color, ...vars({ '--rot': `${m.rot}deg` }) }}>
-                  <span className="num" style={{ color: m.nc }}>{m.n}</span><span className="mt">{m.t}</span>
-                </span>
-                <svg className="msep" viewBox="0 0 40 40" aria-hidden="true"><path d="M20 4l4.2 11.8L36 20l-11.8 4.2L20 36l-4.2-11.8L4 20l11.8-4.2z" fill="#D9F46B" /></svg>
-              </li>
+        <div className="strip" role="region" aria-label="The Shuttle Social in numbers">
+          <div className="strip-track">
+            {[false, true].map((copy) => (
+              <ul key={String(copy)} className="strip-set" aria-hidden={copy || undefined}>
+                {strip.map((m) => (
+                  <li key={m.t}>
+                    <span className="mchip" style={{ background: m.background, color: m.color, ...vars({ '--rot': `${m.rot}deg` }) }}>
+                      <span className="num" style={{ color: m.nc }}>{m.n}</span><span className="mt">{m.t}</span>
+                    </span>
+                    <svg className="msep" viewBox="0 0 40 40" aria-hidden="true"><path d="M20 4l4.2 11.8L36 20l-11.8 4.2L20 36l-4.2-11.8L4 20l11.8-4.2z" fill="#D9F46B" /></svg>
+                  </li>
+                ))}
+              </ul>
             ))}
-          </ul>
+          </div>
         </div>
       </div>
 
       <main id="main">
         <section className="sec" id="sessions" style={{ background: 'var(--s-week)' }} aria-labelledby="week-h">
+          <span className="decor decor-lime" data-parallax="0.35" aria-hidden="true" style={{ right: '6%', top: '14%', width: '7rem', height: '7rem' }} />
           <div className="wrap">
             <div className="head-row" data-reveal="">
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
@@ -193,6 +198,8 @@ export default async function Home() {
         </section>
 
         <section className="sec stats" aria-labelledby="stats-h">
+          <span className="decor decor-green" data-parallax="0.45" aria-hidden="true" style={{ left: '-5rem', bottom: '8%', width: '22rem', height: '22rem' }} />
+          <span className="decor decor-lime" data-parallax="0.3" aria-hidden="true" style={{ right: '4%', top: '10%', width: '9rem', height: '9rem', opacity: 0.5 }} />
           <div className="wrap">
             <div className="head-row" data-reveal="">
               <h2 id="stats-h" className="disp h2">One year on court.</h2>
@@ -215,6 +222,7 @@ export default async function Home() {
         </section>
 
         <section className="sec faq-sec" id="faqs" aria-labelledby="faq-h">
+          <span className="decor decor-lime" data-parallax="0.4" aria-hidden="true" style={{ right: '-10rem', top: '-6rem', width: '32rem', height: '32rem', opacity: 0.6 }} />
           <div className="wrap faq">
             <div data-reveal="" style={{ display: 'flex', flexDirection: 'column', gap: '1.125rem', alignItems: 'flex-start' }}>
               <h2 id="faq-h" className="disp h2 faq-title">FAQs</h2>
@@ -236,6 +244,7 @@ export default async function Home() {
         </Gallery>
 
         <section className="sec cta-sec" aria-labelledby="cta-h">
+          <span className="decor decor-lime" data-parallax="0.35" aria-hidden="true" style={{ left: '38%', top: '20%', width: '6rem', height: '6rem', opacity: 0.7 }} />
           <div className="wrap cta" data-reveal="">
             <h2 id="cta-h" className="disp h1">See you<br />on court.</h2>
             <div className="cta-side">
