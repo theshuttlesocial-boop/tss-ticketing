@@ -3,7 +3,7 @@ import { Suspense, useCallback, useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase-client'
 import { authHeader } from '@/lib/accountClient'
-import { T, inp, btn, cardStyle } from '../live/_components/theme'
+import { T, inp, btn, cardStyle } from '@/app/_design/theme'
 import { LEVEL_INFO } from '@/lib/live-session/levels'
 import { InstallApp } from '../_components/InstallApp'
 
@@ -16,8 +16,8 @@ type Me = {
   }
 }
 
-const wrap: React.CSSProperties = { minHeight:'100vh', background:T.bg, color:T.text, padding:'28px 18px 48px',
-  fontFamily:'DM Sans, system-ui, sans-serif', boxSizing:'border-box', maxWidth:560, margin:'0 auto' }
+const wrap: React.CSSProperties = { color:T.text, padding:'28px 18px 48px',
+  fontFamily:'inherit', boxSizing:'border-box', maxWidth:560, margin:'0 auto' }
 const day = (d: string) => new Date(d + (d.length === 10 ? 'T12:00:00' : '')).toLocaleDateString('en-GB', { weekday:'short', day:'numeric', month:'short' })
 
 export default function AccountPage() {
@@ -68,12 +68,12 @@ function Account() {
   if (state === 'loading') return <div style={{ ...wrap, color:T.muted }}>Loading…</div>
 
   const err = error && <div role="alert" style={{ background:T.dangerDim, border:`1px solid ${T.danger}`, color:T.danger,
-    padding:'10px 14px', borderRadius:8, marginBottom:14, fontSize:14 }}>{error}</div>
+    padding:'10px 14px', borderRadius:14, marginBottom:14, fontSize:14 }}>{error}</div>
 
   if (state === 'email' || state === 'code') return (
     <div style={wrap}>
       <a href="/tickets" style={{ color:T.muted, fontSize:14, textDecoration:'none' }}>← Sessions</a>
-      <h1 style={{ fontSize:30, fontWeight:900, margin:'14px 0 6px' }}>Your TSS account</h1>
+      <h1 style={{ fontSize:36, fontWeight:900, letterSpacing:'-0.03em', margin:'14px 0 6px' }}>My portal</h1>
       <p style={{ color:T.muted, fontSize:14, lineHeight:1.5, margin:'0 0 20px' }}>
         Use the email you book with — your bookings appear straight away. We&apos;ll email you a sign-in code; there&apos;s no password.
         We use your email only to sign you in and show your bookings (<a href="/privacy" style={{ color:T.accent }}>privacy</a>).
@@ -113,7 +113,7 @@ function Account() {
         <a href="/tickets" style={{ color:T.muted, fontSize:14, textDecoration:'none' }}>← Sessions</a>
         <button style={{ ...btn(), padding:'8px 12px', fontSize:13 }} onClick={signOut}>Sign out</button>
       </div>
-      <h1 style={{ fontSize:30, fontWeight:900, margin:'14px 0 2px' }}>
+      <h1 style={{ fontSize:36, fontWeight:900, letterSpacing:'-0.03em', margin:'14px 0 2px' }}>
         {me!.profile.firstName ? `Hi ${me!.profile.firstName}` : 'My sessions'}
       </h1>
       <p style={{ color:T.muted, fontSize:13, margin:'0 0 18px' }}>{me!.profile.email}</p>
@@ -193,7 +193,7 @@ function YourData({ onDeleted }: { onDeleted: () => void }) {
         {!confirming ? (
           <button style={{ ...btn('danger'), minHeight:44 }} onClick={() => setConfirming(true)}>Delete my account</button>
         ) : (
-          <div style={{ background:T.dangerDim, border:`1px solid ${T.danger}`, borderRadius:10, padding:12 }}>
+          <div style={{ background:T.dangerDim, border:`1px solid ${T.danger}`, borderRadius:18, padding:14 }}>
             <p style={{ fontSize:14, margin:'0 0 8px', lineHeight:1.5 }}>
               This deletes your account and sign-in straight away. In past sessions you&apos;ll show as &ldquo;Former player&rdquo;,
               so other people&apos;s results stay correct. Your bookings and payment records are kept for 6 years, as the law requires.
@@ -253,7 +253,7 @@ function LeaderboardToggle({ on, onSaved }: { on: boolean; onSaved: () => void }
   return (
     <section style={{ ...cardStyle, padding:14 }}>
       <label style={{ display:'flex', gap:12, alignItems:'flex-start', cursor:'pointer' }}>
-        <input type="checkbox" checked={on} disabled={busy} onChange={(e) => set(e.target.checked)} style={{ width:22, height:22, marginTop:2 }} />
+        <input type="checkbox" checked={on} disabled={busy} onChange={(e) => set(e.target.checked)} style={{ width:22, height:22, marginTop:2, accentColor:'var(--accent)' }} />
         <span>
           <strong style={{ fontSize:15 }}>Show me on the public <a href="/leaderboard" style={{ color:T.accent }}>leaderboard</a></strong>
           <span style={{ display:'block', color:T.muted, fontSize:13, marginTop:3, lineHeight:1.45 }}>
@@ -274,7 +274,7 @@ const Section = ({ title, children }: { title: string; children: React.ReactNode
 )
 const Empty = ({ children }: { children: React.ReactNode }) => <div style={{ color:T.muted, fontSize:14 }}>{children}</div>
 const Row = ({ title, sub, right, link, linkLabel }: { title: string; sub: string; right?: React.ReactNode; link?: string; linkLabel?: string }) => (
-  <div style={{ background:T.card, border:`1px solid ${T.border}`, borderRadius:10, padding:'12px 14px', display:'flex', alignItems:'center', gap:10 }}>
+  <div style={{ background:T.card, border:`1px solid ${T.border}`, borderRadius:18, padding:'14px 16px', display:'flex', alignItems:'center', gap:10 }}>
     <div style={{ flex:1, minWidth:0 }}>
       <div style={{ fontWeight:700, fontSize:15 }}>{title}</div>
       <div style={{ color:T.muted, fontSize:13, marginTop:2 }}>{sub}</div>

@@ -6,7 +6,8 @@ export const metadata: Metadata = {
   description: 'The TSS Rating in plain English: where you start, how each game moves it, and why beating a stronger pair counts for more.',
 }
 
-const C = { bg:'#080f08', card:'#0f180f', border:'#1e3220', text:'#edf5ed', muted:'#8aa88a', accent:'#6fcf40' }
+// Colours come from the V5 design system (AppFrame), so the page follows light/dark mode.
+const C = { bg:'var(--page)', card:'var(--card)', border:'var(--line)', text:'var(--ink)', muted:'var(--muted)', accent:'var(--accent)' }
 const H = ({ children }: { children: React.ReactNode }) => <h2 style={{ fontSize:19, fontWeight:800, margin:'26px 0 8px' }}>{children}</h2>
 const P = ({ children }: { children: React.ReactNode }) => <p style={{ margin:'0 0 10px' }}>{children}</p>
 
@@ -14,12 +15,12 @@ const P = ({ children }: { children: React.ReactNode }) => <p style={{ margin:'0
 export default function RatingsPage() {
   const s = RATING_V2.start, v = RATING_V2.volatility
   return (
-    <main style={{ minHeight:'100vh', background:C.bg, color:C.text, fontFamily:'DM Sans, system-ui, sans-serif',
+    <main style={{ color:C.text, fontFamily:'inherit',
       padding:'28px 18px 60px', boxSizing:'border-box', fontSize:15, lineHeight:1.6 }}>
       <div style={{ maxWidth:640, margin:'0 auto' }}>
         <a href="/tickets" style={{ color:C.muted, fontSize:14, textDecoration:'none' }}>← Sessions</a>
-        <h1 style={{ fontSize:32, fontWeight:900, margin:'14px 0 6px' }}>How your rating works</h1>
-        <p style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:10, padding:'10px 12px', color:C.muted, fontSize:14 }}>
+        <h1 style={{ fontSize:38, fontWeight:900, letterSpacing:'-0.03em', margin:'14px 0 6px' }}>How your rating works</h1>
+        <p style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:18, padding:'12px 14px', color:C.muted, fontSize:14 }}>
           We&apos;re trying this rating out behind the scenes before switching over, so what you see on the night may
           still use the older one for a few more weeks.
         </p>

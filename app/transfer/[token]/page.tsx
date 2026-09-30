@@ -1,12 +1,8 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
+import { T, doneMark } from '@/app/_design/theme'
 
-const T = {
-  bg:'#080f08', card:'#0f180f', card2:'#142014', border:'#1e3220',
-  accent:'#6fcf40', accentDim:'rgba(111,207,64,0.1)', accentBorder:'rgba(111,207,64,0.25)',
-  text:'#edf5ed', muted:'#6b8a6b', danger:'#e05555', dangerDim:'rgba(224,85,85,0.1)',
-}
 const fmtDate = (d:string) => new Date(d).toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'})
 
 interface Info { status:'pending'|'confirmed'|'expired'|'invalid'; fromName?:string; toName?:string; session?:{title:string;date:string;time:string;venue:string} }
@@ -34,19 +30,19 @@ export default function TransferConfirmPage(){
     finally{setLoading(false)}
   }
 
-  const panel:React.CSSProperties={background:T.card,border:`1px solid ${T.border}`,borderRadius:14,padding:24,textAlign:'center'}
+  const panel:React.CSSProperties={background:T.card,border:`1px solid ${T.border}`,borderRadius:24,padding:26,textAlign:'center'}
 
   return(
-    <div style={{minHeight:'100vh',background:T.bg,color:T.text,fontFamily:'system-ui,sans-serif',display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
+    <div style={{minHeight:'60vh',color:T.text,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
       <div style={{width:'100%',maxWidth:460}}>
         {!info&&<div style={{...panel,color:T.muted}}>Loading…</div>}
 
         {info&&confirmed&&(
           <div style={panel}>
-            <div style={{fontSize:44,marginBottom:12}}>🏸</div>
+            <div style={doneMark}>✓</div>
             <div style={{fontSize:22,fontWeight:900,color:T.accent,marginBottom:8}}>You're confirmed!</div>
             <p style={{color:T.muted,fontSize:14,lineHeight:1.7}}>The spot is yours. We've emailed you the booking details. See you on court!</p>
-            <a href="/tickets" style={{display:'inline-block',marginTop:20,padding:'12px 24px',background:T.accent,color:'#080f08',borderRadius:10,fontWeight:700,fontSize:14,textDecoration:'none'}}>View sessions</a>
+            <a href="/tickets" style={{display:'inline-block',marginTop:20,padding:'12px 24px',background:T.cta,color:T.onCta,boxShadow:T.ctaGlow,borderRadius:999,fontWeight:700,fontSize:14,textDecoration:'none'}}>View sessions</a>
           </div>
         )}
 
@@ -54,12 +50,12 @@ export default function TransferConfirmPage(){
           <div style={panel}>
             <div style={{fontSize:22,fontWeight:900,color:T.accent,marginBottom:6}}>You've been offered a spot</div>
             <p style={{color:T.muted,fontSize:14,marginBottom:18}}><strong style={{color:T.text}}>{info.fromName}</strong> would like you to take their place.</p>
-            <div style={{background:T.card2,borderRadius:10,padding:16,textAlign:'left',marginBottom:18}}>
+            <div style={{background:T.card2,borderRadius:18,padding:16,textAlign:'left',marginBottom:18}}>
               <div style={{fontWeight:700,fontSize:16,marginBottom:6}}>{info.session.title}</div>
               <div style={{fontSize:13,color:T.muted,lineHeight:1.7}}>{fmtDate(info.session.date)}, {info.session.time}<br/>{info.session.venue}</div>
             </div>
             {error&&<div style={{marginBottom:12,padding:'10px 12px',background:T.dangerDim,color:T.danger,borderRadius:8,fontSize:13}}>{error}</div>}
-            <button onClick={confirm} disabled={loading} style={{width:'100%',padding:'14px',minHeight:52,borderRadius:10,border:'none',background:loading?T.border:T.accent,color:loading?T.muted:'#080f08',fontWeight:800,fontSize:16,cursor:loading?'default':'pointer',fontFamily:'inherit'}}>
+            <button onClick={confirm} disabled={loading} style={{width:'100%',padding:'14px',minHeight:52,borderRadius:999,border:'none',background:T.cta,color:T.onCta,boxShadow:T.ctaGlow,fontWeight:800,fontSize:16,cursor:loading?'default':'pointer',fontFamily:'inherit'}}>
               {loading?'Confirming…':'Confirm my place →'}
             </button>
           </div>

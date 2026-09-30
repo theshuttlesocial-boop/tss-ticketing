@@ -733,7 +733,7 @@ export default function TicketsPage() {
 
       <div className="t-hero">
         <header className="nav">
-          <a href="/tickets" className="brand">the shuttle social</a>
+          <a href="https://theshuttlesocial.com" className="brand" aria-label="The Shuttle Social home">the shuttle social</a>
           <div className="nav-right">
             <a href="/account" className="book small">My portal<Arrow/></a>
             <ThemeToggle/>
@@ -789,6 +789,7 @@ export default function TicketsPage() {
         <div className="t-foot-links">
           <span>The Shuttle Social</span>
           <nav aria-label="Footer">
+            <a href="https://theshuttlesocial.com">Home</a>
             <a href={INSTAGRAM} target="_blank" rel="noopener">Instagram</a>
             <a href={TIKTOK} target="_blank" rel="noopener">TikTok</a>
             <a href="/privacy">Privacy</a>

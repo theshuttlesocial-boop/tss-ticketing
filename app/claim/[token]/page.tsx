@@ -3,16 +3,12 @@ import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { loadStripe } from '@stripe/stripe-js'
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js'
+import { T, doneMark, stripeAppearance } from '@/app/_design/theme'
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
 
-const T = {
-  bg:'#080f08', card:'#0f180f', card2:'#142014', border:'#1e3220',
-  accent:'#6fcf40', accentDim:'rgba(111,207,64,0.1)', accentBorder:'rgba(111,207,64,0.25)',
-  text:'#edf5ed', muted:'#6b8a6b', danger:'#e05555', dangerDim:'rgba(224,85,85,0.1)',
-}
 const fmtDate = (d:string) => new Date(d).toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'})
-const panel:React.CSSProperties={background:T.card,border:`1px solid ${T.border}`,borderRadius:14,padding:22,marginBottom:16}
+const panel:React.CSSProperties={background:T.card,border:`1px solid ${T.border}`,borderRadius:24,padding:24,marginBottom:16}
 
 interface Offer{ status:'valid'|'expired'|'claimed'|'invalid'; spaces:number; name:string; email:string; phone:string
   claimExpiresAt?:string; session?:{id:string;title:string;date:string;time:string;venue:string;label?:string} }
@@ -48,7 +44,7 @@ export default function ClaimPage(){
   }
 
   const panelWrap=(children:React.ReactNode)=>(
-    <div style={{minHeight:'100vh',background:T.bg,color:T.text,fontFamily:'system-ui,sans-serif',display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
+    <div style={{minHeight:'60vh',color:T.text,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
       <div style={{width:'100%',maxWidth:460}}>{children}</div>
     </div>
   )
@@ -57,10 +53,10 @@ export default function ClaimPage(){
 
   if(done) return panelWrap(
     <div style={{...panel,textAlign:'center'}}>
-      <div style={{fontSize:44,marginBottom:12}}>🏸</div>
+      <div style={doneMark}>✓</div>
       <div style={{fontSize:22,fontWeight:900,color:T.accent,marginBottom:8}}>You're in!</div>
       <p style={{color:T.muted,fontSize:14,lineHeight:1.7}}>Your spot is confirmed and we've emailed your booking details. See you on court!</p>
-      <a href="/tickets" style={{display:'inline-block',marginTop:20,padding:'12px 24px',background:T.accent,color:'#080f08',borderRadius:10,fontWeight:700,fontSize:14,textDecoration:'none'}}>View sessions</a>
+      <a href="/tickets" style={{display:'inline-block',marginTop:20,padding:'12px 24px',background:T.cta,color:T.onCta,boxShadow:T.ctaGlow,borderRadius:999,fontWeight:700,fontSize:14,textDecoration:'none'}}>View sessions</a>
     </div>
   )
 
@@ -68,7 +64,7 @@ export default function ClaimPage(){
     <div style={{...panel,textAlign:'center'}}>
       <div style={{fontSize:20,fontWeight:800,color:T.text,marginBottom:8}}>Sorry, that one's gone</div>
       <p style={{color:T.muted,fontSize:14,lineHeight:1.7}}>Someone claimed it first — but you're still on the waitlist and we'll message you if another spot opens up.</p>
-      <a href="/tickets" style={{display:'inline-block',marginTop:20,padding:'12px 24px',background:T.accent,color:'#080f08',borderRadius:10,fontWeight:700,fontSize:14,textDecoration:'none'}}>Back to sessions</a>
+      <a href="/tickets" style={{display:'inline-block',marginTop:20,padding:'12px 24px',background:T.cta,color:T.onCta,boxShadow:T.ctaGlow,borderRadius:999,fontWeight:700,fontSize:14,textDecoration:'none'}}>Back to sessions</a>
     </div>
   )
 
@@ -80,7 +76,7 @@ export default function ClaimPage(){
     <div style={panel}>
       <div style={{fontSize:22,fontWeight:900,color:T.accent,marginBottom:6}}>A spot's open for you!</div>
       <p style={{color:T.muted,fontSize:14,marginBottom:16}}>Claim {offer.spaces} space{offer.spaces>1?'s':''} — first to pay keeps it.</p>
-      <div style={{background:T.card2,borderRadius:10,padding:16,marginBottom:16}}>
+      <div style={{background:T.card2,borderRadius:18,padding:16,marginBottom:16}}>
         {offer.session.label&&<span style={{background:T.accentDim,color:T.accent,fontSize:11,fontWeight:700,padding:'2px 8px',borderRadius:20,border:`1px solid ${T.accentBorder}`,marginBottom:8,display:'inline-block'}}>{offer.session.label} London</span>}
         <div style={{fontWeight:800,fontSize:16}}>{offer.session.title}</div>
         <div style={{fontSize:13,color:T.muted,marginTop:6,lineHeight:1.7}}>{fmtDate(offer.session.date)}, {offer.session.time}<br/>{offer.session.venue}</div>
@@ -89,7 +85,7 @@ export default function ClaimPage(){
       {error&&<div style={{marginBottom:12,padding:'10px 12px',background:T.dangerDim,color:T.danger,borderRadius:8,fontSize:13}}>{error}</div>}
 
       {!clientSecret?(
-        <button onClick={startCheckout} disabled={starting} style={{width:'100%',padding:'14px',minHeight:52,borderRadius:10,border:'none',background:starting?T.border:T.accent,color:starting?T.muted:'#080f08',fontWeight:800,fontSize:16,cursor:starting?'default':'pointer',fontFamily:'inherit'}}>
+        <button onClick={startCheckout} disabled={starting} style={{width:'100%',padding:'14px',minHeight:52,borderRadius:999,border:'none',background:T.cta,color:T.onCta,boxShadow:T.ctaGlow,fontWeight:800,fontSize:16,cursor:starting?'default':'pointer',fontFamily:'inherit'}}>
           {starting?'Holding your spot…':'Claim & pay →'}
         </button>
       ):(
@@ -100,7 +96,8 @@ export default function ClaimPage(){
 }
 
 function ClaimCheckout({clientSecret,onSuccess,onGone}:{clientSecret:string;onSuccess:()=>void;onGone:()=>void}){
-  const options=useMemo(()=>({clientSecret,appearance:{theme:'night' as const,variables:{colorPrimary:T.accent,colorBackground:T.card,colorText:T.text,borderRadius:'8px'}}}),[clientSecret])
+  // Stripe needs real colours, not CSS variables: match the current light/dark theme.
+  const options=useMemo(()=>({clientSecret,...stripeAppearance()}),[clientSecret])
   return <Elements stripe={stripePromise} options={options}><ClaimForm onSuccess={onSuccess} onGone={onGone}/></Elements>
 }
 
@@ -123,7 +120,7 @@ function ClaimForm({onSuccess,onGone}:{onSuccess:()=>void;onGone:()=>void}){
       <PaymentElement options={{layout:'accordion'}} onReady={()=>setReady(true)}/>
       {!ready&&<div style={{marginTop:10,padding:'10px 14px',background:T.card2,border:`1px solid ${T.border}`,borderRadius:8,color:T.muted,fontSize:13,textAlign:'center'}}>Loading payment form...</div>}
       {error&&<div style={{marginTop:12,padding:'10px 14px',background:T.dangerDim,color:T.danger,borderRadius:8,fontSize:13}}>{error}</div>}
-      <button onClick={pay} disabled={paying||!stripe||!ready} style={{marginTop:16,width:'100%',padding:'16px',minHeight:56,borderRadius:10,background:(paying||!ready)?T.border:T.accent,color:(paying||!ready)?T.muted:'#080f08',border:'none',fontWeight:800,fontSize:18,cursor:(paying||!ready)?'default':'pointer',fontFamily:'inherit'}}>
+      <button onClick={pay} disabled={paying||!stripe||!ready} style={{marginTop:16,width:'100%',padding:'16px',minHeight:56,borderRadius:999,background:T.cta,color:T.onCta,boxShadow:T.ctaGlow,border:'none',fontWeight:800,fontSize:18,cursor:(paying||!ready)?'default':'pointer',fontFamily:'inherit'}}>
         {paying?'Processing…':!ready?'Loading…':'Confirm & Pay →'}
       </button>
     </div>

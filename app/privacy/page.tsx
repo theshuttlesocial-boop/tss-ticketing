@@ -5,7 +5,8 @@ export const metadata: Metadata = {
   description: 'What The Shuttle Social collects, why, who it is shared with, how long it is kept, and your rights.',
 }
 
-const C = { bg:'#080f08', card:'#0f180f', border:'#1e3220', text:'#edf5ed', muted:'#8aa88a', accent:'#6fcf40' }
+// Colours come from the V5 design system (AppFrame), so the page follows light/dark mode.
+const C = { bg:'var(--page)', card:'var(--card)', border:'var(--line)', text:'var(--ink)', muted:'var(--muted)', accent:'var(--accent)' }
 const H = ({ children }: { children: React.ReactNode }) => <h2 style={{ fontSize:19, fontWeight:800, margin:'28px 0 8px' }}>{children}</h2>
 const P = ({ children }: { children: React.ReactNode }) => <p style={{ margin:'0 0 10px' }}>{children}</p>
 const CONTACT = 'theshuttlesocial@gmail.com'
@@ -16,11 +17,11 @@ const CONTACT = 'theshuttlesocial@gmail.com'
  */
 export default function PrivacyPage() {
   return (
-    <main style={{ minHeight:'100vh', background:C.bg, color:C.text, fontFamily:'DM Sans, system-ui, sans-serif',
+    <main style={{ color:C.text, fontFamily:'inherit',
       padding:'28px 18px 60px', boxSizing:'border-box', fontSize:15, lineHeight:1.6 }}>
       <div style={{ maxWidth:680, margin:'0 auto' }}>
         <a href="/tickets" style={{ color:C.muted, fontSize:14, textDecoration:'none' }}>← Sessions</a>
-        <h1 style={{ fontSize:32, fontWeight:900, margin:'14px 0 4px' }}>Privacy</h1>
+        <h1 style={{ fontSize:38, fontWeight:900, letterSpacing:'-0.03em', margin:'14px 0 4px' }}>Privacy</h1>
         <p style={{ color:C.muted, margin:'0 0 8px' }}>Last updated 29 September 2026</p>
         <P>
           The Shuttle Social (&ldquo;we&rdquo;) runs social badminton sessions in London and this website. We are responsible
@@ -82,7 +83,7 @@ export default function PrivacyPage() {
         <H>Your rights</H>
         <P>
           You can ask for a copy of your data, ask us to correct it, delete it, or stop using it, and object to how we use it.
-          If you have an account, <a href="/account" style={{ color:C.accent }}>My TSS</a> lets you download your data and delete your
+          If you have an account, <a href="/account" style={{ color:C.accent }}>My portal</a> lets you download your data and delete your
           account yourself. Deleting your account removes your sign-in and account, and your live-session results become
           &ldquo;Former player&rdquo; so other people&apos;s results stay correct. Payment records are kept for the 6 years the law requires.
           For anything else, email <a href={`mailto:${CONTACT}`} style={{ color:C.accent }}>{CONTACT}</a>; we&apos;ll reply within one month.

@@ -1,6 +1,7 @@
 /*
  * Tickets page (tickets.theshuttlesocial.com/tickets) in the V5 design.
- * Tokens, type, buttons and dark mode come from app/_design/tss.css.
+ * Tokens, type, buttons and dark mode come from app/_design/tss.css; buttons, forms
+ * and pop-ups shared with other app screens come from app/_design/app.css.
  */
 
 /* ── Hero band ──────────────────────────────────────────── */
@@ -76,59 +77,6 @@
 .tss .t-loading .dot-row span { width: 0.625rem; height: 0.625rem; border-radius: 50%; background: var(--accent); animation: tss-pulse 1.2s infinite; }
 .tss .t-loading .dot-row span:nth-child(2) { animation-delay: 0.2s; }
 .tss .t-loading .dot-row span:nth-child(3) { animation-delay: 0.4s; }
-
-/* ── Buttons ────────────────────────────────────────────── */
-.tss .book.t-wide { width: 100%; justify-content: space-between; font-size: 1.125rem; min-height: 3.5rem; border: 0; cursor: pointer; }
-.tss .book:disabled { cursor: default; opacity: 0.5; box-shadow: none; transform: none; }
-.tss .book:disabled::after { animation: none; }
-.tss .t-btn { display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; min-height: 3rem; padding: 0.75rem 1.5rem; border-radius: 999px; border: 0; font-weight: 800; cursor: pointer; text-decoration: none; transition: transform 0.3s var(--ease), opacity 0.2s; }
-.tss .t-btn:hover:not(:disabled) { transform: translateY(-2px); }
-.tss .t-btn:disabled { opacity: 0.45; cursor: default; }
-.tss .t-btn-ink { background: var(--ink); color: var(--page); }
-.tss .t-btn-line { background: transparent; border: 1px solid var(--line); color: var(--ink); }
-.tss .t-btn-block { width: 100%; }
-
-/* ── Pop-ups (booking, waitlist, terms) ─────────────────── */
-.tss .t-overlay { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 1rem; background: var(--overlay); }
-.tss .t-overlay.top { z-index: 2000; }
-.tss .t-modal { position: relative; width: 100%; max-width: 30rem; max-height: 92vh; overflow-y: auto; padding: clamp(1.5rem, 4vw, 2rem); border-radius: 1.75rem; background: var(--card); color: var(--ink); box-shadow: 0 40px 80px -30px rgba(0, 0, 0, 0.55); animation: tss-in 0.3s var(--ease); }
-.tss .t-modal.wide { max-width: 34rem; max-height: 80vh; }
-.tss .t-close { position: absolute; top: 1rem; right: 1rem; width: 2.5rem; height: 2.5rem; border-radius: 50%; border: 1px solid var(--line); background: var(--card); color: var(--muted); font-size: 1rem; cursor: pointer; display: grid; place-items: center; }
-.tss .t-modal-h { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1.25rem; padding-right: 2.5rem; }
-.tss .t-modal-title { font-size: clamp(1.5rem, 3vw, 1.875rem); font-weight: 800; letter-spacing: -0.03em; line-height: 1.1; }
-.tss .t-field-row { margin-bottom: 0.875rem; }
-.tss .t-label { display: block; margin-bottom: 0.375rem; font-size: var(--fs-small); font-weight: 700; color: var(--muted); }
-.tss .t-input { width: 100%; padding: 0.75rem 1rem; border-radius: 0.875rem; border: 1px solid var(--line); background: var(--field); color: var(--ink); font: inherit; font-size: 1rem; outline: none; transition: border-color 0.2s, box-shadow 0.2s; }
-.tss .t-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); }
-.tss .t-input::placeholder { color: var(--muted); opacity: 0.7; }
-.tss .t-choices { display: flex; gap: 0.5rem; }
-.tss .t-choice { flex: 1; min-height: 3rem; border-radius: 0.875rem; border: 1px solid var(--line); background: var(--card-2); color: var(--ink); font-weight: 800; font-size: 1.0625rem; cursor: pointer; transition: border-color 0.2s, background-color 0.2s; }
-.tss .t-choice[aria-pressed='true'] { border-color: var(--accent); background: var(--accent-dim); color: var(--accent); }
-.tss .t-option { display: flex; align-items: center; gap: 0.625rem; width: 100%; text-align: left; padding: 0.625rem 0.75rem; border-radius: 0.875rem; border: 1px solid var(--line); background: var(--card-2); color: var(--ink); cursor: pointer; }
-.tss .t-option[aria-pressed='true'] { border-color: var(--accent); background: var(--accent-dim); }
-.tss .t-option-n { width: 1.25rem; height: 1.25rem; border-radius: 0.375rem; border: 1px solid var(--line); display: grid; place-items: center; font-size: 0.75rem; font-weight: 900; flex-shrink: 0; }
-.tss .t-option[aria-pressed='true'] .t-option-n { background: var(--accent); border-color: var(--accent); color: var(--page); }
-.tss .t-box { padding: 0.875rem; border-radius: 1rem; border: 1px solid var(--line); background: var(--card-2); margin-bottom: 1rem; }
-.tss .t-check { display: flex; align-items: flex-start; gap: 0.625rem; cursor: pointer; font-size: var(--fs-small); color: var(--muted); line-height: 1.5; }
-.tss .t-check input { margin-top: 0.125rem; width: 1.125rem; height: 1.125rem; accent-color: var(--accent); flex-shrink: 0; }
-.tss .t-hint { margin-top: 0.375rem; font-size: 0.8125rem; color: var(--muted); }
-.tss .t-note { padding: 0.75rem 1rem; border-radius: 1rem; font-size: var(--fs-small); line-height: 1.55; margin-bottom: 1rem; background: var(--accent-dim); color: var(--accent); border: 1px solid var(--accent-line); }
-.tss .t-note.info { background: var(--info-dim); color: var(--info); border-color: transparent; }
-.tss .t-note.danger { background: var(--danger-dim); color: var(--danger); border-color: transparent; }
-.tss .t-note.plain { background: var(--card-2); color: var(--muted); border-color: var(--line); }
-.tss .t-desc-box { white-space: pre-wrap; }
-.tss .t-total { padding-top: 0.875rem; border-top: 1px solid var(--line); margin-bottom: 1rem; }
-.tss .t-total-row { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; font-size: var(--fs-small); color: var(--muted); }
-.tss .t-total-row + .t-total-row { margin-top: 0.375rem; }
-.tss .t-total-row strong { color: var(--ink); }
-.tss .t-total-row .num { font-size: 1.75rem; color: var(--ink); }
-.tss .t-strike { text-decoration: line-through; }
-.tss .t-saved { display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; }
-.tss .t-timer { font-variant-numeric: tabular-nums; font-weight: 800; }
-.tss .t-done { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 0.75rem; }
-.tss .t-done-mark { width: 4.5rem; height: 4.5rem; border-radius: 50%; background: var(--lime); color: var(--ink-900); display: grid; place-items: center; font-size: 2rem; font-weight: 900; }
-.tss .t-done .num { font-size: 3.5rem; color: var(--accent); }
-.tss .t-terms { white-space: pre-wrap; font: inherit; font-size: var(--fs-small); color: var(--muted); line-height: 1.7; }
 
 /* ── Footer ─────────────────────────────────────────────── */
 .tss .t-foot { padding-block: 0 2.5rem; display: flex; flex-direction: column; gap: 1rem; }

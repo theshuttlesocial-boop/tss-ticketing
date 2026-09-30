@@ -1,6 +1,7 @@
 import { urbanist } from '@/app/_design/font'
 import { themeScript } from '@/app/_design/ThemeToggle'
 import '@/app/_design/tss.css'
+import '@/app/_design/app.css'
 import './tickets.css'
 
 // The tickets page uses the same design system as theshuttlesocial.com (docs/design-brief.md).
