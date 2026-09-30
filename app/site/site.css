@@ -48,13 +48,16 @@
 .tss .days { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr)); gap: 1.25rem; }
 .tss .day { text-decoration: none; border-radius: 1.75rem; padding: clamp(1.375rem, 2.4vw, 2rem); display: flex; flex-direction: column; gap: 1.375rem; border: 1px solid var(--line); background: var(--card); color: var(--ink); transition: transform 0.3s ease; }
 .tss .day:hover { transform: scale(1.02); }
+.tss .days .day:not(.day-first) { --ink: #0F2A1A; --chip: rgba(255, 255, 255, 0.5); background: linear-gradient(150deg, #D6F2E0 0%, #A6E0BF 100%); color: #0F2A1A; border-color: transparent; }
+.tss .days .day:nth-child(3n+2):not(.day-first) { background: linear-gradient(150deg, #EAF5C8 0%, #D2E89A 100%); }
+.tss .days .day:nth-child(3n):not(.day-first) { background: linear-gradient(150deg, #B4ECDC 0%, #72CBAE 100%); }
 .tss .day-first { background: linear-gradient(150deg, #0E3B24, #1E6B3E 60%, #3FA66A); color: var(--on-dark); border-color: transparent; }
 .tss .day-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; }
 .tss .day-date { font-size: var(--fs-date); }
 .tss .tag { padding: 0.4375rem 0.875rem; border-radius: 999px; background: var(--chip); color: var(--ink); font-size: var(--fs-small); font-weight: 700; white-space: nowrap; }
 .tss .day-first .tag { background: var(--lime); color: var(--ink-900); }
 .tss .day-cta { font-size: var(--fs-small); font-weight: 700; }
-.tss .empty { border-radius: 1.75rem; padding: 2rem; border: 1px dashed var(--line); }
+.tss .empty { border-radius: 1.75rem; padding: 2rem; background: linear-gradient(150deg, #EAF5C8 0%, #D2E89A 100%); color: #0F2A1A; }
 
 /* ── Stats ──────────────────────────────────────────────── */
 .tss .stats { color: var(--on-dark); background: var(--s-stats); }
@@ -68,7 +71,7 @@
 .tss .how { display: grid; grid-template-columns: 5fr 7fr; gap: clamp(2rem, 5vw, 5rem); }
 .tss .how-pin { position: sticky; top: clamp(1.5rem, 12vh, 7.5rem); align-self: start; display: flex; flex-direction: column; gap: 1.75rem; }
 .tss .how-vis { position: relative; height: 26.25rem; border-radius: 2rem; overflow: hidden; background: linear-gradient(135deg, #0E3B24 0%, #1E6B3E 55%, #7FD1A0 100%); display: flex; align-items: center; justify-content: center; }
-.tss .how-card { position: relative; width: min(18.75rem, 80%); border-radius: 1.625rem; background: #F6F7F1; color: var(--ink-900); padding: 1.625rem; display: flex; flex-direction: column; gap: 0.75rem; box-shadow: 0 30px 60px -30px rgba(0, 0, 0, 0.5); }
+.tss .how-card { position: relative; width: min(18.75rem, 80%); border-radius: 1.625rem; background: linear-gradient(150deg, #F0FF9A 0%, #D9F46B 60%, #BDEA5A 100%); color: var(--ink-900); padding: 1.625rem; display: flex; flex-direction: column; gap: 0.75rem; box-shadow: 0 30px 60px -30px rgba(0, 0, 0, 0.5); }
 .tss .steps { list-style: none; padding: 0; display: flex; flex-direction: column; }
 .tss .step { min-height: clamp(15rem, 34vh, 23.75rem); display: flex; flex-direction: column; justify-content: center; gap: 0.75rem; padding-block: 1.5rem; border-top: 1px solid var(--line); transition: opacity 0.4s ease; }
 .tss .step[data-active='false'] { opacity: 0.45; }
@@ -129,6 +132,29 @@
 .tss .page-hero-body { display: flex; flex-direction: column; gap: 1.25rem; align-items: flex-start; padding-block: clamp(2.75rem, 7vw, 5.5rem) clamp(2.75rem, 6vw, 4.5rem); position: relative; z-index: 2; }
 .tss .page-hero .h1 { font-size: clamp(2.75rem, 6.5vw, 5.5rem); max-width: 16ch; }
 
+.tss .page-hero-body { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); align-items: center; gap: 1.5rem; }
+.tss .page-hero-copy { display: flex; flex-direction: column; gap: 1.25rem; align-items: flex-start; }
+.tss .ph-chips { position: relative; min-height: 15rem; }
+.tss .ph-chip { position: absolute; font-weight: 700; display: flex; align-items: center; gap: 0.5rem; translate: calc(var(--px, 0) * 10px) calc(var(--py, 0) * 8px); transition: translate 0.4s var(--ease); }
+.tss .ph-chip strong { color: var(--lime); }
+.tss .ph-chip-0 { right: 8%; top: 0; background: linear-gradient(150deg, #F0FF9A, #D9F46B); color: var(--ink-900); }
+.tss .ph-chip-1 { right: 30%; top: 42%; background: var(--ink-900); color: var(--on-dark); animation-duration: 7s; }
+.tss .ph-chip-2 { right: 0; bottom: 0; background: linear-gradient(150deg, #D6F2E0, #A6E0BF); color: var(--ink-900); animation-duration: 8s; }
+.tss .ph-chip svg { flex: 0 0 auto; }
+.tss .ph-orb { right: -4rem; top: -3rem; width: 22rem; height: 22rem; opacity: 0.55; }
+.tss .ph-ring { position: absolute; right: 12%; bottom: -6rem; width: 18rem; height: 18rem; border-radius: 50%; border: 2px dashed rgba(217, 244, 107, 0.35); pointer-events: none; animation: tss-spin 40s linear infinite; }
+.tss .page-hero .strip { padding-top: 0.5rem; }
+@keyframes tss-spin { to { transform: rotate(360deg); } }
+
+/* Words light up as the block scrolls through (ScrollText.tsx) */
+.tss .scroll-text { display: flex; flex-direction: column; gap: 1.125rem; font-size: clamp(1.375rem, 2.6vw, 2.25rem); font-weight: 700; line-height: 1.3; letter-spacing: -0.02em; }
+.tss .scroll-text[data-live] span { opacity: clamp(0.18, calc((var(--p, 0) * (var(--n) + 12) - var(--i)) / 6), 1); transition: opacity 0.15s linear; }
+.tss .story-sec { background: var(--s-story); }
+.tss .story-sig { display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap; margin-top: 1.5rem; }
+
+/* Colourful stat tiles on a light section (About) */
+.tss .tiles-light .tile { color: #0F2A1A; }
+
 /* Phone menu (hidden on wide screens, where the links sit in the bar) */
 .tss .menu { display: none; }
 .tss .menu summary { list-style: none; width: 2.875rem; height: 2.875rem; border-radius: 50%; border: 1px solid rgba(255, 255, 255, 0.22); background: rgba(255, 255, 255, 0.08); display: grid; place-items: center; cursor: pointer; }
@@ -141,26 +167,42 @@
 
 /* Blocks */
 .tss .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 17rem), 1fr)); gap: clamp(0.875rem, 1.6vw, 1.25rem); }
-.tss .card { border-radius: 1.75rem; padding: clamp(1.375rem, 2.4vw, 2rem); display: flex; flex-direction: column; gap: 0.75rem; background: var(--card); border: 1px solid var(--line); color: var(--ink); transition: transform 0.3s var(--ease); }
-.tss .card:hover { transform: scale(1.02); }
+.tss .card { --ink: #0F2A1A; --muted: #35503E; --line: rgba(15, 42, 26, 0.16); --accent: #1E6B3E; --chip: rgba(255, 255, 255, 0.5);
+  position: relative; overflow: hidden; border-radius: 1.75rem; padding: clamp(1.375rem, 2.4vw, 2rem); display: flex; flex-direction: column; gap: 0.75rem;
+  background: linear-gradient(150deg, #D6F2E0 0%, #A6E0BF 100%); color: #0F2A1A; border: 0; transition: transform 0.35s var(--ease), box-shadow 0.35s ease; }
+.tss .card:hover { transform: translateY(-4px) rotate(-0.4deg) scale(1.02); box-shadow: 0 30px 60px -30px rgba(0, 0, 0, 0.45); }
+.tss .card:nth-child(even):hover { transform: translateY(-4px) rotate(0.4deg) scale(1.02); }
+/* A soft light that follows the pointer across a card (set by Motion.tsx). */
+.tss .card::after { content: ''; position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity 0.3s; background: radial-gradient(18rem circle at var(--cx, 50%) var(--cy, 50%), rgba(255, 255, 255, 0.35), transparent 60%); }
+.tss .card:hover::after { opacity: 1; }
+.tss .card > * { position: relative; }
+.tss .card.static:hover { transform: none; box-shadow: none; }
+.tss .card.static::after { display: none; }
+.tss .c-mint { background: linear-gradient(150deg, #D6F2E0 0%, #A6E0BF 100%); }
+.tss .c-lime { background: linear-gradient(150deg, #F0FF9A 0%, #D9F46B 55%, #BDEA5A 100%); }
+.tss .c-sage { background: linear-gradient(150deg, #EAF5C8 0%, #D2E89A 100%); }
+.tss .c-teal { background: linear-gradient(150deg, #B4ECDC 0%, #72CBAE 100%); }
+.tss .c-forest { --ink: #F4F7EC; --muted: rgba(244, 247, 236, 0.82); --line: rgba(244, 247, 236, 0.2); --chip: rgba(15, 42, 26, 0.3); background: linear-gradient(150deg, #3FA66A 0%, #1E6B3E 100%); color: #F4F7EC; }
+.tss .c-forest .h3 { color: #F4F7EC; }
 .tss .stat-cards { grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr)); }
 .tss .stat-cards .card { min-height: clamp(10rem, 16vw, 13rem); }
 .tss .stat-cards .num { font-size: clamp(3rem, 6vw, 5rem); }
-.tss .card-deep { background: radial-gradient(28rem 16rem at 100% 0%, rgba(63, 166, 106, 0.35), rgba(63, 166, 106, 0) 70%), linear-gradient(155deg, #0B2416 0%, #0E3B24 60%, #155A34 100%); color: var(--on-dark); border-color: rgba(244, 247, 236, 0.14); }
+.tss .card-deep { --ink: #F4F7EC; --muted: rgba(244, 247, 236, 0.8); --line: rgba(244, 247, 236, 0.16); --chip: rgba(217, 244, 107, 0.14); background: radial-gradient(28rem 16rem at 100% 0%, rgba(63, 166, 106, 0.35), rgba(63, 166, 106, 0) 70%), linear-gradient(155deg, #0B2416 0%, #0E3B24 60%, #155A34 100%); color: var(--on-dark); border-color: rgba(244, 247, 236, 0.14); }
 .tss .card-deep .h3, .tss .card-deep .num { color: var(--lime); }
 .tss .card-deep p { color: var(--on-dark-2); }
 .tss .card .muted { color: var(--muted); }
 .tss .card-deep .muted { color: var(--on-dark-2); }
-.tss .icon { width: 3rem; height: 3rem; border-radius: 1rem; display: grid; place-items: center; font-size: 1.5rem; background: var(--chip); }
-.tss .card-deep .icon { background: rgba(217, 244, 107, 0.14); }
+.tss .icon { width: 3.25rem; height: 3.25rem; border-radius: 1rem; display: grid; place-items: center; background: var(--chip); color: currentColor; transition: transform 0.4s var(--ease); }
+.tss .card:hover .icon { transform: rotate(-8deg) scale(1.08); }
+.tss .card-deep .icon { background: rgba(217, 244, 107, 0.14); color: var(--lime); }
 .tss .split { display: grid; grid-template-columns: 5fr 7fr; gap: clamp(2rem, 5vw, 5rem); align-items: start; }
 .tss .prose { display: flex; flex-direction: column; gap: 1rem; max-width: 68ch; }
 .tss .prose h2 { font-size: var(--fs-h3); font-weight: 800; margin-top: 1rem; }
 .tss .prose h2.h2 { font-size: var(--fs-h2); margin: 0 0 0.5rem; }
 .tss .prose ul, .tss .prose ol { margin: 0; padding-left: 1.25rem; display: flex; flex-direction: column; gap: 0.5rem; }
 .tss .timeline { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.75rem; counter-reset: step; }
-.tss .timeline li { counter-increment: step; display: grid; grid-template-columns: 3.5rem 1fr; gap: 1rem; align-items: start; padding: 1.25rem; border-radius: 1.5rem; background: var(--card); border: 1px solid var(--line); }
-.tss .timeline li::before { content: counter(step, decimal-leading-zero); font-weight: 900; font-style: italic; font-size: 2rem; line-height: 1; color: var(--accent); }
+.tss .timeline li { counter-increment: step; display: grid; grid-template-columns: 3.5rem 1fr; gap: 1rem; align-items: start; padding: 1.25rem; border-radius: 1.5rem; background: linear-gradient(150deg, #D6F2E0 0%, #A6E0BF 100%); color: #0F2A1A; }
+.tss .timeline li::before { content: counter(step, decimal-leading-zero); font-weight: 900; font-style: italic; font-size: 2rem; line-height: 1; color: #1E6B3E; }
 .tss .timeline strong { display: block; font-size: var(--fs-h3); font-weight: 800; margin-bottom: 0.25rem; }
 .tss .timeline.on-dark li { background: rgba(244, 247, 236, 0.06); border-color: rgba(244, 247, 236, 0.14); color: var(--on-dark-2); }
 .tss .timeline.on-dark li::before, .tss .timeline.on-dark strong { color: var(--lime); }
@@ -168,7 +210,7 @@
 .tss .ph { background: rgba(217, 244, 107, 0.28); outline: 1.5px dashed #9BBF2A; outline-offset: 2px; border-radius: 0.375rem; padding: 0 0.25rem; }
 .tss .terms-text { white-space: pre-wrap; font: inherit; line-height: 1.75; }
 
-/* Forms (contact, volunteer) */
+/* Forms (contact, Join us, suggestions) */
 .tss .form { display: grid; gap: 1.125rem; }
 .tss .form-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.125rem; }
 .tss .field { display: flex; flex-direction: column; gap: 0.5rem; }
@@ -182,6 +224,9 @@
 .tss textarea.input { min-height: 9rem; resize: vertical; line-height: 1.6; }
 .tss .choices { display: flex; flex-wrap: wrap; gap: 0.5rem; border: 0; padding: 0; margin: 0; }
 .tss .choices legend { font-size: var(--fs-small); font-weight: 700; margin-bottom: 0.5rem; padding: 0; }
+.tss .choices.stack { flex-direction: column; align-items: stretch; }
+.tss .choices.stack .choice { border-radius: 1rem; }
+.tss .req { color: var(--lime); }
 .tss .choice { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.625rem 1rem; border-radius: 999px; border: 1px solid rgba(244, 247, 236, 0.22); cursor: pointer; font-weight: 600; font-size: var(--fs-small); min-height: 2.75rem; }
 .tss .choice:has(input:checked) { background: var(--lime); color: var(--ink-900); border-color: var(--lime); }
 .tss .choice input { accent-color: #0F2A1A; }
@@ -195,7 +240,8 @@
 .tss .form-msg { padding: 0.875rem 1rem; border-radius: 1rem; font-size: var(--fs-small); line-height: 1.55; }
 .tss .form-msg.err { background: rgba(242, 139, 130, 0.16); color: #FFC9C3; }
 .tss .form-done { display: flex; flex-direction: column; gap: 0.875rem; align-items: flex-start; }
-.tss .form-done .mark { width: 4rem; height: 4rem; border-radius: 50%; background: var(--lime); color: var(--ink-900); display: grid; place-items: center; font-size: 1.75rem; font-weight: 900; }
+.tss .form-done .mark { width: 4rem; height: 4rem; border-radius: 50%; background: var(--lime); color: var(--ink-900); display: grid; place-items: center; animation: tss-pop 0.5s var(--ease); }
+@keyframes tss-pop { from { transform: scale(0.4); opacity: 0; } to { transform: none; opacity: 1; } }
 
 /* ── Motion ─────────────────────────────────────────────── */
 /* Reveal on scroll (Motion.tsx). Only hides things when JavaScript is running.
@@ -243,6 +289,12 @@
   .tss .foot-brand { grid-column: 1 / -1; }
   .tss .split, .tss .form-2 { grid-template-columns: 1fr; }
   .tss .stat-cards { grid-template-columns: 1fr 1fr; }
+  .tss .page-hero-body { grid-template-columns: 1fr; }
+  .tss .ph-chips { min-height: 7.5rem; }
+  .tss .ph-chip-0 { left: 0; right: auto; top: 0; }
+  .tss .ph-chip-1 { left: auto; right: 0; top: 2.25rem; }
+  .tss .ph-chip-2 { left: 12%; right: auto; bottom: 0; }
+  .tss .ph-ring { right: -6rem; bottom: -8rem; }
   .tss .stat-cards .card { min-height: 9rem; padding: 1.125rem; }
   .tss .stat-cards .num { font-size: 2.5rem; }
 }

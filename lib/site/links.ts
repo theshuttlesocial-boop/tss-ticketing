@@ -9,6 +9,6 @@ export const NAV: [href: string, label: string][] = [
   ['/sessions', 'Sessions'],
   ['/about', 'About'],
   ['/community', 'Community'],
-  ['/volunteer', 'Volunteer'],
+  ['/join-us', 'Join us'],
   ['/contact', 'Contact'],
 ]

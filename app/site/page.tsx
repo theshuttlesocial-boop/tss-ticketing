@@ -8,6 +8,8 @@ import { HeroVisual } from './_components/HeroVisual'
 import { HowItWorks, type Step } from './_components/HowItWorks'
 import { RotatingWord } from './_components/RotatingWord'
 import { Arrow, SiteFooter, SiteNav } from './_components/SiteChrome'
+import { ScrollText } from './_components/ScrollText'
+import { STORY } from '@/lib/site/story'
 import { BOOK, INSTAGRAM, TIKTOK } from '@/lib/site/links'
 
 // Availability and the session count refresh every minute.
@@ -211,6 +213,23 @@ export default async function Home() {
                   <span className="bubble" style={{ background: s.bb, color: s.bf }}>{s.caption}</span>
                 </div>
               ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="sec story-sec" id="story" aria-labelledby="story-h">
+          <span className="decor decor-green" data-parallax="0.4" aria-hidden="true" style={{ right: '-6rem', top: '10%', width: '24rem', height: '24rem' }} />
+          <div className="wrap split">
+            <div data-reveal="" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', alignItems: 'flex-start' }}>
+              <span className="kicker muted">Since August 2025</span>
+              <h2 id="story-h" className="disp h2">Our story</h2>
+            </div>
+            <div>
+              <ScrollText paragraphs={STORY} />
+              <div className="story-sig" data-reveal="">
+                <a href="/about" className="pill pill-line small">More about us</a>
+                <a href="/join-us" className="pill pill-line small">Join us</a>
+              </div>
             </div>
           </div>
         </section>

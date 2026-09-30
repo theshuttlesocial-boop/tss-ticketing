@@ -1,6 +1,11 @@
 import type { Metadata } from 'next'
 import { getPublicSessions, type PublicSession } from '@/lib/sessions/public'
+import { CLUB_STATS } from '@/lib/site/stats'
 import { BOOK, INSTAGRAM } from '@/lib/site/links'
+import { FaqList } from '../_components/FaqList'
+import { HowItWorks, type Step } from '../_components/HowItWorks'
+import { Icon } from '../_components/Icon'
+import { RotatingWord } from '../_components/RotatingWord'
 import { Arrow, PageHero, SiteFooter } from '../_components/SiteChrome'
 
 // Availability refreshes every minute.
@@ -22,11 +27,18 @@ function status(s: PublicSession) {
   return { tag: 'Spaces available', cta: 'Book now →' }
 }
 
-const NIGHT = [
-  ['Arrive and check in', 'Show the QR code from your booking email or My portal at the door.'],
-  ['Get your court', 'Your phone shows your court and the round timer.'],
-  ['Timed rounds of doubles', 'A new partner every round. Scores go in on your phone.'],
-  ['Grand final', 'The night finishes with a grand final.'],
+const NIGHT: Step[] = [
+  { title: 'Arrive and check in', body: 'Show the QR code from your booking email or My portal at the door.', kicker: 'At the door', big: 'Checked in', small: 'You’re in. Your court shows up on your phone.' },
+  { title: 'Get your court', body: 'Your phone shows your court and the round timer.', kicker: 'Round 1', big: 'Court 3', small: 'Rounds are timed, so everyone keeps playing.' },
+  { title: 'Timed rounds of doubles', body: 'A new partner every round. Scores go in on your phone.', kicker: 'Next up', big: 'New partner', small: 'Every round, someone new to play with.' },
+  { title: 'Grand final', body: 'The night finishes with a grand final.', kicker: 'End of the night', big: 'Grand final', small: 'The top players of the night meet on court 1.' },
+]
+
+const TICKETS: [string, string][] = [
+  ['When do tickets come out?', `New sessions are shared in our WhatsApp community and on Instagram first. They go fast: our quickest sell-out took ${CLUB_STATS.fastestSellOutSeconds} seconds.`],
+  ['It’s sold out. What now?', 'Join the waitlist. If a space opens up, the next person on the list gets an email and a short time to claim it.'],
+  ['I can’t make it any more', 'Release your space from My portal. When someone takes it, you get credit or a refund (see our terms).'],
+  ['Can I book for friends?', 'Yes. You can book more than one space and add their names when you book.'],
 ]
 
 export default async function SessionsPage() {
@@ -35,13 +47,18 @@ export default async function SessionsPage() {
 
   return (
     <>
-      <PageHero current="/sessions" kicker="Sessions" title="Find your next night on court."
-        lead="Every session is ticket-only and spaces go fast. £10, all levels, no membership.">
+      <PageHero current="/sessions" kicker="Sessions"
+        srTitle="Your next night on court."
+        title={<>Your next night <RotatingWord words={['on court.', 'of doubles.', 'with friends.']} /></>}
+        lead="Every session is ticket-only and spaces go fast. £10, all levels, no membership."
+        chips={[<><Icon name="ticket" size={18} />£10 · all levels</>, <>Next up · <strong>new partner</strong></>, <><Icon name="flame" size={18} />Sold out in {CLUB_STATS.fastestSellOutSeconds}s</>]}
+        strip={{ label: 'Sessions at a glance', items: [['£10', 'per session'], ['All', 'levels welcome'], [`${CLUB_STATS.fastestSellOutSeconds}s`, 'fastest sell-out'], ['New', 'partner every round'], ['1', 'grand final a night'], ['0', 'membership fees']] }}>
         <a href={BOOK} className="book book-lg">Book a session<Arrow /></a>
       </PageHero>
 
       <main id="main">
         <section className="sec" style={{ background: 'var(--s-week)' }} aria-labelledby="up-h">
+          <span className="decor decor-lime" data-parallax="0.35" aria-hidden="true" style={{ right: '6%', top: '10%', width: '7rem', height: '7rem' }} />
           <div className="wrap">
             <div className="head-row" data-reveal="">
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
@@ -81,48 +98,36 @@ export default async function SessionsPage() {
         </section>
 
         <section className="sec" style={{ background: 'var(--s-how)' }} aria-labelledby="night-h">
-          <div className="wrap split">
-            <div data-reveal="" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <h2 id="night-h" className="disp h2">What a night looks like</h2>
-              <p className="lead muted">Come on your own or bring friends. Everyone plays with everyone.</p>
-            </div>
-            <ol className="timeline" data-reveal-stagger="">
-              {NIGHT.map(([t, b]) => <li key={t} data-reveal=""><div><strong>{t}</strong><span className="muted">{b}</span></div></li>)}
-            </ol>
-          </div>
+          <HowItWorks steps={NIGHT} title="What a night looks like" headingId="night-h" intro="Come on your own or bring friends. Everyone plays with everyone." />
         </section>
 
         <section className="sec faq-sec" aria-labelledby="tix-h">
-          <div className="wrap">
-            <div className="head-row" data-reveal="">
-              <h2 id="tix-h" className="disp h2" style={{ color: 'var(--lime)' }}>How tickets work</h2>
+          <span className="decor decor-lime" data-parallax="0.4" aria-hidden="true" style={{ right: '-10rem', top: '-6rem', width: '30rem', height: '30rem', opacity: 0.6 }} />
+          <div className="wrap faq">
+            <div data-reveal="" style={{ display: 'flex', flexDirection: 'column', gap: '1.125rem', alignItems: 'flex-start' }}>
+              <h2 id="tix-h" className="disp h2 faq-title">How tickets work</h2>
+              <p className="lead" style={{ color: 'var(--on-dark-2)', maxWidth: '26ch' }}>Booking, waitlists and what happens if plans change.</p>
+              <a href="/terms" className="pill pill-cream small">Booking terms</a>
             </div>
-            <div className="cards" data-reveal-stagger="">
-              <div className="card card-deep" data-reveal="">
-                <span className="icon" aria-hidden="true">📣</span>
-                <h3 className="h3">Released on WhatsApp</h3>
-                <p>New sessions are shared in our WhatsApp community and on Instagram first. Our fastest sell-out took 30 seconds.</p>
-              </div>
-              <div className="card card-deep" data-reveal="">
-                <span className="icon" aria-hidden="true">⏳</span>
-                <h3 className="h3">Sold out? Join the waitlist</h3>
-                <p>If a space opens up, the next person on the waitlist gets an email and a short time to claim it.</p>
-              </div>
-              <div className="card card-deep" data-reveal="">
-                <span className="icon" aria-hidden="true">🔁</span>
-                <h3 className="h3">Can’t make it?</h3>
-                <p>Release your space from My portal. When someone takes it, you get credit or a refund. <a href="/terms" style={{ color: 'var(--lime)' }}>Terms</a></p>
-              </div>
-            </div>
+            <FaqList items={TICKETS} />
           </div>
         </section>
 
         <section className="sec" style={{ background: 'var(--s-real)' }} aria-labelledby="where-h">
+          <span className="decor decor-green" data-parallax="0.3" aria-hidden="true" style={{ left: '-6rem', bottom: '0', width: '22rem', height: '22rem' }} />
           <div className="wrap split">
             <h2 id="where-h" className="disp h2" data-reveal="">Where we play</h2>
-            <div className="prose lead" data-reveal="">
-              <p>Our sessions are currently mainly in West London. We’ll be starting up again in East and South London.</p>
-              <p className="muted small">The venue and address for each session are on its ticket and in your booking email.</p>
+            <div className="cards" data-reveal-stagger="">
+              <div className="card c-lime" data-reveal="">
+                <span className="icon"><Icon name="pin" /></span>
+                <h3 className="h3" style={{ fontWeight: 800 }}>West London</h3>
+                <p className="muted">Where most of our sessions are right now.</p>
+              </div>
+              <div className="card c-teal" data-reveal="">
+                <span className="icon"><Icon name="calendar" /></span>
+                <h3 className="h3" style={{ fontWeight: 800 }}>East and South London</h3>
+                <p className="muted">We’ll be starting up again here. Follow us to hear first.</p>
+              </div>
             </div>
           </div>
         </section>

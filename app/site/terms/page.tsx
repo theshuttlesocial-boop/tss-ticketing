@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { supabaseAdmin } from '@/lib/supabase'
+import { Icon } from '../_components/Icon'
 import { PageHero, Ph, SiteFooter } from '../_components/SiteChrome'
 
 // The same text players agree to before booking (Admin → Settings → Terms & Conditions).
@@ -18,12 +19,14 @@ export default async function TermsPage() {
   return (
     <>
       <PageHero current="/terms" kicker="Terms" title="Booking terms."
-        lead="The terms you agree to when you book a session. See also our community guidelines and privacy notice." />
+        lead="The terms you agree to when you book a session. See also our community guidelines and privacy notice."
+        chips={[<><Icon name="ticket" size={18} />Same as at checkout</>, <>Plans change? <strong>Release your space</strong></>]} />
 
       <main id="main">
         <section className="sec" style={{ background: 'var(--s-week)' }} aria-label="Terms and conditions">
+          <span className="decor decor-lime" data-parallax="0.35" aria-hidden="true" style={{ right: '6%', top: '8%', width: '8rem', height: '8rem' }} />
           <div className="wrap">
-            <div className="card" style={{ maxWidth: '52rem' }}>
+            <div className="card c-sage static" data-reveal="" style={{ maxWidth: '52rem' }}>
               {text
                 ? <div className="terms-text">{text}</div>
                 : <p><Ph>Your terms and conditions. Add them in Admin → Settings → Terms &amp; Conditions and they appear here and before booking</Ph></p>}

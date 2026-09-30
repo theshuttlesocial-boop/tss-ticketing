@@ -119,10 +119,14 @@ tickets.theshuttlesocial.com (tickets, My portal and player pages, live-session 
 - `app/_design/theme.ts`: inline-style helpers (`T`, `inp`, `btn`, `cardStyle`, `stripeAppearance`) on the same tokens.
 - Layouts: `AppFrame` (compact green header) for player and staff pages, `BareFrame` (no header) for court
   screens, the TV board, lead and admin. The marketing site has its own layout in `app/site`.
-- Marketing pages: `app/site/{sessions,about,community,volunteer,contact,terms}`. They share the header
+- Marketing pages: `app/site/{sessions,about,community,join-us,contact,terms}`. They share the header
   (with a phone menu), green page banner and footer in `app/site/_components/SiteChrome.tsx`; links are in
   `lib/site/links.ts`. Words the club still has to supply are wrapped in `<Ph>` (dashed lime highlight).
-  Contact and volunteer forms post to `/api/contact`, which emails the club inbox (reply-to the sender).
+  Contact, Join us and suggestions forms post to `/api/contact`, which emails the club inbox (reply-to the sender).
+  Inner pages reuse the homepage motion: pointer glow, floating chips and a chip strip in the banner (`PageHero`),
+  rotating words, sticky steps (`HowItWorks`), accordions (`FaqList`), count-ups, scroll-lit story text (`ScrollText`)
+  and parallax shapes. No white cards: cards use the palette (`.c-mint`, `.c-lime`, `.c-sage`, `.c-teal`, `.c-forest`,
+  `.card-deep`). Icons are line SVGs (`Icon.tsx`), never emoji.
   Terms shows the same text as the booking pop-up (Admin → Settings). Local preview: http://site.localhost:3000.
 - Functional screens use the same type, colours and components with less decorative motion. The TV board is
   always dark. QR codes stay black on white.

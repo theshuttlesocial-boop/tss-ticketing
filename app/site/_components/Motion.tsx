@@ -10,6 +10,7 @@ const STAGGER_MS = 80
  *  - [data-reveal-stagger] staggers its revealed descendants 80ms apart.
  *  - [data-parallax="0.3"] drifts decorative elements at a fraction of scroll speed
  *    (desktop only, transform only, one rAF per frame).
+ *  - .card gets a soft light that follows the pointer.
  * Reduced motion: everything is shown at once and nothing drifts.
  */
 export function Motion() {
@@ -59,7 +60,18 @@ export function Motion() {
     const onScroll = () => { if (!frame) frame = requestAnimationFrame(update) }
     if (decor.length) { update(); addEventListener('scroll', onScroll, { passive: true }) }
 
-    return () => { io.disconnect(); removeEventListener('scroll', onScroll); if (frame) cancelAnimationFrame(frame) }
+    // Cards: a soft light follows the pointer (CSS reads --cx/--cy). Mouse and pen only.
+    const onCard = (e: PointerEvent) => {
+      if (e.pointerType === 'touch') return
+      const card = (e.target as Element).closest?.<HTMLElement>('.card')
+      if (!card) return
+      const r = card.getBoundingClientRect()
+      card.style.setProperty('--cx', `${e.clientX - r.left}px`)
+      card.style.setProperty('--cy', `${e.clientY - r.top}px`)
+    }
+    root.addEventListener('pointermove', onCard, { passive: true })
+
+    return () => { io.disconnect(); removeEventListener('scroll', onScroll); root.removeEventListener('pointermove', onCard); if (frame) cancelAnimationFrame(frame) }
   }, [pathname])
 
   return null

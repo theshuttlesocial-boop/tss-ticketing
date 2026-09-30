@@ -1,39 +1,58 @@
 import { NextResponse } from 'next/server'
 import { sendContactMessage } from '@/lib/email'
 import { allowReleaseLookup, clientIp } from '@/lib/rate-limit'
-import { AREAS, NIGHTS, TOPICS } from '@/lib/site/forms'
+import { AREAS, JOIN_INTERESTS, JOIN_QUESTIONS, JOIN_ROLES, NIGHTS, SUGGESTION_TOPICS, TOPICS } from '@/lib/site/forms'
 
-const clean = (v: unknown, max: number) => String(v ?? '').replace(/\s+$/g, '').slice(0, max).trim()
+const clean = (v: unknown, max: number) => String(v ?? '').slice(0, max).trim()
+const bad = (error: string) => NextResponse.json({ error }, { status: 400 })
 
 /**
- * Website contact and volunteer forms (theshuttlesocial.com/contact, /volunteer).
- * Emails the club inbox with the sender as reply-to; nothing is stored. The sender must
- * tick consent. A hidden field catches bots, and each address can send 5 an hour.
+ * Website forms on theshuttlesocial.com: contact, Join us (volunteering application) and
+ * suggestions. Emails the club inbox (reply-to the sender when they gave an email);
+ * nothing is stored. Consent is required whenever someone gives their details. A hidden
+ * field catches bots, and each address can send 5 an hour.
  */
 export async function POST(req: Request) {
   let body: Record<string, unknown>
-  try { body = await req.json() } catch { return NextResponse.json({ error: 'Something went wrong. Please try again.' }, { status: 400 }) }
+  try { body = await req.json() } catch { return bad('Something went wrong. Please try again.') }
 
   // Bots fill every field, people never see this one: pretend it worked.
   if (clean(body.website, 200)) return NextResponse.json({ ok: true })
 
-  const kind = body.kind === 'volunteer' ? 'volunteer' : 'contact'
+  const kind = body.kind === 'join' ? 'join' : body.kind === 'suggestion' ? 'suggestion' : 'contact'
   const name = clean(body.name, 80)
   const email = clean(body.email, 200).toLowerCase()
   const message = clean(body.message, 3000)
-  if (!name) return NextResponse.json({ error: 'Please add your name.' }, { status: 400 })
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return NextResponse.json({ error: 'Please check your email address.' }, { status: 400 })
-  if (kind === 'contact' && message.length < 5) return NextResponse.json({ error: 'Please write a message.' }, { status: 400 })
-  if (body.consent !== true) return NextResponse.json({ error: 'Please tick the box so we can reply to you.' }, { status: 400 })
+  const anonymousOk = kind === 'suggestion'
 
+  if (!name && !anonymousOk) return bad('Please add your name.')
+  if ((email || !anonymousOk) && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return bad('Please check your email address.')
+  if (kind !== 'join' && message.length < 5) return bad(kind === 'suggestion' ? 'Please write your suggestion.' : 'Please write a message.')
+  if ((email || !anonymousOk) && body.consent !== true) return bad('Please tick the box so we can reply to you.')
+
+  const pick = (v: unknown, list: string[]) => (Array.isArray(v) ? v : []).map(String).filter((x) => list.includes(x))
   const fields: [string, string][] = []
+  let text = message
+
   if (kind === 'contact') {
-    const topic = TOPICS.includes(String(body.topic)) ? String(body.topic) : 'General question'
-    fields.push(['Topic', topic])
+    fields.push(['Topic', TOPICS.includes(String(body.topic)) ? String(body.topic) : 'General question'])
+  } else if (kind === 'suggestion') {
+    fields.push(['Topic', SUGGESTION_TOPICS.includes(String(body.topic)) ? String(body.topic) : 'Something else'])
   } else {
-    const nights = (Array.isArray(body.nights) ? body.nights : []).map(String).filter((n) => NIGHTS.includes(n))
-    const area = AREAS.includes(String(body.area)) ? String(body.area) : 'Not given'
-    fields.push(['Nights', nights.join(', ') || 'Not given'], ['Area', area])
+    const role = String(body.role)
+    if (!JOIN_ROLES.includes(role)) return bad('Please choose what you’d like to do.')
+    const answers = (Array.isArray(body.answers) ? body.answers : []).map((a) => clean(a, 1500))
+    const missing = JOIN_QUESTIONS.findIndex((_, k) => (answers[k] ?? '').length < 10)
+    if (missing >= 0) return bad(`Please answer question ${missing + 1} (a sentence or two is fine).`)
+    const interests = pick(body.interests, JOIN_INTERESTS)
+    const other = clean(body.other, 120)
+    fields.push(
+      ['Would like to', role],
+      ['Interested in', [...interests, ...(other ? [`Other: ${other}`] : [])].join(', ') || 'Not given'],
+      ['Nights', pick(body.nights, NIGHTS).join(', ') || 'Not given'],
+      ['Area', AREAS.includes(String(body.area)) ? String(body.area) : 'Not given'],
+    )
+    text = JOIN_QUESTIONS.map((q, k) => `${k + 1}. ${q}\n${answers[k]}`).join('\n\n')
   }
 
   // Shares the lookup limiter's table, under its own key so the counts don't mix.
@@ -42,7 +61,7 @@ export async function POST(req: Request) {
   }
 
   try {
-    await sendContactMessage({ kind, name, email, fields, message: message || '(No message)' })
+    await sendContactMessage({ kind, name: name || 'Anonymous', email: email || undefined, fields, message: text })
   } catch (e) {
     console.error('[contact] send failed', e)
     return NextResponse.json({ error: 'We couldn’t send that just now. Please email theshuttlesocial@gmail.com instead.' }, { status: 502 })

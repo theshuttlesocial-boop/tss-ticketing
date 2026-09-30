@@ -595,24 +595,26 @@ export async function sendStaffInvite({ to, role, invitedBy }: { to: string; rol
 // ── Website contact and volunteer forms ──────────────────────────────────────
 const escHtml = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!))
 
-/** Sends a website message to the club inbox; replying goes straight to the sender. Nothing is stored. */
+/** Sends a website form to the club inbox; replying goes straight to the sender when they gave an email. Nothing is stored. */
 export async function sendContactMessage({ kind, name, email, fields, message }: {
-  kind: 'contact' | 'volunteer'; name: string; email: string; fields: [string, string][]; message: string
+  kind: 'contact' | 'join' | 'suggestion'; name: string; email?: string; fields: [string, string][]; message: string
 }) {
-  const title = kind === 'volunteer' ? 'New volunteer' : 'New message'
-  const subject = kind === 'volunteer' ? `Volunteer: ${name}` : `Website message: ${fields[0]?.[1] ?? 'General'} - ${name}`
-  if (!resend) { console.log(`[Email] ${subject} from ${email} - set RESEND_API_KEY to enable`); return }
+  const title = kind === 'join' ? 'New Join us application' : kind === 'suggestion' ? 'New suggestion' : 'New message'
+  const topic = fields[0]?.[1] ?? 'General'
+  const subject = kind === 'join' ? `Join us: ${name}` : kind === 'suggestion' ? `Suggestion: ${topic}` : `Website message: ${topic} - ${name}`
+  if (!resend) { console.log(`[Email] ${subject} - set RESEND_API_KEY to enable`); return }
   const fromAddr = process.env.EMAIL_FROM ?? 'bookings@theshuttlesocial.com'
-  const rows = [['Name', name], ['Email', email], ...fields].map(([k, v]) => infoRow(escHtml(k), escHtml(v))).join('')
+  const replyNote = email ? `Reply to this email to answer ${escHtml(name)}.` : 'Sent anonymously: there is no email to reply to.'
+  const rows = [['Name', name], ['Email', email ?? 'Not given'], ...fields].map(([k, v]) => infoRow(escHtml(k), escHtml(v))).join('')
   const { error } = await resend.emails.send({
     from: `The Shuttle Social website <${fromAddr}>`,
     to: 'theshuttlesocial@gmail.com',
-    reply_to: email,
+    ...(email ? { reply_to: email } : {}),
     subject,
-    text: `${title} from the website\n\nName: ${name}\nEmail: ${email}\n${fields.map(([k, v]) => `${k}: ${v}`).join('\n')}\n\n${message}\n\n(Reply to this email to answer ${name}.)`,
+    text: `${title} from the website\n\nName: ${name}\nEmail: ${email ?? 'Not given'}\n${fields.map(([k, v]) => `${k}: ${v}`).join('\n')}\n\n${message}`,
     html: emailWrap(`
       <div style="color:${ink};font-size:22px;font-weight:900;letter-spacing:-0.5px;line-height:1.15;margin-bottom:4px;">${title}</div>
-      <div style="color:${muted};font-size:14px;margin-bottom:20px;">From the website. Reply to this email to answer ${escHtml(name)}.</div>
+      <div style="color:${muted};font-size:14px;margin-bottom:20px;">From the website. ${replyNote}</div>
       <div style="${deepCard}margin-bottom:16px;">
         <table style="width:100%;border-collapse:collapse;">${rows}</table>
       </div>

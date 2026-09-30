@@ -41,9 +41,10 @@ export default function PrivacyPage() {
             version of it, never the PIN itself.</li>
           <li><strong>A TSS account (optional):</strong> your email, name and level, so you can sign in and see your bookings and
             games (contract). Showing you on the public leaderboard happens only if you turn it on (consent), and you can turn it off at any time.</li>
-          <li><strong>Contact and volunteer forms on theshuttlesocial.com:</strong> your name, email, what you tell us, and for volunteers
-            which nights and area suit you, so we can reply. You tick a box to agree before sending. The message is emailed to our
-            inbox; it isn&apos;t stored on the website or added to a mailing list. We note your IP address for up to 1 month to stop spam.</li>
+          <li><strong>Forms on theshuttlesocial.com (contact, Join us applications and the suggestions box):</strong> your name, email
+            and what you tell us, so we can reply or consider your application (for Join us, also your answers, the roles, nights and
+            area that suit you). You tick a box to agree before sending; suggestions can be sent anonymously. Each form is emailed to our
+            inbox; nothing is stored on the website or added to a mailing list. We note your IP address for up to 1 month to stop spam.</li>
           <li><strong>Emails:</strong> booking confirmations, sign-in codes and messages about sessions you booked. We don&apos;t send marketing emails.</li>
         </ul>
         <P>We only collect what these need. We don&apos;t collect your date of birth, address or anything about your health.</P>
@@ -62,7 +63,7 @@ export default function PrivacyPage() {
           <li><strong>Supabase</strong> — our database and sign-in.</li>
           <li><strong>Vercel</strong> — hosts the website.</li>
           <li><strong>Resend</strong> — sends our emails.</li>
-          <li><strong>Google (Gmail)</strong> — our email inbox, where contact and volunteer messages arrive.</li>
+          <li><strong>Google (Gmail)</strong> — our email inbox, where messages from the website forms arrive.</li>
           <li><strong>Google Maps</strong> — the venue map on the booking page is loaded from Google, which may set its own cookies when it loads.</li>
         </ul>
         <P>We never sell your data or share it with advertisers.</P>
@@ -82,7 +83,7 @@ export default function PrivacyPage() {
           <li><strong>Waitlist entries:</strong> 1 year, then deleted automatically.</li>
           <li><strong>&ldquo;Manage my booking&rdquo; email links and &ldquo;find my booking&rdquo; attempts</strong> (which record your IP address, to stop
             people guessing emails): 1 month.</li>
-          <li><strong>Contact and volunteer messages:</strong> in our inbox only as long as we need them to reply or to organise volunteering, then deleted.</li>
+          <li><strong>Website form messages:</strong> in our inbox only as long as we need them to reply or to organise volunteering, then deleted.</li>
           <li><strong>TSS accounts:</strong> while you use them. After 3 years with no sign-in, booking or session, the account is deleted
             automatically and your live-session results become &ldquo;Former player&rdquo;.</li>
           <li><strong>Live-session results without an account:</strong> kept as the record of that session. Ask us and we&apos;ll replace your name with &ldquo;Former player&rdquo;.</li>
