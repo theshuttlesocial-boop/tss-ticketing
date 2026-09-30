@@ -2,6 +2,7 @@ import { requireAdmin } from '@/lib/staff'
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getPublicSessions } from '@/lib/sessions/public'
+import { normaliseScheduledStatus } from '@/lib/sessions/schedule'
 
 export const dynamic = 'force-dynamic'
 
@@ -20,11 +21,15 @@ export async function POST(req: Request) {
 
   if (!title || !venue || !date || !time) return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
 
+  // Safeguard: a scheduled release whose opens_at is already in the past is
+  // created OPEN, so it's immediately bookable and its status is honest.
+  const effectiveStatus = normaliseScheduledStatus(status, opens_at)
+
   const row: Record<string, unknown> = {
     title, label: label ?? null, venue, region, date, time,
     capacity: capacity ?? 24, price_pence: price_pence ?? 800,
     max_tickets_per_order: max_tickets_per_order ?? 4,
-    status: status ?? 'draft', opens_at: opens_at ?? null,
+    status: effectiveStatus, opens_at: opens_at ?? null,
     description: description ?? null,
     is_recurring: is_recurring ?? false,
     recurring_day_of_week: recurring_day_of_week ?? null,
