@@ -1,0 +1,294 @@
+import type { CSSProperties } from 'react'
+import { getPublicSessions, type PublicSession } from '@/lib/sessions/public'
+import { CLUB_STATS, getSessionsRun } from '@/lib/site/stats'
+import { HeroVisual } from './_components/HeroVisual'
+import { RotatingWord } from './_components/RotatingWord'
+import { ThemeToggle } from './_components/ThemeToggle'
+
+// Availability and the session count refresh every minute.
+export const revalidate = 60
+
+const BOOK = '/tickets'
+const INSTAGRAM = 'https://www.instagram.com/theshuttlesocial'
+const TIKTOK = 'https://www.tiktok.com/@theshuttlesocial'
+const WORDS = ['social.', 'competitive.', 'for beginners.', 'every week.']
+
+const INK = '#0F2A1A', CREAM = '#F4F7EC'
+const PAL = {
+  lime: { background: 'linear-gradient(150deg, #F0FF9A 0%, #D9F46B 55%, #BDEA5A 100%)', color: INK },
+  cream: { background: '#F6F7F1', color: INK },
+  mint: { background: 'linear-gradient(150deg, #D6F2E0 0%, #A6E0BF 100%)', color: INK },
+  teal: { background: 'linear-gradient(150deg, #B4ECDC 0%, #72CBAE 100%)', color: INK },
+  forest: { background: 'linear-gradient(150deg, #3FA66A 0%, #1E6B3E 100%)', color: CREAM },
+  sage: { background: 'linear-gradient(150deg, #F4F9E2 0%, #DCEDB2 100%)', color: INK },
+  night: { background: '#0F2A1A', color: CREAM },
+}
+
+const FAQS: [string, string][] = [
+  ['How do I join?', 'Join our WhatsApp community linked in the @theshuttlesocial IG bio for all details about upcoming sessions and ticket releases.'],
+  ['Do I need to be good at badminton?', 'Not at all! We welcome all levels, from complete beginners to experienced players.'],
+  ['How do I book a session? Can I just show up?', 'Sessions are ticket-only. Spaces are limited and sell out fast. Grab yours through our ticket link, always shared on WhatsApp and Instagram.'],
+  ['Where are sessions held?', 'Our sessions are currently mainly in West London. We’ll be starting up again in East and South London.'],
+  ['What’s the format of a session?', 'Timed rounds of doubles with a new partner every round, finishing with a grand final.'],
+  ['Do I need to bring equipment?', 'Shuttles are provided. Please bring your own racket if possible. A few spares will be available.'],
+]
+
+const STEPS = [
+  { title: 'Book a space', body: '£10, no membership. Plans change? Release your space and the waitlist gets it.', kicker: 'Booking', big: 'You’re in for Thursday.', small: 'Your ticket and QR code are in your email and My sessions.' },
+  { title: 'Scan in at the door', body: 'Your phone shows your court and the round timer.', kicker: 'Round 1', big: 'Court 3', small: 'Rounds are timed. Scores go in on your phone.' },
+  { title: 'Play, then the grand final', body: 'Timed rounds of doubles with a new partner every round. The night ends with a grand final.', kicker: 'End of the night', big: 'Grand final', small: 'The top players of the night meet on court 1.' },
+]
+
+// Placeholders until the club's own clips arrive (self-hosted, muted, no tracking embeds).
+const CLIPS = [
+  ['[Reel · muted loop]', '[Caption: a long rally on court 2]', 'linear-gradient(160deg, #1E6B3E, #0E3B24)', '#B9D3B4'],
+  ['[TikTok · muted loop]', '[Caption: new partners, round 3]', 'linear-gradient(160deg, #8BE3B0, #2E8B57)', INK],
+  ['[Reel · muted loop]', '[Caption: the grand final]', 'linear-gradient(160deg, #D9F46B, #8BE3B0)', INK],
+  ['[TikTok · muted loop]', '[Caption: checking in at the door]', 'linear-gradient(200deg, #2E8B57, #0E3B24)', '#B9D3B4'],
+  ['[Reel · muted loop]', '[Caption: first-timers on court 4]', 'linear-gradient(160deg, #155A34, #0B2416)', '#B9D3B4'],
+  ['[TikTok · muted loop]', '[Caption: end-of-night photo]', 'linear-gradient(160deg, #BDEA72, #2E8B57)', INK],
+]
+
+const fmt = (n: number) => n.toLocaleString('en-GB')
+/** CSS custom properties for an inline style. */
+const vars = (v: Record<`--${string}`, string | number>) => v as CSSProperties
+
+function Arrow() {
+  return (
+    <span className="book-arrow" aria-hidden="true">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#D9F46B" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+    </span>
+  )
+}
+
+/** Next sessions for the "This week" cards: up to the next 7 days, else the next two coming up. */
+function pickUpcoming(sessions: PublicSession[], now = new Date()) {
+  const weekOut = new Date(now.getTime() + 7 * 864e5).toISOString().split('T')[0]
+  const thisWeek = sessions.filter((s) => s.date <= weekOut)
+  return thisWeek.length ? { heading: 'This week', list: thisWeek.slice(0, 4) } : { heading: 'Coming up', list: sessions.slice(0, 2) }
+}
+
+function sessionStatus(s: PublicSession) {
+  if (s.status === 'coming_soon') {
+    const opens = s.opens_at ? new Date(s.opens_at).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London' }) : null
+    return { tag: 'Coming soon', cta: opens ? `Tickets open ${opens} →` : 'Tickets open soon →' }
+  }
+  if (s.availability === 'sold_out') return { tag: 'Full', cta: 'Join the waitlist →' }
+  if (s.availability === 'limited') return { tag: `${s.spotsRemaining} left`, cta: 'Book now →' }
+  return { tag: 'Spaces available', cta: 'Book now →' }
+}
+
+export default async function Home() {
+  const [pub, sessionsRun] = await Promise.all([getPublicSessions(), getSessionsRun()])
+  const upcoming = pickUpcoming('sessions' in pub ? pub.sessions : [])
+
+  const strip = [
+    { n: `${fmt(CLUB_STATS.players)}+`, t: 'different players', ...PAL.lime, nc: INK, rot: -2 },
+    { n: `${fmt(CLUB_STATS.whatsapp)}+`, t: 'in our WhatsApp community', ...PAL.cream, nc: '#1E6B3E', rot: 1.5 },
+    { n: `${CLUB_STATS.fastestSellOutSeconds}s`, t: 'fastest sell-out', ...PAL.night, nc: '#D9F46B', rot: -1 },
+    { n: `${CLUB_STATS.regulars}+`, t: 'regulars with 10+ sessions', ...PAL.mint, nc: INK, rot: 2 },
+    { n: fmt(sessionsRun), t: 'sessions and counting', ...PAL.teal, nc: INK, rot: -1.5 },
+    { n: '1 yr', t: 'of social badminton', ...PAL.sage, nc: '#1E6B3E', rot: 1 },
+  ]
+
+  const tiles = [
+    { kicker: 'Players', value: `${fmt(CLUB_STATS.players)}+`, caption: 'different people have played with us', span: 5, pspan: 2, big: true, pal: PAL.lime, bb: INK, bf: CREAM },
+    { kicker: 'Sessions · live', value: fmt(sessionsRun), caption: 'sessions run, and counting', span: 4, pspan: 1, pal: PAL.cream, bb: '#E6EFDD', bf: INK },
+    { kicker: 'Running', value: '1 yr', caption: 'since August 2025', span: 3, pspan: 1, pal: PAL.mint, bb: '#FFFFFF', bf: INK },
+    { kicker: 'Regulars', value: `${CLUB_STATS.regulars}+`, caption: 'players with 10+ sessions', span: 3, pspan: 1, pal: PAL.teal, bb: INK, bf: CREAM },
+    { kicker: 'Fastest sell-out', value: `${CLUB_STATS.fastestSellOutSeconds}s`, caption: 'from tickets live to sold out', span: 4, pspan: 1, pal: PAL.forest, bb: '#D9F46B', bf: INK },
+    { kicker: 'Community', value: `${fmt(CLUB_STATS.whatsapp)}+`, caption: 'people in our WhatsApp community', span: 5, pspan: 2, big: true, pal: PAL.sage, bb: '#1E6B3E', bf: CREAM },
+  ]
+
+  return (
+    <>
+      <div className="hero">
+        <div className="hero-glow" aria-hidden="true" />
+        <header className="nav">
+          <a href="/" className="brand">the shuttle social</a>
+          <nav aria-label="Main" className="nav-links">
+            <a href="#sessions">Sessions</a>
+            <a href="#how">How it works</a>
+            <a href="#faqs">FAQs</a>
+            <a href={INSTAGRAM}>Instagram</a>
+          </nav>
+          <div className="nav-right">
+            <ThemeToggle />
+            <a href={BOOK} className="book small"><span className="book-long">Book a session</span><span className="book-short">Book</span><Arrow /></a>
+          </div>
+        </header>
+
+        <div className="wrap hero-grid">
+          <div className="hero-copy">
+            <span className="badge"><span className="dot" />Thursdays &amp; Fridays · Harrow</span>
+            <h1 className="disp h1">
+              <span className="sr-only">Badminton that’s social, competitive, for beginners, every week.</span>
+              <span aria-hidden="true">Badminton<br />that’s <RotatingWord words={WORDS} /></span>
+            </h1>
+            <p className="lead" style={{ maxWidth: '34ch', color: 'var(--on-dark-2)' }}>Come on your own. We match you to close games and a new partner every round.</p>
+            <div className="hero-actions">
+              <a href={BOOK} className="book book-lg">Book a session<Arrow /></a>
+              <a href="#sessions" className="pill pill-ghost">See this week</a>
+            </div>
+          </div>
+          <HeroVisual />
+        </div>
+
+        <div className="strip" aria-label="The Shuttle Social in numbers">
+          <ul className="strip-track" style={{ listStyle: 'none', margin: 0 }}>
+            {strip.map((m) => (
+              <li key={m.t} style={{ display: 'flex', gap: '0.875rem', alignItems: 'center' }}>
+                <span className="mchip" style={{ background: m.background, color: m.color, ...vars({ '--rot': `${m.rot}deg` }) }}>
+                  <span className="num" style={{ color: m.nc }}>{m.n}</span><span className="mt">{m.t}</span>
+                </span>
+                <svg className="msep" viewBox="0 0 40 40" aria-hidden="true"><path d="M20 4l4.2 11.8L36 20l-11.8 4.2L20 36l-4.2-11.8L4 20l11.8-4.2z" fill="#D9F46B" /></svg>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+
+      <main id="main">
+        <section className="sec" id="sessions" style={{ background: 'var(--s-week)' }} aria-labelledby="week-h">
+          <div className="wrap">
+            <div className="head-row">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                <h2 id="week-h" className="disp h2">{upcoming.heading}</h2>
+                <span className="live small"><span className="dot" />Live from bookings</span>
+              </div>
+              <a href={BOOK} className="small" style={{ fontWeight: 700, textDecoration: 'none', borderBottom: '2px solid currentColor' }}>All sessions →</a>
+            </div>
+            {upcoming.list.length ? (
+              <div className="days">
+                {upcoming.list.map((s, k) => {
+                  const d = new Date(s.date + 'T12:00:00Z')
+                  const [venue, postcode] = String(s.venue).split(/,\s*(?=[A-Z]{1,2}\d)/)
+                  const st = sessionStatus(s)
+                  return (
+                    <a key={s.id} href={BOOK} className={'day' + (k === 0 ? ' day-first' : '')}>
+                      <div className="day-top">
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                          <span className="kicker" style={{ opacity: 0.75 }}>{d.toLocaleDateString('en-GB', { weekday: 'long', timeZone: 'Europe/London' })}</span>
+                          <span className="disp day-date">{d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'Europe/London' })}</span>
+                        </div>
+                        <span className="tag">{st.tag}</span>
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
+                        <span className="h3">{s.time} · {venue}</span>
+                        <span className="small" style={{ opacity: 0.75 }}>£{(s.price_pence / 100).toFixed(s.price_pence % 100 ? 2 : 0)} · all levels{postcode ? ` · ${postcode}` : ''}</span>
+                      </div>
+                      <span className="day-cta">{st.cta}</span>
+                    </a>
+                  )
+                })}
+              </div>
+            ) : (
+              <p className="empty lead">New sessions are announced on WhatsApp and Instagram first. <a href={INSTAGRAM}>Follow @theshuttlesocial</a>.</p>
+            )}
+          </div>
+        </section>
+
+        <section className="sec stats" aria-labelledby="stats-h">
+          <div className="wrap">
+            <div className="head-row">
+              <h2 id="stats-h" className="disp h2">One year on court.</h2>
+              <p className="small" style={{ maxWidth: '34ch', color: 'var(--on-dark-2)' }}>Since our first session in August 2025. The session count updates after every night.</p>
+            </div>
+            <div className="stat-grid">
+              {tiles.map((s) => (
+                <div key={s.kicker} className="tile" style={{ ...s.pal, ...vars({ '--span': s.span, '--pspan': s.pspan, '--tn': s.big ? 'clamp(4.5rem, 9vw, 8.5rem)' : 'clamp(3.5rem, 6.5vw, 6.25rem)', '--tnp': s.big ? '4.5rem' : '3rem' }) }}>
+                  <span className="kicker" style={{ opacity: 0.8 }}>{s.kicker}</span>
+                  <span className="num">{s.value}</span>
+                  <span className="bubble" style={{ background: s.bb, color: s.bf }}>{s.caption}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="sec" id="how" style={{ background: 'var(--s-how)' }} aria-labelledby="how-h">
+          <div className="wrap how">
+            <div className="how-pin">
+              <h2 id="how-h" className="disp h2">How a night works</h2>
+              <div className="how-vis" aria-hidden="true">
+                <div className="how-card">
+                  <span className="kicker" style={{ color: '#4A5A45' }}>{STEPS[0].kicker}</span>
+                  <span className="disp" style={{ fontSize: 'clamp(1.75rem, 2.6vw, 2.25rem)' }}>{STEPS[0].big}</span>
+                  <span className="small" style={{ color: '#3B4A37' }}>{STEPS[0].small}</span>
+                </div>
+              </div>
+            </div>
+            <ol className="steps">
+              {STEPS.map((s, k) => (
+                <li key={s.title} className="step">
+                  <span className="step-n">{String(k + 1).padStart(2, '0')}</span>
+                  <h3>{s.title}</h3>
+                  <p className="lead muted" style={{ maxWidth: '40ch' }}>{s.body}</p>
+                </li>
+              ))}
+            </ol>
+          </div>
+        </section>
+
+        <section className="sec faq-sec" id="faqs" aria-labelledby="faq-h">
+          <div className="wrap faq">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.125rem', alignItems: 'flex-start' }}>
+              <h2 id="faq-h" className="disp h2 faq-title">FAQs</h2>
+              <p className="lead" style={{ color: 'var(--on-dark-2)', maxWidth: '24ch' }}>Have more questions? DM us on Instagram.</p>
+              <a href={INSTAGRAM} className="pill pill-cream small">@theshuttlesocial</a>
+            </div>
+            <ol className="faq-list">
+              {FAQS.map(([q, a], k) => (
+                <li key={q} className="faq-item">
+                  <span className="num" aria-hidden="true">{String(k + 1).padStart(2, '0')}</span>
+                  <h3 className="h3">{q}</h3>
+                  <p className="faq-a">{a}</p>
+                </li>
+              ))}
+            </ol>
+          </div>
+        </section>
+
+        <section className="sec real" style={{ paddingInline: 0 }} aria-labelledby="real-h">
+          <div className="wrap head-row" style={{ marginBottom: 0 }}>
+            <h2 id="real-h" className="disp h2">Real nights.<br />Real people.</h2>
+            <span style={{ display: 'flex', gap: '0.625rem' }}>
+              <a href={INSTAGRAM} className="pill pill-line small">Instagram</a>
+              <a href={TIKTOK} className="pill pill-line small">TikTok</a>
+            </span>
+          </div>
+          <div className="gallery-view">
+            <div className="gtrack">
+              {CLIPS.map(([label, caption, bg, fg]) => (
+                <figure key={caption} className="clip">
+                  <div className="clip-media" role="img" aria-label="Video coming soon" style={{ background: bg, color: fg }}>{label}</div>
+                  <figcaption>{caption}</figcaption>
+                </figure>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="sec cta-sec" aria-labelledby="cta-h">
+          <div className="wrap cta">
+            <h2 id="cta-h" className="disp h1">See you<br />on court.</h2>
+            <div className="cta-side">
+              <a href={BOOK} className="book book-lg">Book a session<Arrow /></a>
+              <span className="small" style={{ color: 'var(--on-dark-2)' }}>Thursdays &amp; Fridays · £10 · no membership</span>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <footer className="wrap foot">
+        <span>The Shuttle Social · <a href="mailto:theshuttlesocial@gmail.com">theshuttlesocial@gmail.com</a></span>
+        <nav aria-label="Footer">
+          <a href={INSTAGRAM}>Instagram</a>
+          <a href={TIKTOK}>TikTok</a>
+          <a href="/privacy">Privacy</a>
+          <span>No tracking cookies</span>
+        </nav>
+      </footer>
+    </>
+  )
+}

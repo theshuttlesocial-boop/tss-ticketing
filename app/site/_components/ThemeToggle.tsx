@@ -1,0 +1,31 @@
+'use client'
+import { useEffect, useState } from 'react'
+
+const KEY = 'tss-theme'
+
+/** Follows the device setting until the visitor picks; the choice is remembered in this browser only. */
+export function ThemeToggle() {
+  const [dark, setDark] = useState<boolean | null>(null)
+
+  useEffect(() => {
+    const set = document.documentElement.dataset.theme
+    setDark(set ? set === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches)
+  }, [])
+
+  function toggle() {
+    const next = !dark
+    setDark(next)
+    document.documentElement.dataset.theme = next ? 'dark' : 'light'
+    try { localStorage.setItem(KEY, next ? 'dark' : 'light') } catch { /* private mode */ }
+  }
+
+  return (
+    <button type="button" className="theme-btn" onClick={toggle} aria-pressed={dark ?? undefined} aria-label="Dark mode">
+      <svg className="i-moon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F4F7EC" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z" /></svg>
+      <svg className="i-sun" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#D9F46B" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.5" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></svg>
+    </button>
+  )
+}
+
+/** Runs before first paint so a saved choice never flashes the wrong theme. */
+export const themeScript = `(function(){try{var t=localStorage.getItem('${KEY}');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t}catch(e){}})()`

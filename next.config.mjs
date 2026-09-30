@@ -1,10 +1,7 @@
 // next.config.mjs
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Redirect root to /tickets
-  async redirects() {
-    return [{ source: '/', destination: '/tickets', permanent: false }]
-  },
+  // Host routing (marketing site vs tickets, and "/" → /tickets) lives in proxy.ts.
 }
 
 export default nextConfig
