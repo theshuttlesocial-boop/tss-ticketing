@@ -1,6 +1,7 @@
 import type { CSSProperties } from 'react'
 import { getPublicSessions, type PublicSession } from '@/lib/sessions/public'
 import { CLUB_STATS, getSessionsRun } from '@/lib/site/stats'
+import { CountUp } from './_components/CountUp'
 import { FaqList } from './_components/FaqList'
 import { Gallery, type Clip } from './_components/Gallery'
 import { HeroVisual } from './_components/HeroVisual'
@@ -95,12 +96,12 @@ export default async function Home() {
   ]
 
   const tiles = [
-    { kicker: 'Players', value: `${fmt(CLUB_STATS.players)}+`, caption: 'different people have played with us', span: 5, pspan: 2, big: true, pal: PAL.lime, bb: INK, bf: CREAM },
-    { kicker: 'Sessions · live', value: fmt(sessionsRun), caption: 'sessions run, and counting', span: 4, pspan: 1, pal: PAL.cream, bb: '#E6EFDD', bf: INK },
-    { kicker: 'Running', value: '1 yr', caption: 'since August 2025', span: 3, pspan: 1, pal: PAL.mint, bb: '#FFFFFF', bf: INK },
-    { kicker: 'Regulars', value: `${CLUB_STATS.regulars}+`, caption: 'players with 10+ sessions', span: 3, pspan: 1, pal: PAL.teal, bb: INK, bf: CREAM },
-    { kicker: 'Fastest sell-out', value: `${CLUB_STATS.fastestSellOutSeconds}s`, caption: 'from tickets live to sold out', span: 4, pspan: 1, pal: PAL.forest, bb: '#D9F46B', bf: INK },
-    { kicker: 'Community', value: `${fmt(CLUB_STATS.whatsapp)}+`, caption: 'people in our WhatsApp community', span: 5, pspan: 2, big: true, pal: PAL.sage, bb: '#1E6B3E', bf: CREAM },
+    { kicker: 'Players', to: CLUB_STATS.players, suffix: '+', caption: 'different people have played with us', span: 5, pspan: 2, big: true, pal: PAL.lime, bb: INK, bf: CREAM },
+    { kicker: 'Sessions · live', to: sessionsRun, suffix: '', caption: 'sessions run, and counting', span: 4, pspan: 1, pal: PAL.cream, bb: '#E6EFDD', bf: INK },
+    { kicker: 'Running', to: 1, suffix: ' yr', caption: 'since August 2025', span: 3, pspan: 1, pal: PAL.mint, bb: '#FFFFFF', bf: INK },
+    { kicker: 'Regulars', to: CLUB_STATS.regulars, suffix: '+', caption: 'players with 10+ sessions', span: 3, pspan: 1, pal: PAL.teal, bb: INK, bf: CREAM },
+    { kicker: 'Fastest sell-out', to: CLUB_STATS.fastestSellOutSeconds, suffix: 's', caption: 'from tickets live to sold out', span: 4, pspan: 1, pal: PAL.forest, bb: '#D9F46B', bf: INK },
+    { kicker: 'Community', to: CLUB_STATS.whatsapp, suffix: '+', caption: 'people in our WhatsApp community', span: 5, pspan: 2, big: true, pal: PAL.sage, bb: '#1E6B3E', bf: CREAM },
   ]
 
   return (
@@ -201,7 +202,7 @@ export default async function Home() {
               {tiles.map((s) => (
                 <div key={s.kicker} className="tile" data-reveal="" style={{ ...s.pal, ...vars({ '--span': s.span, '--pspan': s.pspan, '--tn': s.big ? 'clamp(4.5rem, 9vw, 8.5rem)' : 'clamp(3.5rem, 6.5vw, 6.25rem)', '--tnp': s.big ? '4.5rem' : '3rem' }) }}>
                   <span className="kicker" style={{ opacity: 0.8 }}>{s.kicker}</span>
-                  <span className="num">{s.value}</span>
+                  <CountUp className="num" to={s.to} suffix={s.suffix} />
                   <span className="bubble" style={{ background: s.bb, color: s.bf }}>{s.caption}</span>
                 </div>
               ))}
