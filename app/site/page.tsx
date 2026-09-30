@@ -1,7 +1,9 @@
 import type { CSSProperties } from 'react'
 import { getPublicSessions, type PublicSession } from '@/lib/sessions/public'
 import { CLUB_STATS, getSessionsRun } from '@/lib/site/stats'
+import { Gallery, type Clip } from './_components/Gallery'
 import { HeroVisual } from './_components/HeroVisual'
+import { HowItWorks, type Step } from './_components/HowItWorks'
 import { RotatingWord } from './_components/RotatingWord'
 import { ThemeToggle } from './_components/ThemeToggle'
 
@@ -33,20 +35,20 @@ const FAQS: [string, string][] = [
   ['Do I need to bring equipment?', 'Shuttles are provided. Please bring your own racket if possible. A few spares will be available.'],
 ]
 
-const STEPS = [
+const STEPS: Step[] = [
   { title: 'Book a space', body: '£10, no membership. Plans change? Release your space and the waitlist gets it.', kicker: 'Booking', big: 'You’re in for Thursday.', small: 'Your ticket and QR code are in your email and My sessions.' },
   { title: 'Scan in at the door', body: 'Your phone shows your court and the round timer.', kicker: 'Round 1', big: 'Court 3', small: 'Rounds are timed. Scores go in on your phone.' },
   { title: 'Play, then the grand final', body: 'Timed rounds of doubles with a new partner every round. The night ends with a grand final.', kicker: 'End of the night', big: 'Grand final', small: 'The top players of the night meet on court 1.' },
 ]
 
 // Placeholders until the club's own clips arrive (self-hosted, muted, no tracking embeds).
-const CLIPS = [
-  ['[Reel · muted loop]', '[Caption: a long rally on court 2]', 'linear-gradient(160deg, #1E6B3E, #0E3B24)', '#B9D3B4'],
-  ['[TikTok · muted loop]', '[Caption: new partners, round 3]', 'linear-gradient(160deg, #8BE3B0, #2E8B57)', INK],
-  ['[Reel · muted loop]', '[Caption: the grand final]', 'linear-gradient(160deg, #D9F46B, #8BE3B0)', INK],
-  ['[TikTok · muted loop]', '[Caption: checking in at the door]', 'linear-gradient(200deg, #2E8B57, #0E3B24)', '#B9D3B4'],
-  ['[Reel · muted loop]', '[Caption: first-timers on court 4]', 'linear-gradient(160deg, #155A34, #0B2416)', '#B9D3B4'],
-  ['[TikTok · muted loop]', '[Caption: end-of-night photo]', 'linear-gradient(160deg, #BDEA72, #2E8B57)', INK],
+const CLIPS: Clip[] = [
+  { label: '[Reel · muted loop]', caption: '[Caption: a long rally on court 2]', bg: 'linear-gradient(160deg, #1E6B3E, #0E3B24)', fg: '#B9D3B4' },
+  { label: '[TikTok · muted loop]', caption: '[Caption: new partners, round 3]', bg: 'linear-gradient(160deg, #8BE3B0, #2E8B57)', fg: INK },
+  { label: '[Reel · muted loop]', caption: '[Caption: the grand final]', bg: 'linear-gradient(160deg, #D9F46B, #8BE3B0)', fg: INK },
+  { label: '[TikTok · muted loop]', caption: '[Caption: checking in at the door]', bg: 'linear-gradient(200deg, #2E8B57, #0E3B24)', fg: '#B9D3B4' },
+  { label: '[Reel · muted loop]', caption: '[Caption: first-timers on court 4]', bg: 'linear-gradient(160deg, #155A34, #0B2416)', fg: '#B9D3B4' },
+  { label: '[TikTok · muted loop]', caption: '[Caption: end-of-night photo]', bg: 'linear-gradient(160deg, #BDEA72, #2E8B57)', fg: INK },
 ]
 
 const fmt = (n: number) => n.toLocaleString('en-GB')
@@ -151,7 +153,7 @@ export default async function Home() {
       <main id="main">
         <section className="sec" id="sessions" style={{ background: 'var(--s-week)' }} aria-labelledby="week-h">
           <div className="wrap">
-            <div className="head-row">
+            <div className="head-row" data-reveal="">
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                 <h2 id="week-h" className="disp h2">{upcoming.heading}</h2>
                 <span className="live small"><span className="dot" />Live from bookings</span>
@@ -159,13 +161,13 @@ export default async function Home() {
               <a href={BOOK} className="small" style={{ fontWeight: 700, textDecoration: 'none', borderBottom: '2px solid currentColor' }}>All sessions →</a>
             </div>
             {upcoming.list.length ? (
-              <div className="days">
+              <div className="days" data-reveal-stagger="">
                 {upcoming.list.map((s, k) => {
                   const d = new Date(s.date + 'T12:00:00Z')
                   const [venue, postcode] = String(s.venue).split(/,\s*(?=[A-Z]{1,2}\d)/)
                   const st = sessionStatus(s)
                   return (
-                    <a key={s.id} href={BOOK} className={'day' + (k === 0 ? ' day-first' : '')}>
+                    <a key={s.id} href={BOOK} className={'day' + (k === 0 ? ' day-first' : '')} data-reveal="">
                       <div className="day-top">
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                           <span className="kicker" style={{ opacity: 0.75 }}>{d.toLocaleDateString('en-GB', { weekday: 'long', timeZone: 'Europe/London' })}</span>
@@ -183,20 +185,20 @@ export default async function Home() {
                 })}
               </div>
             ) : (
-              <p className="empty lead">New sessions are announced on WhatsApp and Instagram first. <a href={INSTAGRAM}>Follow @theshuttlesocial</a>.</p>
+              <p className="empty lead" data-reveal="">New sessions are announced on WhatsApp and Instagram first. <a href={INSTAGRAM}>Follow @theshuttlesocial</a>.</p>
             )}
           </div>
         </section>
 
         <section className="sec stats" aria-labelledby="stats-h">
           <div className="wrap">
-            <div className="head-row">
+            <div className="head-row" data-reveal="">
               <h2 id="stats-h" className="disp h2">One year on court.</h2>
               <p className="small" style={{ maxWidth: '34ch', color: 'var(--on-dark-2)' }}>Since our first session in August 2025. The session count updates after every night.</p>
             </div>
-            <div className="stat-grid">
+            <div className="stat-grid" data-reveal-stagger="">
               {tiles.map((s) => (
-                <div key={s.kicker} className="tile" style={{ ...s.pal, ...vars({ '--span': s.span, '--pspan': s.pspan, '--tn': s.big ? 'clamp(4.5rem, 9vw, 8.5rem)' : 'clamp(3.5rem, 6.5vw, 6.25rem)', '--tnp': s.big ? '4.5rem' : '3rem' }) }}>
+                <div key={s.kicker} className="tile" data-reveal="" style={{ ...s.pal, ...vars({ '--span': s.span, '--pspan': s.pspan, '--tn': s.big ? 'clamp(4.5rem, 9vw, 8.5rem)' : 'clamp(3.5rem, 6.5vw, 6.25rem)', '--tnp': s.big ? '4.5rem' : '3rem' }) }}>
                   <span className="kicker" style={{ opacity: 0.8 }}>{s.kicker}</span>
                   <span className="num">{s.value}</span>
                   <span className="bubble" style={{ background: s.bb, color: s.bf }}>{s.caption}</span>
@@ -207,39 +209,19 @@ export default async function Home() {
         </section>
 
         <section className="sec" id="how" style={{ background: 'var(--s-how)' }} aria-labelledby="how-h">
-          <div className="wrap how">
-            <div className="how-pin">
-              <h2 id="how-h" className="disp h2">How a night works</h2>
-              <div className="how-vis" aria-hidden="true">
-                <div className="how-card">
-                  <span className="kicker" style={{ color: '#4A5A45' }}>{STEPS[0].kicker}</span>
-                  <span className="disp" style={{ fontSize: 'clamp(1.75rem, 2.6vw, 2.25rem)' }}>{STEPS[0].big}</span>
-                  <span className="small" style={{ color: '#3B4A37' }}>{STEPS[0].small}</span>
-                </div>
-              </div>
-            </div>
-            <ol className="steps">
-              {STEPS.map((s, k) => (
-                <li key={s.title} className="step">
-                  <span className="step-n">{String(k + 1).padStart(2, '0')}</span>
-                  <h3>{s.title}</h3>
-                  <p className="lead muted" style={{ maxWidth: '40ch' }}>{s.body}</p>
-                </li>
-              ))}
-            </ol>
-          </div>
+          <HowItWorks steps={STEPS} />
         </section>
 
         <section className="sec faq-sec" id="faqs" aria-labelledby="faq-h">
           <div className="wrap faq">
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.125rem', alignItems: 'flex-start' }}>
+            <div data-reveal="" style={{ display: 'flex', flexDirection: 'column', gap: '1.125rem', alignItems: 'flex-start' }}>
               <h2 id="faq-h" className="disp h2 faq-title">FAQs</h2>
               <p className="lead" style={{ color: 'var(--on-dark-2)', maxWidth: '24ch' }}>Have more questions? DM us on Instagram.</p>
               <a href={INSTAGRAM} className="pill pill-cream small">@theshuttlesocial</a>
             </div>
-            <ol className="faq-list">
+            <ol className="faq-list" data-reveal-stagger="">
               {FAQS.map(([q, a], k) => (
-                <li key={q} className="faq-item">
+                <li key={q} className="faq-item" data-reveal="">
                   <span className="num" aria-hidden="true">{String(k + 1).padStart(2, '0')}</span>
                   <h3 className="h3">{q}</h3>
                   <p className="faq-a">{a}</p>
@@ -249,28 +231,18 @@ export default async function Home() {
           </div>
         </section>
 
-        <section className="sec real" style={{ paddingInline: 0 }} aria-labelledby="real-h">
-          <div className="wrap head-row" style={{ marginBottom: 0 }}>
+        <Gallery clips={CLIPS}>
+          <div className="wrap head-row" data-reveal="" style={{ marginBottom: 0 }}>
             <h2 id="real-h" className="disp h2">Real nights.<br />Real people.</h2>
             <span style={{ display: 'flex', gap: '0.625rem' }}>
               <a href={INSTAGRAM} className="pill pill-line small">Instagram</a>
               <a href={TIKTOK} className="pill pill-line small">TikTok</a>
             </span>
           </div>
-          <div className="gallery-view">
-            <div className="gtrack">
-              {CLIPS.map(([label, caption, bg, fg]) => (
-                <figure key={caption} className="clip">
-                  <div className="clip-media" role="img" aria-label="Video coming soon" style={{ background: bg, color: fg }}>{label}</div>
-                  <figcaption>{caption}</figcaption>
-                </figure>
-              ))}
-            </div>
-          </div>
-        </section>
+        </Gallery>
 
         <section className="sec cta-sec" aria-labelledby="cta-h">
-          <div className="wrap cta">
+          <div className="wrap cta" data-reveal="">
             <h2 id="cta-h" className="disp h1">See you<br />on court.</h2>
             <div className="cta-side">
               <a href={BOOK} className="book book-lg">Book a session<Arrow /></a>
