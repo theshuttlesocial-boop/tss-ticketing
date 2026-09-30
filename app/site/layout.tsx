@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { Urbanist } from 'next/font/google'
+import { Motion } from './_components/Motion'
 import { themeScript } from './_components/ThemeToggle'
 import './site.css'
 
@@ -26,6 +27,7 @@ export default function SiteLayout({ children }: { children: React.ReactNode }) 
       <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       <a className="skip" href="#main">Skip to content</a>
       {children}
+      <Motion />
     </div>
   )
 }

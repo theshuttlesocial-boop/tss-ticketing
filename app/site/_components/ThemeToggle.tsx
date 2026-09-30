@@ -27,5 +27,8 @@ export function ThemeToggle() {
   )
 }
 
-/** Runs before first paint so a saved choice never flashes the wrong theme. */
-export const themeScript = `(function(){try{var t=localStorage.getItem('${KEY}');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t}catch(e){}})()`
+/**
+ * Runs before first paint: applies a saved theme (no flash of the wrong one) and marks
+ * that JavaScript is on, which is what lets reveal-on-scroll hide content until it's shown.
+ */
+export const themeScript = `(function(){var d=document.documentElement;d.classList.add('tss-js');try{var t=localStorage.getItem('${KEY}');if(t==='light'||t==='dark')d.dataset.theme=t}catch(e){}})()`
