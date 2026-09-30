@@ -2,9 +2,8 @@ import { NextResponse } from 'next/server'
 import { stripe } from '@/lib/stripe'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendBookingConfirmation, sendAdminBookingNotification, sendApologyRefundEmail } from '@/lib/email'
-import { settleRelease } from '@/lib/settlement'
+import { applyClaimToReleases } from '@/lib/settlement'
 import { consumeCredits } from '@/lib/credits'
-import { logAudit } from '@/lib/audit'
 
 export async function POST(req: Request) {
   console.log('[webhook] POST received')
@@ -158,20 +157,10 @@ export async function POST(req: Request) {
       try {
         await supabaseAdmin.from('waitlist').update({ status: 'claimed' }).eq('id', pi.metadata.waitlist_id)
 
-        const { data: release } = await supabaseAdmin
-          .from('releases').select('id,booking_id').eq('session_id', session_id)
-          .is('outcome', null).order('released_at', { ascending: true }).limit(1).maybeSingle()
-
-        if (release) {
-          await supabaseAdmin.from('releases')
-            .update({ outcome: 'replaced', replacement_booking_id: booking.id }).eq('id', release.id)
-          await supabaseAdmin.from('bookings')
-            .update({ release_status: 'replaced' }).eq('id', release.booking_id)
-          await logAudit('claim_success', { waitlistId: pi.metadata.waitlist_id, releaseId: release.id, replacementBookingId: booking.id }, release.id)
-          await settleRelease(release.id)   // Phase 4 issues the credit/refund (idempotent on resolved_at)
-        } else {
-          console.warn('[webhook] claim had no unresolved release for session', session_id)
-        }
+        // Fill releases oldest first for exactly the spaces claimed; each releaser is
+        // settled only for spaces actually filled (splits a release if needed).
+        const matched = await applyClaimToReleases(session_id, booking.quantity, booking.id, pi.metadata.waitlist_id)
+        if (!matched) console.warn('[webhook] claim had no unresolved release for session', session_id)
       } catch (claimErr) {
         console.error('[webhook] claim resolution failed:', claimErr)
       }
