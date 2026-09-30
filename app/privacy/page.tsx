@@ -46,6 +46,11 @@ export default function PrivacyPage() {
             to help with and where in London suits you). You tick a box to agree before sending; suggestions can be sent anonymously. Each form is emailed to our
             inbox. Join us applications and suggestions are also kept in our admin page so the team can review them. Nothing is
             added to a mailing list. We note your IP address for up to 1 month to stop spam.</li>
+          <li><strong>Joining our WhatsApp community (theshuttlesocial.com/join):</strong> your first name, email and how you heard about us,
+            so we can email you a copy of the welcome message and see how people find us (consent). WhatsApp itself is run by Meta, under
+            its own privacy policy.</li>
+          <li><strong>Welcome offer:</strong> if you use the welcome code, we record your email and booking reference so the offer is used
+            once per person.</li>
           <li><strong>Emails:</strong> booking confirmations, sign-in codes and messages about sessions you booked. We don&apos;t send marketing emails.</li>
         </ul>
         <P>We only collect what these need. We don&apos;t collect your date of birth, address or anything about your health.</P>
@@ -82,6 +87,8 @@ export default function PrivacyPage() {
           <li><strong>Bookings and payments:</strong> 6 years, because UK tax law requires it. After that your name, email and
             phone are deleted automatically; only the anonymous amounts stay.</li>
           <li><strong>Waitlist entries:</strong> 1 year, then deleted automatically.</li>
+          <li><strong>WhatsApp join details:</strong> 12 months, then deleted automatically.</li>
+          <li><strong>Welcome offer records:</strong> kept with your booking (6 years), then deleted.</li>
           <li><strong>&ldquo;Manage my booking&rdquo; email links and &ldquo;find my booking&rdquo; attempts</strong> (which record your IP address, to stop
             people guessing emails): 1 month.</li>
           <li><strong>Website form messages:</strong> in our email inbox only as long as we need them to reply or to organise volunteering, then

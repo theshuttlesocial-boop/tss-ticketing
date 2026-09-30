@@ -36,8 +36,8 @@ export default function CommunityPage() {
               <div className="card card-deep" data-reveal="">
                 <span className="icon"><Icon name="chat" /></span>
                 <h3 className="h3">WhatsApp community</h3>
-                <p>Session announcements and ticket releases land here first. The link is in our Instagram bio.</p>
-                <a href={INSTAGRAM} className="pill pill-cream small" style={{ alignSelf: 'flex-start' }}>Find the link</a>
+                <p>Session announcements and ticket releases land here first.</p>
+                <a href="/join" className="pill pill-cream small" style={{ alignSelf: 'flex-start' }}>Join the community</a>
               </div>
               <div className="card c-lime" data-reveal="">
                 <span className="icon"><Icon name="camera" /></span>

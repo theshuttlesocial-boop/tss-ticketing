@@ -384,7 +384,9 @@ function ElementsWithStableOptions({clientSecret,bookingRef,expiresAt,onSuccess}
 }
 
 // ── Booking Modal ─────────────────────────────────────────────────────────────
-function BookingModal({session,termsText,onClose}:{session:Session;termsText:string;onClose:()=>void}){
+type Promo={code:string;src?:string}
+
+function BookingModal({session,termsText,promo,onClose}:{session:Session;termsText:string;promo:Promo|null;onClose:()=>void}){
   const [name,setName]=useState(''); const [email,setEmail]=useState(''); const [phone,setPhone]=useState('')
   const [qty,setQty]=useState(1); const [additionalNames,setAdditionalNames]=useState<string[]>([])
   const [termsAccepted,setTermsAccepted]=useState(false); const [showTerms,setShowTerms]=useState(false)
@@ -393,13 +395,15 @@ function BookingModal({session,termsText,onClose}:{session:Session;termsText:str
   const [done,setDone]=useState(false); const [hasSavedUser,setHasSavedUser]=useState(false)
   const [creditAvailable,setCreditAvailable]=useState(0); const [applyCredit,setApplyCredit]=useState(true)
   const [signedIn,setSignedIn]=useState(false)
+  // Welcome offer (Phase 8): the server decides if it applies (first booking only)
+  const [welcome,setWelcome]=useState<{pence:number;note:string|null}>({pence:0,note:null})
 
   const maxQty=session.availability==='limited'
     ?Math.min(session.max_tickets_per_order??4,session.spotsRemaining??1)
     :session.max_tickets_per_order??4
   const total=session.price_pence*qty
-  const creditApplied=applyCredit?Math.min(creditAvailable,total):0
-  const duePence=total-creditApplied
+  const creditApplied=applyCredit?Math.min(creditAvailable,total-welcome.pence):0
+  const duePence=total-welcome.pence-creditApplied
 
   // Credit is private: it's only shown (and can only be used) when you're signed in
   // to My portal with the same email you're booking with.
@@ -438,10 +442,11 @@ function BookingModal({session,termsText,onClose}:{session:Session;termsText:str
     setLoading(true);setError('')
     try{
       const res=await fetch('/api/book',{method:'POST',headers:{'Content-Type':'application/json',...(await authHeader())},
-        body:JSON.stringify({session_id:session.id,quantity:qty,name,email,phone,apply_credit:applyCredit&&creditAvailable>0,additional_attendees:additionalNames.filter(Boolean).map(n=>({name:n}))})})
+        body:JSON.stringify({session_id:session.id,quantity:qty,name,email,phone,apply_credit:applyCredit&&creditAvailable>0,promo_code:promo?.code,src:promo?.src,additional_attendees:additionalNames.filter(Boolean).map(n=>({name:n}))})})
       const d=await res.json()
       if(!res.ok){setError(d.error??'Could not reserve seat');return}
       try{localStorage.setItem('tss_user',JSON.stringify({name,email,phone}))}catch{}
+      setWelcome({pence:d.welcomePence??0,note:d.welcomeNote??null})
       // Credit covered the whole order — no payment needed.
       if(d.fullyCovered){setRef(d.bookingRef);setDone(true);return}
       setCs(d.clientSecret);setRef(d.bookingRef);setExpires(d.expiresAt)
@@ -557,20 +562,32 @@ function BookingModal({session,termsText,onClose}:{session:Session;termsText:str
           </p>
         )}
 
+        {/* Welcome code from /welcome: checked when the spot is reserved */}
+        {promo&&!clientSecret&&(
+          <p className="t-note" style={{marginBottom:'0.75rem'}}>Welcome code <strong>{promo.code}</strong>: money off your first booking, taken off when you continue.</p>
+        )}
+        {welcome.note&&<p className="t-note info" style={{marginBottom:'0.75rem'}}>{welcome.note}</p>}
+
         {/* Dynamic price total — live update as quantity/credit changes */}
         <div className="t-total">
           <div className="t-total-row">
             <span>{qty} × {fmt(session.price_pence)}</span>
-            {creditApplied>0
+            {creditApplied>0||welcome.pence>0
               ?<span className="t-strike">{fmt(total)}</span>
               :<span className="num">{fmt(total)}</span>}
           </div>
-          {creditApplied>0&&(
+          {welcome.pence>0&&(
+            <div className="t-total-row">
+              <span>Welcome discount</span>
+              <span style={{color:'var(--accent)',fontWeight:700}}>−{fmt(welcome.pence)}</span>
+            </div>
+          )}
+          {(creditApplied>0||welcome.pence>0)&&(
             <>
-              <div className="t-total-row">
+              {creditApplied>0&&<div className="t-total-row">
                 <span>Credit applied</span>
                 <span style={{color:'var(--accent)',fontWeight:700}}>−{fmt(creditApplied)}</span>
-              </div>
+              </div>}
               <div className="t-total-row" style={{paddingTop:'0.5rem',borderTop:'1px solid var(--line)'}}>
                 <strong>{duePence<=0?'Nothing to pay':'To pay'}</strong>
                 <span className="num">{fmt(duePence)}</span>
@@ -698,6 +715,16 @@ export default function TicketsPage() {
   const [settings,setSettings]=useState<Record<string,string>>({})
   const [loading,setLoading]=useState(true)
   const [selected,setSelected]=useState<Session|null>(null)
+  // Welcome code from theshuttlesocial.com/welcome (?code=…&src=…), kept for this visit
+  const [promo,setPromo]=useState<Promo|null>(null)
+  useEffect(()=>{
+    try{
+      const q=new URLSearchParams(location.search)
+      const c=(q.get('code')??'').trim().toUpperCase().replace(/[^A-Z0-9_-]/g,'').slice(0,40)
+      if(c){const p:Promo={code:c,src:(q.get('src')??'').replace(/[^a-z0-9_-]/gi,'').slice(0,30)||undefined};sessionStorage.setItem('tss_promo',JSON.stringify(p));setPromo(p);return}
+      const saved=sessionStorage.getItem('tss_promo');if(saved)setPromo(JSON.parse(saved))
+    }catch{}
+  },[])
   const [waitlistSession,setWaitlistSession]=useState<Session|null>(null)
 
   const sessionsHashRef=useRef('')
@@ -768,6 +795,9 @@ export default function TicketsPage() {
           </div>
         ):(
           <>
+            {promo&&(
+              <p className="t-note" style={{marginBottom:'1.25rem'}}>Your welcome code <strong>{promo.code}</strong> is saved. It comes off your first booking at checkout.</p>
+            )}
             {open.length>0&&(
               <section className="t-group" aria-labelledby="open-h">
                 <h2 id="open-h" className="kicker t-group-h">Open for booking</h2>
@@ -814,7 +844,7 @@ export default function TicketsPage() {
 
       {selected&&(
         <ErrorBoundary>
-          <BookingModal session={selected} termsText={settings.terms_and_conditions??''} onClose={()=>{setSelected(null);fetchSessions()}}/>
+          <BookingModal session={selected} termsText={settings.terms_and_conditions??''} promo={promo} onClose={()=>{setSelected(null);fetchSessions()}}/>
         </ErrorBoundary>
       )}
       {waitlistSession&&(

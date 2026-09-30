@@ -89,6 +89,7 @@ function AdminPageInner() {
   const [searchLoading,setSearchLoading]=useState(false)
   const allBookingsRef=useRef<Booking[]>([])
   const [inbox,setInbox]=useState<{messages:any[];missing?:boolean}>({messages:[]}); const [inboxFilter,setInboxFilter]=useState<'new'|'all'|'join'|'suggestion'>('new')
+  const [welcomeData,setWelcomeData]=useState<{redemptions:any[];joins:{last30:number;byHeard:Record<string,number>}|null;missing?:boolean}>({redemptions:[],joins:null})
   const [credits,setCredits]=useState<any[]>([]); const [creditForm,setCreditForm]=useState({email:'',amount:''})
   const [releasesData,setReleasesData]=useState<{unresolved:any[];resolved:any[];offers:any[]}>({unresolved:[],resolved:[],offers:[]})
   const [transfers,setTransfers]=useState<any[]>([])
@@ -201,6 +202,12 @@ function AdminPageInner() {
     loadInbox()
   }
 
+  // ── Welcome offer and /join stats (Phase 8) ──
+  async function loadWelcome(){
+    const res=await fetch('/api/admin/welcome',{headers:{...staffHeaders(secret)}})
+    const d=await res.json().catch(()=>({}));setWelcomeData({redemptions:d.redemptions??[],joins:d.joins??null,missing:!!d.missing})
+  }
+
   // ── Credits ──
   async function loadCredits(){
     const res=await fetch('/api/admin/credits',{headers:{...staffHeaders(secret)}})
@@ -302,6 +309,7 @@ function AdminPageInner() {
     if(tab==='blocked')loadBlocked()
     if(tab==='credits')loadCredits()
     if(tab==='inbox')loadInbox()
+    if(tab==='settings')loadWelcome()
     if(tab==='releases')loadReleases()
     if(tab==='transfers')loadTransfers()
   },[authed,tab,filterSession])
@@ -1036,6 +1044,65 @@ function AdminPageInner() {
             </div>
           </div>
         )}
+
+        {/* WELCOME OFFER + WHATSAPP JOIN (Phase 8) */}
+        {tab==='settings'&&(()=>{
+          const on=(settings.welcome_enabled??'on')!=='off'
+          const code=settings.welcome_code??'WELCOME'
+          const pounds=settings.welcome_discount_pence!==undefined?String(Number(settings.welcome_discount_pence)/100):'2'
+          const redeemed=welcomeData.redemptions.filter((r:any)=>r.status==='redeemed')
+          const lbl:React.CSSProperties={fontSize:12,color:T.muted,display:'block',marginBottom:5}
+          const save:React.CSSProperties={padding:'9px 18px',background:T.cta,color:T.onCta,boxShadow:T.ctaGlow,border:'none',borderRadius:999,fontWeight:700,fontSize:13,cursor:'pointer',fontFamily:'inherit',flexShrink:0}
+          return(
+            <div style={{...cardStyle,marginTop:16}}>
+              <div style={{padding:'12px 18px',borderBottom:`1px solid ${T.border}`,fontWeight:600,fontSize:12,color:T.muted,textTransform:'uppercase',letterSpacing:1}}>Welcome offer &amp; WhatsApp join page</div>
+              <div style={{padding:20,display:'flex',flexDirection:'column',gap:18}}>
+                {welcomeData.missing&&<div style={{fontSize:13,color:T.warning}}>These need migration 026 (run it in the Supabase SQL Editor).</div>}
+                <div style={{display:'flex',gap:16,alignItems:'flex-start',justifyContent:'space-between'}}>
+                  <div>
+                    <div style={{fontWeight:800,fontSize:15,marginBottom:4}}>Welcome discount</div>
+                    <div style={{fontSize:13,color:T.muted,lineHeight:1.6}}>Money off someone&apos;s first booking, once per email. People get it from theshuttlesocial.com/welcome (add <code>?src=ig</code> for Instagram links).</div>
+                  </div>
+                  <button role="switch" aria-checked={on} aria-label="Welcome discount on"
+                    onClick={()=>{const v=on?'off':'on';setSettings(s=>({...s,welcome_enabled:v}));saveSetting('welcome_enabled',v)}}
+                    style={{flexShrink:0,width:56,height:32,borderRadius:999,border:`1px solid ${on?'transparent':T.border}`,padding:3,cursor:'pointer',background:on?T.cta:T.card2,boxShadow:on?T.ctaGlow:'none',display:'flex',justifyContent:on?'flex-end':'flex-start'}}>
+                    <span style={{width:24,height:24,borderRadius:'50%',background:on?'#0F2A1A':T.muted}}/>
+                  </button>
+                </div>
+                <div style={{display:'flex',gap:10,flexWrap:'wrap' as const,alignItems:'flex-end'}}>
+                  <div style={{flex:'1 1 160px'}}><label style={lbl}>Code</label>
+                    <input value={code} onChange={e=>setSettings(s=>({...s,welcome_code:e.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g,'')}))} style={inp()}/></div>
+                  <div style={{flex:'1 1 120px'}}><label style={lbl}>Amount off (£)</label>
+                    <input value={pounds} type="number" step="0.5" min="0" onChange={e=>setSettings(s=>({...s,welcome_discount_pence:String(Math.round(parseFloat(e.target.value||'0')*100))}))} style={inp()}/></div>
+                  <button style={save} onClick={async()=>{await saveSetting('welcome_code',code||'WELCOME');await saveSetting('welcome_discount_pence',String(Math.round(parseFloat(pounds||'0')*100)))}}>Save offer</button>
+                </div>
+                <div style={{display:'flex',gap:10,flexWrap:'wrap' as const,alignItems:'flex-end'}}>
+                  <div style={{flex:'3 1 260px'}}><label style={lbl}>WhatsApp community invite link (shown on /join after the form)</label>
+                    <input value={settings.whatsapp_invite_url??''} placeholder="https://chat.whatsapp.com/…" onChange={e=>setSettings(s=>({...s,whatsapp_invite_url:e.target.value.trim()}))} style={inp()}/></div>
+                  <button style={save} onClick={()=>{const u=settings.whatsapp_invite_url??'';if(u&&!/^https:\/\//.test(u)){flash('❌ The link must start with https://');return}saveSetting('whatsapp_invite_url',u)}}>Save link</button>
+                </div>
+                <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))',gap:10}}>
+                  <div style={{padding:14,borderRadius:16,background:'var(--card-2)'}}><div style={{fontSize:26,fontWeight:900,fontStyle:'italic'}}>{redeemed.length}</div><div style={{fontSize:12,color:T.muted}}>welcome discounts used</div></div>
+                  <div style={{padding:14,borderRadius:16,background:'var(--card-2)'}}><div style={{fontSize:26,fontWeight:900,fontStyle:'italic'}}>{welcomeData.joins?.last30??0}</div><div style={{fontSize:12,color:T.muted}}>/join sign-ups, last 30 days</div></div>
+                </div>
+                {welcomeData.joins&&Object.keys(welcomeData.joins.byHeard).length>0&&(
+                  <div style={{fontSize:13,color:T.muted}}>How they heard (last 30 days): {Object.entries(welcomeData.joins.byHeard).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`${k} ${v}`).join(' · ')}</div>
+                )}
+                {redeemed.length>0&&(
+                  <div>
+                    <div style={{fontSize:12,color:T.muted,textTransform:'uppercase',letterSpacing:1,marginBottom:6}}>Recent welcome bookings</div>
+                    {redeemed.slice(0,30).map((r:any)=>(
+                      <div key={r.booking_ref} style={{display:'flex',justifyContent:'space-between',gap:10,padding:'8px 0',borderTop:'1px solid var(--card-2)',fontSize:13}}>
+                        <span>{r.email}{r.src?<span style={{color:T.muted}}> · from {r.src}</span>:null}</span>
+                        <span style={{color:T.muted,whiteSpace:'nowrap' as const}}>{r.booking_ref} · {new Date(r.redeemed_at??r.created_at).toLocaleDateString('en-GB')}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )
+        })()}
 
       </div>
     </div>

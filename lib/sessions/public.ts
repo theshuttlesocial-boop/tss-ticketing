@@ -26,7 +26,10 @@ export async function getPublicSessions(now = new Date()) {
   if (sessionsRes.error) return { error: sessionsRes.error.message }
 
   const settings: Record<string,string> = {}
-  ;(settingsRes.data ?? []).forEach(s => { settings[s.key] = s.value })
+  // Only the settings the public pages show. Others (e.g. the WhatsApp invite link,
+  // which /join hands out) must never leave the server.
+  const PUBLIC_SETTINGS = ['about_text', 'terms_and_conditions']
+  ;(settingsRes.data ?? []).forEach(s => { if (PUBLIC_SETTINGS.includes(s.key)) settings[s.key] = s.value })
 
   // Separate into open vs coming_soon in one pass
   const openSessions: (typeof sessionsRes.data)[number][] = []
