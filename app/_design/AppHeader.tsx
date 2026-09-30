@@ -16,7 +16,7 @@ export function AppHeader() {
         <a href="https://theshuttlesocial.com" className="brand" aria-label="The Shuttle Social home">the shuttle social</a>
         <div className="nav-right">
           <a href="/account" className="book small">My portal<Arrow /></a>
-          <ThemeToggle />
+          <ThemeToggle app />
         </div>
       </header>
     </div>
