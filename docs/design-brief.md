@@ -1,588 +1,116 @@
-CLEAN MINIMAL DESIGN DIRECTOR MODE
+# The Shuttle Social — design brief
+
+Approved direction: **V5** (design canvas, 30 September 2026). This file is the source of truth for how
+The Shuttle Social looks and moves. It replaces the earlier "clean minimal" brief, which argued against
+gradients, pill buttons and colour; the club chose a bolder, more energetic look, and future work should
+build on it rather than pull it back.
+
+Reference code: `app/site/site.css` (tokens and components) and `app/site/page.tsx` (the homepage).
+
+---
+
+## 1. Personality
+
+Social, energetic, welcoming to beginners, a little competitive. The site should feel like the night itself:
+green, bright, moving, full of people. It should never feel like a generic SaaS template.
+
+Inspiration the club liked: beans.tech (rotating highlighted word, colourful stats, sticker-like chips),
+fitcoin.co (gradient hero, sliding strip, floating UI chips), landonorris.com (clean sections, dynamic
+details, slight gradient highlights). Take the patterns, never copy them.
+
+## 2. Typography
+
+- **One typeface: Urbanist** (Google Fonts, self-hosted through `next/font`, `display: swap`).
+  The club rejected Instrument Serif, Bricolage Grotesque and Hanken Grotesk.
+- Weights: hero headline **900**, section headings **800**, body **500**, labels 600–700.
+- **Numbers and stats: 900 italic.**
+- Headings: tight line-height (~0.95) and letter-spacing (−0.035em).
+- Kickers (small labels above things): uppercase, 0.14em letter-spacing, 700.
+- Step numbers (01 / 02 / 03): small caps.
+- The whole scale is fluid with `clamp()`, defined once as CSS variables. No fixed px font sizes.
+- Keep body text to ~34–40 characters wide in heroes and ~60–70 elsewhere.
+
+## 3. Colour
+
+Brand greens, one lime accent, cream. All defined as tokens on `.tss`.
+
+| Token | Light | Use |
+|---|---|---|
+| ink | `#0F2A1A` | text, dark surfaces |
+| forest | `#0E3B24` | dark sections, hero start |
+| lime | `#D9F46B` | the accent: highlights, stat numbers on dark, Book button |
+| cream / page | `#F6F7F1` | page background |
+| muted | `#4A5A45` | secondary text |
+| on-dark | `#F4F7EC` | text on green |
+
+- **Gradients are part of the brand**: the hero (forest → green → light green), the FAQ section,
+  the Book button, the stat tiles. Keep them within the green–lime–mint family. No purple, blue or neon.
+- **Stats get their own harmonising colours**, one per stat, from this palette:
+  lime, cream, mint, teal-mint, forest, pale sage (plus ink for chips). Never all one colour.
+- **Dark mode** is supported everywhere: it follows the device, the visitor can switch it,
+  and the choice is remembered in their browser. Every colour pairing must work in both.
+
+## 4. Section rhythm
+
+Each major section has its own background so scrolling feels like moving through distinct spaces:
+
+hero (forest gradient) → This week (cream) → stats (deep green) → How it works (mint) →
+FAQs (green gradient) → Real nights (lime tint) → closing call to action (near-black with a lime glow).
+
+One idea per section: one headline, one supporting sentence, one visual. Generous vertical padding:
+`clamp(5rem, 12vh, 10rem)` on desktop, less on phones.
+
+## 5. Shape and components
+
+- Rounded, friendly geometry: large radii on sections and tiles (~28–44px), pills for buttons and chips.
+- **Book a session is the one primary action** and looks unlike anything else: lime → mint gradient,
+  soft lime glow, dark arrow circle, a slow shine. Every other button is secondary (ghost, cream or outlined).
+  Don't give other buttons the Book treatment.
+- Stats: an oversized heavy-italic number with a short caption in a speech-bubble pill.
+- Floating chips (e.g. "Checked in", "Next up · new partner") show the live-session product.
+- The hero's signature element is the **interactive green feather shuttlecock** beside the
+  live-session phone. It follows the pointer and turns slowly.
+- Hover states on cards: scale ~1.03 over 300ms.
+
+## 6. Motion
+
+Motion is a key part of the site: dynamic, never still, but never in the way.
+
+- Animate only `transform` and `opacity`.
+- **Scroll reveals:** one reusable IntersectionObserver utility. `[data-reveal]` starts at opacity 0,
+  translateY(30px), animates in over 600–800ms with a soft ease-out, once only.
+  `[data-reveal-stagger]` staggers children 80ms apart.
+- **Sticky steps:** How it works pins the heading and visual while the steps scroll (pure CSS sticky).
+- **Accordion** for FAQs: numbered 01, 02…, animated height, lift on open, content fades in ~100ms later,
+  real `<button>`s with `aria-expanded` / `aria-controls`.
+- **Count-up stats:** from zero over ~1.2s with ease-out when they come into view.
+- **Marquee:** CSS-only infinite strip, pauses on hover.
+- **Parallax:** decorative elements only, at 0.3–0.5× scroll speed, rAF-throttled.
+- **Horizontal gallery** for Real nights, with captions under each clip.
+- Below 768px: no parallax, no pinning, galleries become native swipes. Reveals stay.
+- `prefers-reduced-motion`: everything appears instantly, nothing moves.
+- No heavy animation library unless there's a clear reason (agree it first).
+
+## 7. Content rules
+
+- Never invent stats, testimonials or quotes. Stats come from the attendance tracker, bookings or the club.
+  The sessions count is live; the club-supplied figures live in `lib/site/stats.ts`.
+- Photos and videos are the club's own, self-hosted as muted loops (no embeds that set tracking cookies).
+  Get consent from people in them. Until then, use clearly marked placeholders.
+- Plain, friendly British English. "Come on your own." Short sentences.
+- No tracking cookies.
 
-Design this as if it were created by an exceptional senior product designer and creative director for a modern, design-conscious company.
+## 8. Accessibility and quality
 
-The goal is not to make the interface flashy, luxurious or visually impressive for its own sake.
+- Semantic HTML, keyboard navigable, visible focus states (lime outline), skip link.
+- Sufficient contrast for every colour pairing, in light and dark mode.
+- Decorative motion and chips are hidden from screen readers; rotating text has a full-sentence
+  equivalent for them.
+- Phone-first: check every screen at 390px. Touch targets at least 44px.
+- Lighthouse performance above 90.
 
-The goal is to create something that feels:
+## 9. Scope
 
-clean, minimal, modern, intuitive, calm, distinctive, effortless and exceptionally well considered.
-
-It should look like a real product that has gone through serious design iteration, not something generated from a generic AI UI template.
-
-The guiding principle is:
-
-Remove everything that does not need to be there, then make everything that remains exceptionally good.
-
-⸻
-
-1. AVOID GENERIC AI DESIGN
-
-Actively identify and reject visual patterns that make interfaces look AI-generated or template-based.
-
-Avoid default use of:
-
-* Purple/blue AI gradients
-* Neon gradients
-* Gradient text
-* Generic glassmorphism
-* Excessive frosted-glass effects
-* Floating gradient blobs
-* Excessive rounded cards
-* Huge pill-shaped buttons
-* Excessive drop shadows
-* Generic SaaS dashboards
-* Generic bento-box layouts
-* Every element being placed inside a card
-* Excessive borders
-* Decorative icons everywhere
-* Random abstract shapes
-* Generic 3D illustrations
-* Stock-looking imagery
-* Excessive animation
-* Excessive hover effects
-* Giant meaningless hero headlines
-* Overly bold typography everywhere
-* Excessive use of colour
-* “Everything floating on everything” layouts
-* Generic Inter + rounded-card combinations without a distinctive visual system
-
-If a design choice looks like something that could have been generated by a generic AI website builder, question it and find a more intentional alternative.
-
-⸻
-
-2. MINIMAL DOES NOT MEAN BORING
-
-Do not interpret minimalism as:
-
-* Empty white screens
-* Tiny typography
-* Removing useful information
-* Making everything monochrome
-* Making every component identical
-* Excessive whitespace with no hierarchy
-* A completely generic Apple clone
-
-Instead, create visual interest through:
-
-* Typography
-* Scale
-* Spacing
-* Alignment
-* Composition
-* Contrast
-* Image selection
-* Colour restraint
-* Subtle interaction
-* Strong hierarchy
-* Carefully chosen visual details
-
-The design should feel simple because it is well designed, not because features were removed.
-
-⸻
-
-3. DESIGN WITH RESTRAINT
-
-Use a small number of visual ingredients.
-
-Prefer:
-
-* One strong type system
-* One coherent colour palette
-* One consistent spacing system
-* One clear shape language
-* A small number of component styles
-* A small number of interaction patterns
-
-Avoid adding new visual treatments simply to make individual sections feel different.
-
-Consistency creates sophistication.
-
-⸻
-
-4. TYPOGRAPHY SHOULD DO THE HEAVY LIFTING
-
-Typography should be one of the primary design elements.
-
-Define:
-
-* Primary typeface
-* Secondary typeface if genuinely necessary
-* Font weights
-* Heading scale
-* Body scale
-* Small text scale
-* Line heights
-* Letter spacing
-* Capitalisation
-* Maximum text widths
-
-Prioritise:
-
-* readability
-* hierarchy
-* rhythm
-* appropriate line length
-* strong contrast between levels of information
-
-Do not make every heading enormous.
-
-Do not make everything bold.
-
-Use typography to create hierarchy rather than relying on cards, colours and decorative elements.
-
-Do not automatically default to Inter, Roboto or another generic UI font unless it genuinely suits the brand.
-
-⸻
-
-5. USE WHITESPACE INTENTIONALLY
-
-Whitespace should create:
-
-* hierarchy
-* breathing room
-* focus
-* separation
-* rhythm
-
-But do not simply make everything excessively spaced.
-
-Use different densities intentionally.
-
-For example:
-
-High density → functional information
-
-Medium density → supporting content
-
-Low density → important moments
-
-The user should naturally understand what deserves attention.
-
-⸻
-
-6. CREATE A SIMPLE BUT DISTINCTIVE COLOUR SYSTEM
-
-Use a restrained palette.
-
-Define:
-
-* Background
-* Primary text
-* Secondary text
-* Surface
-* Border/divider
-* Primary accent
-* Functional colours
-
-Avoid adding colours simply because the interface feels “too plain.”
-
-Colour should communicate hierarchy or brand identity.
-
-If an accent colour is used, make it recognisable and purposeful.
-
-Do not rely on gradients to create visual interest.
-
-⸻
-
-7. KEEP THE SHAPE LANGUAGE SIMPLE
-
-Choose a deliberate approach to:
-
-* Corner radius
-* Buttons
-* Cards
-* Inputs
-* Containers
-* Images
-* Dividers
-
-Do not automatically round everything.
-
-Avoid the common AI pattern of:
-
-rounded card + soft shadow + icon + heading + description
-
-repeated 12 times.
-
-Use containers only where they improve comprehension.
-
-Sometimes the best design is simply:
-
-typography + whitespace + alignment
-
-with no card at all.
-
-⸻
-
-8. USE STRONG LAYOUTS
-
-Do not automatically use:
-
-Navbar → Hero → 3 cards → Features → Testimonials → CTA → Footer
-
-unless the content genuinely calls for it.
-
-Think about the information architecture first.
-
-Use:
-
-* strong alignment
-* asymmetry where appropriate
-* varied section density
-* clear content hierarchy
-* intentional whitespace
-* controlled grids
-* full-width moments
-* carefully constrained content widths
-
-Every section should have a reason to exist.
-
-⸻
-
-9. DESIGN FOR IMMEDIATE COMPREHENSION
-
-A user should be able to understand the interface quickly.
-
-Prioritise:
-
-1. What is this?
-2. What can I do here?
-3. What matters most?
-4. What should I do next?
-
-Do not make users decode the interface.
-
-Minimalism should improve comprehension, not reduce it.
-
-⸻
-
-10. USE IMAGERY ONLY WHEN IT ADDS VALUE
-
-Do not insert imagery simply because there is empty space.
-
-If imagery is appropriate:
-
-* Use strong, relevant imagery.
-* Keep the visual language consistent.
-* Use deliberate cropping.
-* Avoid generic stock photography.
-* Avoid decorative images with no functional or brand purpose.
-
-If imagery does not add meaningful value, leave it out.
-
-⸻
-
-11. ICONS SHOULD BE PURPOSEFUL
-
-Do not use icons as decoration.
-
-Every icon should:
-
-* communicate something
-* improve recognition
-* support navigation
-* reduce cognitive load
-
-Use one coherent icon style.
-
-Do not mix:
-
-* filled icons
-* outlined icons
-* 3D icons
-* emojis
-* illustrations
-
-unless there is a deliberate reason.
-
-⸻
-
-12. MOTION SHOULD BE SUBTLE
-
-Animation should support usability rather than demonstrate technical capability.
-
-Prefer:
-
-* subtle transitions
-* responsive feedback
-* restrained opacity changes
-* smooth state changes
-* meaningful movement
-
-Avoid:
-
-* everything fading in
-* everything sliding upward
-* excessive parallax
-* bouncing
-* exaggerated hover effects
-* constant movement
-* animations that slow the user down
-
-The interface should feel responsive, not theatrical.
-
-⸻
-
-13. CREATE ONE DISTINCTIVE DESIGN ELEMENT
-
-Clean minimal design can easily become generic.
-
-Introduce one or two recognisable visual characteristics that make this product feel unique.
-
-Potential examples:
-
-* distinctive typography
-* unusual but functional navigation
-* unique grid
-* signature accent colour
-* custom icon treatment
-* distinctive data visualisation
-* unusual image treatment
-* subtle recurring motif
-* editorial numbering
-* distinctive interaction pattern
-
-Do not introduce lots of visual ideas.
-
-One strong design characteristic is better than ten decorative ones.
-
-⸻
-
-14. DESIGN THE EMPTY SPACE AS CAREFULLY AS THE CONTENT
-
-Do not think only about what to put on the screen.
-
-Think about:
-
-Where should nothing be?
-
-Whitespace should guide the eye.
-
-Use negative space to create:
-
-* emphasis
-* rhythm
-* separation
-* calm
-* hierarchy
-
-But ensure that whitespace feels intentional rather than unfinished.
-
-⸻
-
-15. COMPONENTS SHOULD HAVE A REASON TO EXIST
-
-Before creating a component, ask:
-
-Does this container improve comprehension or interaction?
-
-If not, remove it.
-
-Avoid component proliferation.
-
-A page does not need:
-
-* cards
-* badges
-* chips
-* pills
-* tags
-* dividers
-* icons
-* shadows
-
-just because the design system supports them.
-
-Use the minimum number of components necessary.
-
-⸻
-
-16. MOBILE FIRST
-
-The design must remain clean at smaller sizes.
-
-Do not simply shrink the desktop layout.
-
-Consider:
-
-* information hierarchy
-* touch targets
-* navigation
-* typography
-* content density
-* image cropping
-* spacing
-* CTA placement
-* scrolling behaviour
-
-A genuinely minimal design should often become better on mobile, not merely smaller.
-
-⸻
-
-17. ACCESSIBILITY IS PART OF THE DESIGN
-
-Clean design must remain usable.
-
-Consider:
-
-* sufficient colour contrast
-* readable typography
-* clear focus states
-* appropriate touch targets
-* understandable labels
-* keyboard navigation
-* meaningful error states
-* clear disabled states
-
-Do not sacrifice accessibility for visual minimalism.
-
-⸻
-
-18. IF YOU ARE WRITING CODE
-
-If implementing the design:
-
-Create a coherent design system before building individual screens.
-
-Define reusable tokens for:
-
-* typography
-* spacing
-* colours
-* radius
-* borders
-* shadows/elevation
-* breakpoints
-* transitions
-
-Avoid arbitrary one-off values unless there is a deliberate design reason.
-
-Keep components reusable but do not over-engineer them.
-
-The implementation should feel like a real production product, not a generated mockup.
-
-⸻
-
-19. CHALLENGE THE FIRST DESIGN
-
-Before finalising, perform a creative-director critique.
-
-Ask:
-
-Does this look AI-generated?
-
-If yes, identify exactly why and remove those patterns.
-
-Does it look like a generic SaaS template?
-
-If yes, rethink the layout and visual language.
-
-Is everything inside a card?
-
-If yes, remove unnecessary containers.
-
-Is everything rounded?
-
-If yes, simplify the geometry.
-
-Are there unnecessary gradients?
-
-If yes, remove them.
-
-Are there unnecessary icons?
-
-If yes, remove them.
-
-Is everything equally visually important?
-
-If yes, strengthen hierarchy.
-
-Is there too much empty space?
-
-If yes, improve information density.
-
-Is there too little empty space?
-
-If yes, create breathing room.
-
-Could another company use this exact design?
-
-If yes, introduce a subtle but distinctive brand characteristic.
-
-Does every element have a purpose?
-
-If no, remove it.
-
-⸻
-
-20. ITERATE
-
-Do not settle for the first competent design.
-
-Before implementation, consider at least three materially different design directions internally:
-
-Direction A - Editorial Minimal
-
-Typography-led, strong whitespace, sophisticated composition.
-
-Direction B - Functional Minimal
-
-Extremely clear information architecture, efficient layouts, highly usable UI.
-
-Direction C - Contemporary Minimal
-
-Slightly more expressive typography, colour and interaction while remaining restrained.
-
-Select the direction that best fits the product.
-
-Do not combine all three indiscriminately.
-
-⸻
-
-21. FINAL DESIGN TEST
-
-Before delivering the final design, ask:
-
-If the logo were removed, would this still feel like a deliberately designed product?
-
-Does the interface feel simple because it is genuinely well considered?
-
-Does anything immediately signal “AI-generated”?
-
-Could this be mistaken for a generic SaaS template?
-
-Is the hierarchy immediately understandable?
-
-Are the typography and spacing doing most of the visual work?
-
-Have unnecessary elements been removed?
-
-Is there enough personality to avoid becoming generic?
-
-Does the design feel effortless rather than over-designed?
-
-If the answer to any of these is no, iterate again.
-
-⸻
-
-CORE PRINCIPLE
-
-Do not make it look “AI minimal”.
-
-Make it look like a real product created by an exceptional product design team that obsessed over simplicity.
-
-The design philosophy should be:
-
-Clarity > decoration
-Simplicity > complexity
-Purpose > ornament
-Typography > effects
-Hierarchy > components
-Consistency > novelty
-Distinctive > generic
-Useful > impressive
-Whitespace > clutter
-Intentional > generated
-
-The final result should feel clean, calm, modern, distinctive and effortless.
+- Marketing site (theshuttlesocial.com): follows this brief now.
+- Tickets and admin pages (tickets.theshuttlesocial.com): to be brought into this system next; functional
+  screens use the same type, colours and components with less decorative motion.
