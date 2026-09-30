@@ -1,6 +1,7 @@
 import type { CSSProperties } from 'react'
 import { getPublicSessions, type PublicSession } from '@/lib/sessions/public'
 import { CLUB_STATS, getSessionsRun } from '@/lib/site/stats'
+import { FaqList } from './_components/FaqList'
 import { Gallery, type Clip } from './_components/Gallery'
 import { HeroVisual } from './_components/HeroVisual'
 import { HowItWorks, type Step } from './_components/HowItWorks'
@@ -219,15 +220,7 @@ export default async function Home() {
               <p className="lead" style={{ color: 'var(--on-dark-2)', maxWidth: '24ch' }}>Have more questions? DM us on Instagram.</p>
               <a href={INSTAGRAM} className="pill pill-cream small">@theshuttlesocial</a>
             </div>
-            <ol className="faq-list" data-reveal-stagger="">
-              {FAQS.map(([q, a], k) => (
-                <li key={q} className="faq-item" data-reveal="">
-                  <span className="num" aria-hidden="true">{String(k + 1).padStart(2, '0')}</span>
-                  <h3 className="h3">{q}</h3>
-                  <p className="faq-a">{a}</p>
-                </li>
-              ))}
-            </ol>
+            <FaqList items={FAQS} />
           </div>
         </section>
 

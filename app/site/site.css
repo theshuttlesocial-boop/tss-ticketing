@@ -236,9 +236,20 @@ body:has(.tss) { background: #F6F7F1 !important; }
 .tss .faq { display: grid; grid-template-columns: 4fr 8fr; gap: clamp(2rem, 4vw, 4rem); }
 .tss .faq-title { color: var(--lime); }
 .tss .faq-list { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 0.75rem; }
-.tss .faq-item { border-radius: 1.5rem; border: 1px solid rgba(244, 247, 236, 0.14); background: rgba(244, 247, 236, 0.04); padding: 1.125rem clamp(1rem, 2vw, 1.5rem); display: grid; grid-template-columns: clamp(3.25rem, 6vw, 5rem) 1fr; column-gap: 0.75rem; row-gap: 0.5rem; }
-.tss .faq-item .num { font-size: clamp(1.75rem, 3vw, 2.75rem); color: var(--lime); grid-row: span 2; }
-.tss .faq-a { color: var(--on-dark-2); }
+.tss .faq-item { border-radius: 1.5rem; border: 1px solid rgba(244, 247, 236, 0.14); background: rgba(244, 247, 236, 0.04); transition: transform 0.35s var(--ease), box-shadow 0.35s ease, border-color 0.35s ease, background-color 0.35s ease; }
+.tss .faq-item:hover { border-color: rgba(217, 244, 107, 0.45); }
+.tss .faq-item[data-open='true'] { transform: scale(1.012); border-color: rgba(217, 244, 107, 0.6); background: rgba(244, 247, 236, 0.09); box-shadow: 0 24px 48px -28px rgba(0, 0, 0, 0.6); }
+.tss .faq-h { font: inherit; }
+.tss .faq-btn { width: 100%; display: grid; grid-template-columns: clamp(3.25rem, 6vw, 5rem) 1fr 2.5rem; align-items: center; gap: 0.75rem; padding: 1.125rem clamp(1rem, 2vw, 1.5rem); background: none; border: 0; text-align: left; cursor: pointer; color: var(--on-dark); border-radius: 1.5rem; }
+.tss .faq-btn .num { font-size: clamp(1.75rem, 3vw, 2.75rem); color: var(--lime); }
+.tss .faq-q { font-size: var(--fs-h3); font-weight: 700; line-height: 1.25; }
+.tss .faq-icon { width: 2.25rem; height: 2.25rem; border-radius: 50%; display: grid; place-items: center; background: rgba(244, 247, 236, 0.1); font-size: 1.25rem; transition: transform 0.35s var(--ease), background-color 0.35s, color 0.35s; }
+.tss .faq-item[data-open='true'] .faq-icon { transform: rotate(45deg); background: var(--lime); color: var(--ink-900); }
+.tss .faq-panel { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 0.45s var(--ease); }
+.tss .faq-item[data-open='true'] .faq-panel { grid-template-rows: 1fr; }
+.tss .faq-panel > div { overflow: hidden; }
+.tss .faq-a { color: var(--on-dark-2); padding: 0 clamp(1rem, 4vw, 4rem) 1.5rem calc(clamp(3.25rem, 6vw, 5rem) + clamp(1rem, 2vw, 1.5rem) + 0.75rem); opacity: 0; translate: 0 -6px; transition: opacity 0.25s ease, translate 0.25s ease; }
+.tss .faq-item[data-open='true'] .faq-a { opacity: 1; translate: none; transition-delay: 0.1s; }
 
 /* ── Real nights ────────────────────────────────────────── */
 .tss .real { position: relative; background: var(--s-real); }
@@ -300,6 +311,7 @@ body:has(.tss) { background: #F6F7F1 !important; }
   .tss .how-vis { height: 20rem; }
   .tss .step { min-height: 0; }
   .tss .step[data-active='false'] { opacity: 1; }
+  .tss .faq-a { padding-left: clamp(1rem, 4vw, 1.5rem); }
   .tss .decor { display: none; }
 }
 
