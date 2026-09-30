@@ -165,7 +165,7 @@ export default async function Home() {
                 <h2 id="week-h" className="disp h2">{upcoming.heading}</h2>
                 <span className="live small"><span className="dot" />Live from bookings</span>
               </div>
-              <a href="/sessions" className="small" style={{ fontWeight: 700, textDecoration: 'none', borderBottom: '2px solid currentColor' }}>All sessions →</a>
+              <a href={BOOK} className="small" style={{ fontWeight: 700, textDecoration: 'none', borderBottom: '2px solid currentColor' }}>All sessions →</a>
             </div>
             {upcoming.list.length ? (
               <div className="days" data-reveal-stagger="">
@@ -227,7 +227,6 @@ export default async function Home() {
             <div>
               <ScrollText paragraphs={STORY} />
               <div className="story-sig" data-reveal="">
-                <a href="/sessions#story" className="pill pill-ghost small">More about us</a>
                 <a href="/join-us" className="pill pill-ghost small">Join us</a>
               </div>
             </div>

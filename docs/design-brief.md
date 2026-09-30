@@ -119,7 +119,7 @@ tickets.theshuttlesocial.com (tickets, My portal and player pages, live-session 
 - `app/_design/theme.ts`: inline-style helpers (`T`, `inp`, `btn`, `cardStyle`, `stripeAppearance`) on the same tokens.
 - Layouts: `AppFrame` (compact green header) for player and staff pages, `BareFrame` (no header) for court
   screens, the TV board, lead and admin. The marketing site has its own layout in `app/site`.
-- Marketing pages: `app/site/{sessions,community,join-us,contact,terms}` (Sessions also holds About; `/about` redirects to it). They share the header
+- Marketing pages: `app/site/{community,join-us,contact,terms}`. The header bar links to homepage sections (Sessions, About us = Our story, How it works, FAQs); the menu button lists every page. `/sessions` and `/about` redirect to those sections. They share the header
   (with a phone menu), green page banner and footer in `app/site/_components/SiteChrome.tsx`; links are in
   `lib/site/links.ts`. Words the club still has to supply are wrapped in `<Ph>` (dashed lime highlight).
   Contact, Join us and suggestions forms post to `/api/contact`, which emails the club inbox (reply-to the sender).

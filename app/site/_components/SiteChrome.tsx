@@ -1,7 +1,7 @@
 import type { CSSProperties, ReactNode } from 'react'
 import { ThemeToggle } from '@/app/_design/ThemeToggle'
 import { HeroGlow } from './HeroGlow'
-import { BOOK, EMAIL, INSTAGRAM, NAV, TIKTOK } from '@/lib/site/links'
+import { BOOK, EMAIL, INSTAGRAM, NAV, PAGES, TIKTOK } from '@/lib/site/links'
 
 export function Arrow() {
   return (
@@ -12,26 +12,28 @@ export function Arrow() {
 }
 
 /**
- * Site header: name, page links, theme switch and Book. On phones the links move into
- * a menu (a native <details>, so it works before JavaScript loads).
+ * Site header: name, the homepage section links (Sessions, About us, How it works, FAQs),
+ * theme switch, a menu with every page, and Book. On phones the section links live in
+ * the menu too (a native <details>, so it works before JavaScript loads).
  */
 export function SiteNav({ current }: { current?: string }) {
-  const links = NAV.map(([href, label]) => (
+  const link = ([href, label]: [string, string]) => (
     <a key={href} href={href} aria-current={current === href ? 'page' : undefined}>{label}</a>
-  ))
+  )
   return (
     <header className="nav">
       <a href="/" className="brand">the shuttle social</a>
-      <nav aria-label="Main" className="nav-links">{links}</nav>
+      <nav aria-label="Homepage sections" className="nav-links">{NAV.map(link)}</nav>
       <div className="nav-right">
         <ThemeToggle />
         <details className="menu">
           <summary aria-label="Menu">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F4F7EC" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
           </summary>
-          <nav aria-label="Main" className="menu-panel">
+          <nav aria-label="All pages" className="menu-panel">
             <a href="/">Home</a>
-            {links}
+            <span className="menu-sections">{NAV.map(link)}</span>
+            {PAGES.map(link)}
           </nav>
         </details>
         <a href={BOOK} className="book small"><span className="book-long">Book a session</span><span className="book-short">Book</span><Arrow /></a>
@@ -122,13 +124,13 @@ export function SiteFooter() {
           <a href={`mailto:${EMAIL}`}>{EMAIL}</a>
         </div>
         <nav aria-label="Pages" className="foot-list">
-          <a href="/sessions">Sessions</a>
-          <a href="/sessions#story">About us</a>
+          <a href="/#sessions">Sessions</a>
+          <a href="/#story">About us</a>
+          <a href="/#faqs">FAQs</a>
           <a href="/community">Community</a>
           <a href="/join-us">Join us</a>
           <a href="/contact">Contact</a>
           <a href="/community#suggestions">Suggestions</a>
-          <a href="/#faqs">FAQs</a>
         </nav>
         <nav aria-label="Players" className="foot-list">
           <a href={BOOK}>Book a session</a>

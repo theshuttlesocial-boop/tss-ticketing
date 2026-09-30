@@ -1,6 +1,6 @@
 import { permanentRedirect } from 'next/navigation'
 
-// About now lives on the Sessions page, with the story.
+// About us is the "Our story" section of the homepage.
 export default function About() {
-  permanentRedirect('/sessions#story')
+  permanentRedirect('/#story')
 }
