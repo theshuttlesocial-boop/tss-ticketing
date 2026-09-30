@@ -106,11 +106,11 @@ export async function settleRelease(releaseId: string): Promise<void> {
 
   const { data: booking } = await supabaseAdmin
     .from('bookings')
-    .select('id,email,phone,total_pence,quantity,stripe_payment_intent_id,booking_ref')
+    .select('id,name,email,phone,total_pence,quantity,stripe_payment_intent_id,booking_ref')
     .eq('id', claimed.booking_id).single()
   if (!booking) { console.error('[settlement] booking missing for release', releaseId); return }
 
-  const firstName = (booking.email ?? '').split('@')[0]
+  const firstName = (booking.name ?? '').trim().split(' ')[0] || 'there'
   const pricePerSpace = Math.round(booking.total_pence / booking.quantity)
   const spaces = claimed.spaces
 

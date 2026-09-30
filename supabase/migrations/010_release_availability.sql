@@ -25,7 +25,9 @@ DECLARE
 BEGIN
   SELECT capacity INTO v_capacity
   FROM sessions
-  WHERE id = p_session_id AND status = 'open'
+  WHERE id = p_session_id
+    -- Open, or a scheduled-release draft whose opens_at has passed (matches 017).
+    AND (status = 'open' OR (status = 'draft' AND opens_at IS NOT NULL AND opens_at <= now()))
   FOR UPDATE;
 
   IF NOT FOUND THEN
@@ -35,7 +37,7 @@ BEGIN
   -- Net confirmed bookings: released spaces are free again
   SELECT COALESCE(SUM(quantity - COALESCE(spaces_released, 0)), 0) INTO v_booked
   FROM bookings
-  WHERE session_id = p_session_id AND stripe_status = 'succeeded';
+  WHERE session_id = p_session_id AND stripe_status IN ('succeeded','partially_refunded');
 
   SELECT COALESCE(SUM(quantity), 0) INTO v_held
   FROM seat_holds
@@ -81,7 +83,7 @@ BEGIN
   SELECT COALESCE(SUM(quantity - COALESCE(spaces_released, 0)), 0) INTO v_booked
   FROM bookings
   WHERE session_id = NEW.session_id
-    AND stripe_status = 'succeeded'
+    AND stripe_status IN ('succeeded','partially_refunded')
     AND id != NEW.id;
 
   IF v_booked + (NEW.quantity - COALESCE(NEW.spaces_released, 0)) > v_capacity THEN
@@ -98,7 +100,7 @@ DROP TRIGGER IF EXISTS enforce_capacity ON bookings;
 CREATE TRIGGER enforce_capacity
   BEFORE INSERT OR UPDATE ON bookings
   FOR EACH ROW
-  WHEN (NEW.stripe_status = 'succeeded')
+  WHEN (NEW.stripe_status IN ('succeeded','partially_refunded'))
   EXECUTE FUNCTION check_capacity_not_exceeded();
 
 -- ── 3. Atomic release: guards over-release + double-release under a row lock ─

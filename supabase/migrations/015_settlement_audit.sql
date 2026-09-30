@@ -27,7 +27,9 @@ DECLARE
 BEGIN
   SELECT capacity INTO v_capacity
   FROM sessions
-  WHERE id = p_session_id AND status = 'open'
+  WHERE id = p_session_id
+    -- Open, or a scheduled-release draft whose opens_at has passed (matches 017).
+    AND (status = 'open' OR (status = 'draft' AND opens_at IS NOT NULL AND opens_at <= now()))
   FOR UPDATE;
 
   IF NOT FOUND THEN
