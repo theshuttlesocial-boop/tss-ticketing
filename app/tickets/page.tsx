@@ -344,8 +344,9 @@ function WaitlistModal({session,otherSessions,onClose}:{session:Session;otherSes
             )}
 
             {error&&<div className="t-note danger" role="alert">{error}</div>}
-            <button onClick={join} disabled={!name||!email||!phone||loading} className="t-btn t-btn-ink t-btn-block">
+            <button onClick={join} disabled={!name||!email||!phone||loading} className="book t-wide">
               {loading?'Joining…':'Join the waitlist'}
+              <Arrow/>
             </button>
           </>
         )}
@@ -665,7 +666,7 @@ function SessionCard({session,onSelect,onWaitlist,onUnlocked}:{session:Session;o
             Book now<Arrow/>
           </button>
         ):(
-          <button onClick={onWaitlist} className="t-btn t-btn-ink">Join the waitlist</button>
+          <button onClick={onWaitlist} className="book">Join the waitlist<Arrow/></button>
         )}
       </div>
 
