@@ -1,5 +1,5 @@
 'use client'
-import { T } from './theme'
+import { T } from '@/app/_design/theme'
 import type { GameResult, Player } from '@/lib/live-session/engine'
 
 /** Recent results as W/L chips, most recent last. */
@@ -24,7 +24,7 @@ export function FormBadges({ playerId, results, max = 5 }: {
         <span key={i} style={{
           width:20, height:20, borderRadius:5, display:'grid', placeItems:'center',
           fontSize:11, fontWeight:800,
-          background: r === 'W' ? T.accentDim : 'rgba(255,255,255,0.05)',
+          background: r === 'W' ? T.accentDim : T.card2,
           color: r === 'W' ? T.accent : T.muted,
           border: `1px solid ${r === 'W' ? T.accentBorder : T.border}`,
         }}>{r}</span>

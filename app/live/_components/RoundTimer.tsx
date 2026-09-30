@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
-import { T, btn } from './theme'
+import { T, btn } from '@/app/_design/theme'
 import { remaining, timerStatus, fmt, shortcutUrl, TimerAction, TimerState } from '@/lib/live-session/timer'
 
 /**
@@ -206,9 +206,9 @@ function IphoneToggle() {
 function ShortcutHelp({ onClose }: { onClose: () => void }) {
   return (
     <div role="dialog" aria-modal="true" aria-label="Set up the iPhone timer" onClick={onClose}
-      style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.75)', zIndex:70, display:'flex', alignItems:'flex-end', justifyContent:'center' }}>
+      style={{ position:'fixed', inset:0, background:'var(--overlay)', zIndex:70, display:'flex', alignItems:'flex-end', justifyContent:'center' }}>
       <div onClick={(e) => e.stopPropagation()} style={{ background:T.card, borderRadius:'16px 16px 0 0', width:'100%', maxWidth:560,
-        padding:'18px 16px calc(18px + env(safe-area-inset-bottom))', color:T.text, fontFamily:'DM Sans, system-ui, sans-serif', fontSize:15, lineHeight:1.5 }}>
+        padding:'18px 16px calc(18px + env(safe-area-inset-bottom))', color:T.text, fontFamily:'inherit', fontSize:15, lineHeight:1.5 }}>
         <h2 style={{ fontSize:19, fontWeight:900, margin:'0 0 8px' }}>Set up the iPhone timer (once)</h2>
         <p style={{ color:T.muted, margin:'0 0 12px' }}>
           Websites can&apos;t start the Clock app themselves, so this uses a Shortcut. Make it once on this iPhone:

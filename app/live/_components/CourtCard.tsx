@@ -1,5 +1,5 @@
 'use client'
-import { T } from './theme'
+import { T } from '@/app/_design/theme'
 import { displayNames } from '@/lib/live-session/displayNames'
 import type { Match, Player } from '@/lib/live-session/engine'
 

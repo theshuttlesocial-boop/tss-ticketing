@@ -1,6 +1,6 @@
 'use client'
 import { useMemo, useState } from 'react'
-import { T, btn } from '../../_components/theme'
+import { T, btn } from '@/app/_design/theme'
 import { flagGames, reviewLevels, replay, roundComplete } from '@/lib/live-session/engine'
 import type { Level, Session } from '@/lib/live-session/engine'
 import type { LiveMeta } from '../../_hooks/useLiveSession'

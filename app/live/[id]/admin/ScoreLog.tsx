@@ -1,6 +1,6 @@
 'use client'
 import { useState } from 'react'
-import { T, cardStyle, btn, inp } from '../../_components/theme'
+import { T, cardStyle, btn, inp } from '@/app/_design/theme'
 import { describe } from '@/lib/live-session/changeLog'
 import type { LogRow as ChangeRow } from '@/lib/live-session/changeLog'
 import type { Session } from '@/lib/live-session/engine'

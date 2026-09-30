@@ -1,5 +1,5 @@
 'use client'
-import { T, inp, cardStyle, btn } from './theme'
+import { T, inp, cardStyle, btn } from '@/app/_design/theme'
 
 /**
  * Sign-in box for the live-session admin and setup pages: the staff email
@@ -11,7 +11,7 @@ export function StaffGate({ secret, setSecret, setAuthed, title = 'Live session 
   const here = typeof window !== 'undefined' ? window.location.pathname : '/live/setup'
   return (
     <div style={{ minHeight:'100vh', background:T.bg, display:'grid', placeItems:'center',
-      fontFamily:'DM Sans, system-ui, sans-serif', padding:20 }}>
+      fontFamily:'inherit', padding:20 }}>
       <div style={{ ...cardStyle, padding:22, width:'100%', maxWidth:330 }}>
         <h1 style={{ color:T.text, fontSize:19, margin:'0 0 14px' }}>{title}</h1>
         <a href={`/account?next=${encodeURIComponent(here)}`} style={{ ...btn('primary'), display:'block', textAlign:'center',

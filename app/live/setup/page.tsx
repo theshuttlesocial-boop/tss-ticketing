@@ -2,7 +2,7 @@
 import { RequireTwoStep } from '@/app/_components/TwoStep'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { T, inp, cardStyle, btn } from '../_components/theme'
+import { T, inp, cardStyle, btn } from '@/app/_design/theme'
 import { StaffGate as Gate } from '../_components/StaffGate'
 import { staffHeaders, whoAmI } from '@/lib/staffClient'
 
@@ -44,7 +44,7 @@ function LiveSetupPageInner() {
 
   const unlock = () => { if (secret) { sessionStorage.setItem('tss-admin-secret', secret); setAuthed(true) } }
   const wrap: React.CSSProperties = { minHeight:'100vh', background:T.bg, color:T.text, padding:'24px 16px',
-    fontFamily:'DM Sans, system-ui, sans-serif', boxSizing:'border-box' }
+    fontFamily:'inherit', boxSizing:'border-box' }
 
   if (!authed) return <Gate secret={secret} setSecret={setSecret} setAuthed={setAuthed} title="New live session" />
 

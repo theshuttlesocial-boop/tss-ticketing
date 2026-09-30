@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { T, btn, inp } from '../../_components/theme'
+import { T, btn, inp } from '@/app/_design/theme'
 import { LEVELS } from '@/lib/live-session/levels'
 import type { Level } from '@/lib/live-session/engine'
 
@@ -9,11 +9,11 @@ const L = (l: string) => l[0].toUpperCase() + l.slice(1)
 export function Sheet({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
   return (
     <div role="dialog" aria-modal="true" aria-label={title}
-      style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.75)', zIndex:60, display:'flex', alignItems:'flex-end', justifyContent:'center' }}
+      style={{ position:'fixed', inset:0, background:'var(--overlay)', zIndex:60, display:'flex', alignItems:'flex-end', justifyContent:'center' }}
       onClick={onClose}>
       <div onClick={(e) => e.stopPropagation()} style={{ background:T.card, borderTop:`1px solid ${T.border}`,
         borderRadius:'16px 16px 0 0', padding:'18px 16px calc(18px + env(safe-area-inset-bottom))', width:'100%', maxWidth:560,
-        maxHeight:'88vh', overflowY:'auto', fontFamily:'DM Sans, system-ui, sans-serif', color:T.text }}>
+        maxHeight:'88vh', overflowY:'auto', fontFamily:'inherit', color:T.text }}>
         <h2 style={{ fontSize:19, fontWeight:900, margin:'0 0 12px' }}>{title}</h2>
         {children}
       </div>
