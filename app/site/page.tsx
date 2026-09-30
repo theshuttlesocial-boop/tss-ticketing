@@ -12,6 +12,8 @@ import { ThemeToggle } from './_components/ThemeToggle'
 // Availability and the session count refresh every minute.
 export const revalidate = 60
 
+export const metadata = { alternates: { canonical: '/' } }
+
 const BOOK = '/tickets'
 const INSTAGRAM = 'https://www.instagram.com/theshuttlesocial'
 const TIKTOK = 'https://www.tiktok.com/@theshuttlesocial'
@@ -104,8 +106,26 @@ export default async function Home() {
     { kicker: 'Community', to: CLUB_STATS.whatsapp, suffix: '+', caption: 'people in our WhatsApp community', span: 5, pspan: 2, big: true, pal: PAL.sage, bb: '#1E6B3E', bf: CREAM },
   ]
 
+  // Structured data for search: the club, plus each upcoming session as an event.
+  const jsonLd = [
+    {
+      '@context': 'https://schema.org', '@type': 'SportsOrganization', name: 'The Shuttle Social', sport: 'Badminton',
+      url: 'https://theshuttlesocial.com', logo: 'https://theshuttlesocial.com/logo.jpg', email: 'theshuttlesocial@gmail.com',
+      description: 'Social badminton in West London for every level.', areaServed: 'London', sameAs: [INSTAGRAM, TIKTOK],
+    },
+    ...upcoming.list.filter((s) => s.status === 'open').map((s) => ({
+      '@context': 'https://schema.org', '@type': 'SportsEvent', name: s.title, sport: 'Badminton',
+      startDate: `${s.date}T${s.time}`, eventStatus: 'https://schema.org/EventScheduled',
+      eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
+      location: { '@type': 'Place', name: String(s.venue), address: { '@type': 'PostalAddress', streetAddress: String(s.venue), addressLocality: 'London', addressCountry: 'GB' } },
+      organizer: { '@type': 'SportsOrganization', name: 'The Shuttle Social', url: 'https://theshuttlesocial.com' },
+      offers: { '@type': 'Offer', url: 'https://tickets.theshuttlesocial.com/tickets', price: (s.price_pence / 100).toFixed(2), priceCurrency: 'GBP', availability: s.availability === 'sold_out' ? 'https://schema.org/SoldOut' : 'https://schema.org/InStock' },
+    })),
+  ]
+
   return (
     <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c') }} />
       <div className="hero">
         <div className="hero-glow" aria-hidden="true" />
         <header className="nav">

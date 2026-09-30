@@ -28,14 +28,15 @@ export function proxy(req: NextRequest) {
   if (host === APEX) {
     // Old or shared links to ticketing pages go to the tickets host.
     if (isAppPath(pathname)) return NextResponse.redirect(`https://${TICKETS_HOST}${pathname}${search}`, 308)
-    // One public address per page: /site/faq → /faq.
-    if (isSitePath(pathname)) return NextResponse.redirect(`https://${APEX}${pathname.slice(5) || '/'}${search}`, 301)
+    // One public address per page: /site/faq → /faq. (Generated share images keep their /site URL.)
+    if (isSitePath(pathname) && !pathname.includes('opengraph-image')) return NextResponse.redirect(`https://${APEX}${pathname.slice(5) || '/'}${search}`, 301)
+    if (isSitePath(pathname)) return NextResponse.next()
     const url = req.nextUrl.clone()
     url.pathname = '/site' + (pathname === '/' ? '' : pathname)
     return NextResponse.rewrite(url)
   }
 
-  if (host === TICKETS_HOST && isSitePath(pathname)) {
+  if (host === TICKETS_HOST && isSitePath(pathname) && !pathname.includes('opengraph-image')) {
     return NextResponse.redirect(`https://${APEX}${pathname.slice(5) || '/'}${search}`, 301)
   }
 
