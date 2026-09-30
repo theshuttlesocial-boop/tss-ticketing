@@ -116,8 +116,86 @@
 .tss .cta-side { display: flex; flex-direction: column; gap: 0.875rem; align-items: flex-start; }
 
 /* ── Footer ─────────────────────────────────────────────── */
-.tss .foot { padding-block: 1.75rem 2.25rem; display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; color: var(--muted); font-size: var(--fs-small); }
-.tss .foot nav { display: flex; gap: 1.375rem; flex-wrap: wrap; }
+.tss .foot { padding-block: clamp(2.5rem, 5vw, 4rem) 2.25rem; color: var(--muted); font-size: var(--fs-small); }
+.tss .foot-cols { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 2rem; }
+.tss .foot-brand, .tss .foot-list { display: flex; flex-direction: column; gap: 0.625rem; align-items: flex-start; }
+.tss .foot-brand .brand { color: var(--ink); font-size: 1.375rem; }
+.tss .foot a { text-decoration: none; }
+.tss .foot-list a:hover, .tss .foot-brand a:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 4px; }
+.tss .foot-note { margin-top: 2.25rem; padding-top: 1.25rem; border-top: 1px solid var(--line); }
+
+/* ── Inner pages ────────────────────────────────────────── */
+.tss .nav-links a[aria-current='page'] { text-decoration: underline; text-decoration-color: var(--lime); text-decoration-thickness: 2px; text-underline-offset: 6px; }
+.tss .page-hero-body { display: flex; flex-direction: column; gap: 1.25rem; align-items: flex-start; padding-block: clamp(2.75rem, 7vw, 5.5rem) clamp(2.75rem, 6vw, 4.5rem); position: relative; z-index: 2; }
+.tss .page-hero .h1 { font-size: clamp(2.75rem, 6.5vw, 5.5rem); max-width: 16ch; }
+
+/* Phone menu (hidden on wide screens, where the links sit in the bar) */
+.tss .menu { display: none; }
+.tss .menu summary { list-style: none; width: 2.875rem; height: 2.875rem; border-radius: 50%; border: 1px solid rgba(255, 255, 255, 0.22); background: rgba(255, 255, 255, 0.08); display: grid; place-items: center; cursor: pointer; }
+.tss .menu summary::-webkit-details-marker { display: none; }
+.tss .menu[open] summary { background: var(--lime); }
+.tss .menu[open] summary svg { stroke: var(--ink-900); }
+.tss .menu-panel { position: fixed; right: 1rem; top: 5.25rem; z-index: 20; width: min(17rem, calc(100vw - 2rem)); display: flex; flex-direction: column; padding: 0.75rem; border-radius: 1.5rem; background: linear-gradient(155deg, #0B2416 0%, #0E3B24 60%, #155A34 100%); border: 1px solid rgba(244, 247, 236, 0.16); box-shadow: 0 30px 60px -20px rgba(0, 0, 0, 0.6); animation: tss-in 0.25s var(--ease); }
+.tss .menu-panel a { padding: 0.875rem 1rem; border-radius: 1rem; font-size: 1.125rem; font-weight: 700; text-decoration: none; color: var(--on-dark); }
+.tss .menu-panel a:hover, .tss .menu-panel a[aria-current='page'] { background: rgba(244, 247, 236, 0.08); color: var(--lime); }
+
+/* Blocks */
+.tss .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 17rem), 1fr)); gap: clamp(0.875rem, 1.6vw, 1.25rem); }
+.tss .card { border-radius: 1.75rem; padding: clamp(1.375rem, 2.4vw, 2rem); display: flex; flex-direction: column; gap: 0.75rem; background: var(--card); border: 1px solid var(--line); color: var(--ink); transition: transform 0.3s var(--ease); }
+.tss .card:hover { transform: scale(1.02); }
+.tss .stat-cards { grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr)); }
+.tss .stat-cards .card { min-height: clamp(10rem, 16vw, 13rem); }
+.tss .stat-cards .num { font-size: clamp(3rem, 6vw, 5rem); }
+.tss .card-deep { background: radial-gradient(28rem 16rem at 100% 0%, rgba(63, 166, 106, 0.35), rgba(63, 166, 106, 0) 70%), linear-gradient(155deg, #0B2416 0%, #0E3B24 60%, #155A34 100%); color: var(--on-dark); border-color: rgba(244, 247, 236, 0.14); }
+.tss .card-deep .h3, .tss .card-deep .num { color: var(--lime); }
+.tss .card-deep p { color: var(--on-dark-2); }
+.tss .card .muted { color: var(--muted); }
+.tss .card-deep .muted { color: var(--on-dark-2); }
+.tss .icon { width: 3rem; height: 3rem; border-radius: 1rem; display: grid; place-items: center; font-size: 1.5rem; background: var(--chip); }
+.tss .card-deep .icon { background: rgba(217, 244, 107, 0.14); }
+.tss .split { display: grid; grid-template-columns: 5fr 7fr; gap: clamp(2rem, 5vw, 5rem); align-items: start; }
+.tss .prose { display: flex; flex-direction: column; gap: 1rem; max-width: 68ch; }
+.tss .prose h2 { font-size: var(--fs-h3); font-weight: 800; margin-top: 1rem; }
+.tss .prose h2.h2 { font-size: var(--fs-h2); margin: 0 0 0.5rem; }
+.tss .prose ul, .tss .prose ol { margin: 0; padding-left: 1.25rem; display: flex; flex-direction: column; gap: 0.5rem; }
+.tss .timeline { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.75rem; counter-reset: step; }
+.tss .timeline li { counter-increment: step; display: grid; grid-template-columns: 3.5rem 1fr; gap: 1rem; align-items: start; padding: 1.25rem; border-radius: 1.5rem; background: var(--card); border: 1px solid var(--line); }
+.tss .timeline li::before { content: counter(step, decimal-leading-zero); font-weight: 900; font-style: italic; font-size: 2rem; line-height: 1; color: var(--accent); }
+.tss .timeline strong { display: block; font-size: var(--fs-h3); font-weight: 800; margin-bottom: 0.25rem; }
+.tss .timeline.on-dark li { background: rgba(244, 247, 236, 0.06); border-color: rgba(244, 247, 236, 0.14); color: var(--on-dark-2); }
+.tss .timeline.on-dark li::before, .tss .timeline.on-dark strong { color: var(--lime); }
+.tss .timeline.on-dark .ph { color: var(--on-dark); }
+.tss .ph { background: rgba(217, 244, 107, 0.28); outline: 1.5px dashed #9BBF2A; outline-offset: 2px; border-radius: 0.375rem; padding: 0 0.25rem; }
+.tss .terms-text { white-space: pre-wrap; font: inherit; line-height: 1.75; }
+
+/* Forms (contact, volunteer) */
+.tss .form { display: grid; gap: 1.125rem; }
+.tss .form-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.125rem; }
+.tss .field { display: flex; flex-direction: column; gap: 0.5rem; }
+.tss .field > span { font-size: var(--fs-small); font-weight: 700; }
+.tss .field .opt { font-weight: 500; opacity: 0.7; }
+.tss .input { width: 100%; padding: 0.875rem 1rem; border-radius: 1rem; border: 1px solid rgba(244, 247, 236, 0.22); background: rgba(4, 18, 10, 0.35); color: var(--on-dark); font: inherit; font-size: 1rem; outline: none; transition: border-color 0.2s, box-shadow 0.2s; }
+.tss .input:focus { border-color: var(--lime); box-shadow: 0 0 0 3px rgba(217, 244, 107, 0.2); }
+.tss .input::placeholder { color: rgba(244, 247, 236, 0.5); }
+.tss select.input { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23D9F46B' stroke-width='3'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 1rem center; padding-right: 2.5rem; }
+.tss select.input option { color: #0F2A1A; }
+.tss textarea.input { min-height: 9rem; resize: vertical; line-height: 1.6; }
+.tss .choices { display: flex; flex-wrap: wrap; gap: 0.5rem; border: 0; padding: 0; margin: 0; }
+.tss .choices legend { font-size: var(--fs-small); font-weight: 700; margin-bottom: 0.5rem; padding: 0; }
+.tss .choice { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.625rem 1rem; border-radius: 999px; border: 1px solid rgba(244, 247, 236, 0.22); cursor: pointer; font-weight: 600; font-size: var(--fs-small); min-height: 2.75rem; }
+.tss .choice:has(input:checked) { background: var(--lime); color: var(--ink-900); border-color: var(--lime); }
+.tss .choice input { accent-color: #0F2A1A; }
+.tss .consent { display: flex; gap: 0.75rem; align-items: flex-start; font-size: var(--fs-small); color: var(--on-dark-2); line-height: 1.55; cursor: pointer; }
+.tss .consent input { width: 1.25rem; height: 1.25rem; margin-top: 0.125rem; accent-color: #D9F46B; flex-shrink: 0; }
+.tss .consent a { color: var(--lime); }
+.tss .hp { position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden; }
+.tss .send { justify-self: start; display: inline-flex; align-items: center; gap: 0.625rem; min-height: 3.25rem; padding: 0.875rem 1.75rem; border: 0; border-radius: 999px; background: var(--lime); color: var(--ink-900); font: inherit; font-weight: 800; cursor: pointer; transition: transform 0.3s var(--ease), opacity 0.2s; }
+.tss .send:hover:not(:disabled) { transform: translateY(-2px); }
+.tss .send:disabled { opacity: 0.6; cursor: default; }
+.tss .form-msg { padding: 0.875rem 1rem; border-radius: 1rem; font-size: var(--fs-small); line-height: 1.55; }
+.tss .form-msg.err { background: rgba(242, 139, 130, 0.16); color: #FFC9C3; }
+.tss .form-done { display: flex; flex-direction: column; gap: 0.875rem; align-items: flex-start; }
+.tss .form-done .mark { width: 4rem; height: 4rem; border-radius: 50%; background: var(--lime); color: var(--ink-900); display: grid; place-items: center; font-size: 1.75rem; font-weight: 900; }
 
 /* ── Motion ─────────────────────────────────────────────── */
 /* Reveal on scroll (Motion.tsx). Only hides things when JavaScript is running.
@@ -157,6 +235,16 @@
   .tss .step[data-active='false'] { opacity: 1; }
   .tss .faq-a { padding-left: clamp(1rem, 4vw, 1.5rem); }
   .tss .decor { display: none; }
+  .tss .menu { display: block; }
+  .tss .nav .theme-btn, .tss .menu summary { width: 2.5rem; height: 2.5rem; }
+  .tss .nav .book { gap: 0.5rem; padding: 0.4em 0.4em 0.4em 1em; }
+  .tss .nav .book-arrow { width: 2em; height: 2em; }
+  .tss .foot-cols { grid-template-columns: 1fr 1fr; }
+  .tss .foot-brand { grid-column: 1 / -1; }
+  .tss .split, .tss .form-2 { grid-template-columns: 1fr; }
+  .tss .stat-cards { grid-template-columns: 1fr 1fr; }
+  .tss .stat-cards .card { min-height: 9rem; padding: 1.125rem; }
+  .tss .stat-cards .num { font-size: 2.5rem; }
 }
 
 @media (prefers-reduced-motion: reduce) {

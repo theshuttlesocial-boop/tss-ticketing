@@ -591,3 +591,33 @@ export async function sendStaffInvite({ to, role, invitedBy }: { to: string; rol
     `)
   })
 }
+
+// ── Website contact and volunteer forms ──────────────────────────────────────
+const escHtml = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!))
+
+/** Sends a website message to the club inbox; replying goes straight to the sender. Nothing is stored. */
+export async function sendContactMessage({ kind, name, email, fields, message }: {
+  kind: 'contact' | 'volunteer'; name: string; email: string; fields: [string, string][]; message: string
+}) {
+  const title = kind === 'volunteer' ? 'New volunteer' : 'New message'
+  const subject = kind === 'volunteer' ? `Volunteer: ${name}` : `Website message: ${fields[0]?.[1] ?? 'General'} - ${name}`
+  if (!resend) { console.log(`[Email] ${subject} from ${email} - set RESEND_API_KEY to enable`); return }
+  const fromAddr = process.env.EMAIL_FROM ?? 'bookings@theshuttlesocial.com'
+  const rows = [['Name', name], ['Email', email], ...fields].map(([k, v]) => infoRow(escHtml(k), escHtml(v))).join('')
+  const { error } = await resend.emails.send({
+    from: `The Shuttle Social website <${fromAddr}>`,
+    to: 'theshuttlesocial@gmail.com',
+    reply_to: email,
+    subject,
+    text: `${title} from the website\n\nName: ${name}\nEmail: ${email}\n${fields.map(([k, v]) => `${k}: ${v}`).join('\n')}\n\n${message}\n\n(Reply to this email to answer ${name}.)`,
+    html: emailWrap(`
+      <div style="color:${ink};font-size:22px;font-weight:900;letter-spacing:-0.5px;line-height:1.15;margin-bottom:4px;">${title}</div>
+      <div style="color:${muted};font-size:14px;margin-bottom:20px;">From the website. Reply to this email to answer ${escHtml(name)}.</div>
+      <div style="${deepCard}margin-bottom:16px;">
+        <table style="width:100%;border-collapse:collapse;">${rows}</table>
+      </div>
+      <div style="color:${text};font-size:15px;line-height:1.7;white-space:pre-wrap;">${escHtml(message)}</div>
+    `),
+  })
+  if (error) throw new Error(error.message)
+}

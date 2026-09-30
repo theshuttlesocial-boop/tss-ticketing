@@ -7,16 +7,14 @@ import { Gallery, type Clip } from './_components/Gallery'
 import { HeroVisual } from './_components/HeroVisual'
 import { HowItWorks, type Step } from './_components/HowItWorks'
 import { RotatingWord } from './_components/RotatingWord'
-import { ThemeToggle } from '@/app/_design/ThemeToggle'
+import { Arrow, SiteFooter, SiteNav } from './_components/SiteChrome'
+import { BOOK, INSTAGRAM, TIKTOK } from '@/lib/site/links'
 
 // Availability and the session count refresh every minute.
 export const revalidate = 60
 
 export const metadata = { alternates: { canonical: '/' } }
 
-const BOOK = '/tickets'
-const INSTAGRAM = 'https://www.instagram.com/theshuttlesocial'
-const TIKTOK = 'https://www.tiktok.com/@theshuttlesocial'
 const WORDS = ['social.', 'competitive.', 'for beginners.', 'every week.']
 
 const INK = '#0F2A1A', CREAM = '#F4F7EC'
@@ -58,14 +56,6 @@ const CLIPS: Clip[] = [
 const fmt = (n: number) => n.toLocaleString('en-GB')
 /** CSS custom properties for an inline style. */
 const vars = (v: Record<`--${string}`, string | number>) => v as CSSProperties
-
-function Arrow() {
-  return (
-    <span className="book-arrow" aria-hidden="true">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#D9F46B" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
-    </span>
-  )
-}
 
 /** Next sessions for the "This week" cards: up to the next 7 days, else the next two coming up. */
 function pickUpcoming(sessions: PublicSession[], now = new Date()) {
@@ -128,19 +118,7 @@ export default async function Home() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c') }} />
       <div className="hero">
         <div className="hero-glow" aria-hidden="true" />
-        <header className="nav">
-          <a href="/" className="brand">the shuttle social</a>
-          <nav aria-label="Main" className="nav-links">
-            <a href="#sessions">Sessions</a>
-            <a href="#how">How it works</a>
-            <a href="#faqs">FAQs</a>
-            <a href={INSTAGRAM}>Instagram</a>
-          </nav>
-          <div className="nav-right">
-            <ThemeToggle />
-            <a href={BOOK} className="book small"><span className="book-long">Book a session</span><span className="book-short">Book</span><Arrow /></a>
-          </div>
-        </header>
+        <SiteNav />
 
         <div className="wrap hero-grid">
           <div className="hero-copy">
@@ -185,7 +163,7 @@ export default async function Home() {
                 <h2 id="week-h" className="disp h2">{upcoming.heading}</h2>
                 <span className="live small"><span className="dot" />Live from bookings</span>
               </div>
-              <a href={BOOK} className="small" style={{ fontWeight: 700, textDecoration: 'none', borderBottom: '2px solid currentColor' }}>All sessions →</a>
+              <a href="/sessions" className="small" style={{ fontWeight: 700, textDecoration: 'none', borderBottom: '2px solid currentColor' }}>All sessions →</a>
             </div>
             {upcoming.list.length ? (
               <div className="days" data-reveal-stagger="">
@@ -275,15 +253,7 @@ export default async function Home() {
         </section>
       </main>
 
-      <footer className="wrap foot">
-        <span>The Shuttle Social · <a href="mailto:theshuttlesocial@gmail.com">theshuttlesocial@gmail.com</a></span>
-        <nav aria-label="Footer">
-          <a href={INSTAGRAM}>Instagram</a>
-          <a href={TIKTOK}>TikTok</a>
-          <a href="/privacy">Privacy</a>
-          <span>No tracking cookies</span>
-        </nav>
-      </footer>
+      <SiteFooter />
     </>
   )
 }

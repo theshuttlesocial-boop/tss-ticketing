@@ -25,7 +25,8 @@ export function proxy(req: NextRequest) {
     return NextResponse.redirect(`https://${APEX}${pathname}${search}`, 301)
   }
 
-  if (host === APEX) {
+  // Local dev only: http://site.localhost:3000 behaves like the marketing domain.
+  if (host === APEX || (process.env.NODE_ENV !== 'production' && host === 'site.localhost')) {
     // Old or shared links to ticketing pages go to the tickets host.
     if (isAppPath(pathname)) return NextResponse.redirect(`https://${TICKETS_HOST}${pathname}${search}`, 308)
     // One public address per page: /site/faq → /faq. (Generated share images keep their /site URL.)
