@@ -23,7 +23,7 @@ export default function AppFrame({ children }: { children: React.ReactNode }) {
       <a className="skip" href="#main-content">Skip to main content</a>
       <div className="a-head">
         <header className="nav">
-          <a href="/tickets" className="brand">the shuttle social</a>
+          <a href="https://theshuttlesocial.com" className="brand" aria-label="The Shuttle Social home">the shuttle social</a>
           <div className="nav-right">
             <a href="/account" className="book small">My portal<Arrow /></a>
             <ThemeToggle />

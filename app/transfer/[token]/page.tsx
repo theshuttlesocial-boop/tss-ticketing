@@ -55,7 +55,7 @@ export default function TransferConfirmPage(){
               <div style={{fontSize:13,color:T.muted,lineHeight:1.7}}>{fmtDate(info.session.date)}, {info.session.time}<br/>{info.session.venue}</div>
             </div>
             {error&&<div style={{marginBottom:12,padding:'10px 12px',background:T.dangerDim,color:T.danger,borderRadius:8,fontSize:13}}>{error}</div>}
-            <button onClick={confirm} disabled={loading} style={{width:'100%',padding:'14px',minHeight:52,borderRadius:999,border:'none',background:loading?T.card2:T.cta,color:loading?T.muted:T.onCta,boxShadow:loading?'none':T.ctaGlow,fontWeight:800,fontSize:16,cursor:loading?'default':'pointer',fontFamily:'inherit'}}>
+            <button onClick={confirm} disabled={loading} style={{width:'100%',padding:'14px',minHeight:52,borderRadius:999,border:'none',background:T.cta,color:T.onCta,boxShadow:T.ctaGlow,fontWeight:800,fontSize:16,cursor:loading?'default':'pointer',fontFamily:'inherit'}}>
               {loading?'Confirming…':'Confirm my place →'}
             </button>
           </div>

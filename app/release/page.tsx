@@ -74,7 +74,7 @@ export default function ReleasePage(){
               <label style={{fontSize:12,color:T.muted,display:'block',marginBottom:5}}>Email</label>
               <input type="email" value={email} onChange={e=>setEmail(e.target.value)} onKeyDown={e=>e.key==='Enter'&&email&&requestLink()} placeholder="you@email.com" autoComplete="email" style={inp()}/>
               {error&&<div style={{marginTop:12,padding:'10px 12px',background:T.dangerDim,color:T.danger,borderRadius:8,fontSize:13}}>{error}</div>}
-              <button onClick={requestLink} disabled={!email||loading} style={{marginTop:16,width:'100%',padding:'14px',minHeight:52,borderRadius:999,border:'none',background:(!email||loading)?T.card2:T.cta,color:(!email||loading)?T.muted:T.onCta,boxShadow:(!email||loading)?'none':T.ctaGlow,fontWeight:800,fontSize:16,cursor:(!email||loading)?'default':'pointer',fontFamily:'inherit'}}>
+              <button onClick={requestLink} disabled={!email||loading} style={{marginTop:16,width:'100%',padding:'14px',minHeight:52,borderRadius:999,border:'none',background:T.cta,color:T.onCta,boxShadow:T.ctaGlow,fontWeight:800,fontSize:16,cursor:(!email||loading)?'default':'pointer',fontFamily:'inherit'}}>
                 {loading?'Sending…':'Email me a link →'}
               </button>
             </div>
@@ -266,7 +266,7 @@ function ConfirmRelease({label,onConfirm,loading,error}:{label:string;onConfirm:
         Your spot is offered to the waitlist. You're only paid out once someone takes it - if nobody does before the session, your booking stands.
       </div>
       {error&&<div style={{marginBottom:12,padding:'10px 12px',background:T.dangerDim,color:T.danger,borderRadius:8,fontSize:13}}>{error}</div>}
-      <button onClick={onConfirm} disabled={loading} style={{width:'100%',padding:'13px',minHeight:50,borderRadius:999,border:'none',background:loading?T.card2:T.cta,color:loading?T.muted:T.onCta,boxShadow:loading?'none':T.ctaGlow,fontWeight:800,fontSize:15,cursor:loading?'default':'pointer',fontFamily:'inherit'}}>
+      <button onClick={onConfirm} disabled={loading} style={{width:'100%',padding:'13px',minHeight:50,borderRadius:999,border:'none',background:T.cta,color:T.onCta,boxShadow:T.ctaGlow,fontWeight:800,fontSize:15,cursor:loading?'default':'pointer',fontFamily:'inherit'}}>
         {loading?'Releasing…':label}
       </button>
     </div>
@@ -302,7 +302,7 @@ function TransferForm({booking,spaces,token,onDone}:{booking:Booking;spaces:numb
         <span style={{fontSize:13,color:T.muted,lineHeight:1.5}}>I confirm this person has agreed to take my place and to us contacting them about it.</span>
       </label>
       {error&&<div style={{marginBottom:12,padding:'10px 12px',background:T.dangerDim,color:T.danger,borderRadius:8,fontSize:13}}>{error}</div>}
-      <button onClick={submit} disabled={!ready||loading} style={{width:'100%',padding:'13px',minHeight:50,borderRadius:999,border:'none',background:(!ready||loading)?T.card2:T.cta,color:(!ready||loading)?T.muted:T.onCta,boxShadow:(!ready||loading)?'none':T.ctaGlow,fontWeight:800,fontSize:15,cursor:(!ready||loading)?'default':'pointer',fontFamily:'inherit'}}>
+      <button onClick={submit} disabled={!ready||loading} style={{width:'100%',padding:'13px',minHeight:50,borderRadius:999,border:'none',background:T.cta,color:T.onCta,boxShadow:T.ctaGlow,fontWeight:800,fontSize:15,cursor:(!ready||loading)?'default':'pointer',fontFamily:'inherit'}}>
         {loading?'Sending…':'Send them a confirm link →'}
       </button>
     </div>

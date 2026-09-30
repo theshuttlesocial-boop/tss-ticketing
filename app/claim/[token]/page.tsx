@@ -85,7 +85,7 @@ export default function ClaimPage(){
       {error&&<div style={{marginBottom:12,padding:'10px 12px',background:T.dangerDim,color:T.danger,borderRadius:8,fontSize:13}}>{error}</div>}
 
       {!clientSecret?(
-        <button onClick={startCheckout} disabled={starting} style={{width:'100%',padding:'14px',minHeight:52,borderRadius:999,border:'none',background:starting?T.card2:T.cta,color:starting?T.muted:T.onCta,boxShadow:starting?'none':T.ctaGlow,fontWeight:800,fontSize:16,cursor:starting?'default':'pointer',fontFamily:'inherit'}}>
+        <button onClick={startCheckout} disabled={starting} style={{width:'100%',padding:'14px',minHeight:52,borderRadius:999,border:'none',background:T.cta,color:T.onCta,boxShadow:T.ctaGlow,fontWeight:800,fontSize:16,cursor:starting?'default':'pointer',fontFamily:'inherit'}}>
           {starting?'Holding your spot…':'Claim & pay →'}
         </button>
       ):(
@@ -120,7 +120,7 @@ function ClaimForm({onSuccess,onGone}:{onSuccess:()=>void;onGone:()=>void}){
       <PaymentElement options={{layout:'accordion'}} onReady={()=>setReady(true)}/>
       {!ready&&<div style={{marginTop:10,padding:'10px 14px',background:T.card2,border:`1px solid ${T.border}`,borderRadius:8,color:T.muted,fontSize:13,textAlign:'center'}}>Loading payment form...</div>}
       {error&&<div style={{marginTop:12,padding:'10px 14px',background:T.dangerDim,color:T.danger,borderRadius:8,fontSize:13}}>{error}</div>}
-      <button onClick={pay} disabled={paying||!stripe||!ready} style={{marginTop:16,width:'100%',padding:'16px',minHeight:56,borderRadius:999,background:(paying||!ready)?T.card2:T.cta,color:(paying||!ready)?T.muted:T.onCta,boxShadow:(paying||!ready)?'none':T.ctaGlow,border:'none',fontWeight:800,fontSize:18,cursor:(paying||!ready)?'default':'pointer',fontFamily:'inherit'}}>
+      <button onClick={pay} disabled={paying||!stripe||!ready} style={{marginTop:16,width:'100%',padding:'16px',minHeight:56,borderRadius:999,background:T.cta,color:T.onCta,boxShadow:T.ctaGlow,border:'none',fontWeight:800,fontSize:18,cursor:(paying||!ready)?'default':'pointer',fontFamily:'inherit'}}>
         {paying?'Processing…':!ready?'Loading…':'Confirm & Pay →'}
       </button>
     </div>

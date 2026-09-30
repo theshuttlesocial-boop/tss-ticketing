@@ -8,7 +8,8 @@
 .tss .a-head { position: relative; margin: 0.75rem; padding-bottom: 1.125rem; border-radius: clamp(1.75rem, 3vw, 2.75rem); overflow: hidden; color: var(--on-dark); background: linear-gradient(135deg, #0B2E1B 0%, #155A34 45%, #2E9A5C 85%, #9BDB7A 100%); }
 .tss .a-main { max-width: 38rem; margin: 0 auto; padding: clamp(1.5rem, 4vw, 2.5rem) 1.125rem 3.5rem; }
 .tss .a-main.wide { max-width: 44rem; }
-.tss button:disabled { cursor: default; }
+/* Disabled buttons keep their look (main actions stay lime and glowing), just dimmed */
+.tss button:disabled { cursor: default; opacity: 0.88; }
 @media (max-width: 767px) {
   .tss .a-head .nav { gap: 0.5rem; padding-left: 1rem; }
   .tss .a-head .nav .brand { font-size: 1rem; }
@@ -19,7 +20,7 @@
 
 /* ── Buttons ────────────────────────────────────────────── */
 .tss .book.t-wide { width: 100%; justify-content: space-between; font-size: 1.125rem; min-height: 3.5rem; border: 0; cursor: pointer; }
-.tss .book:disabled { cursor: default; opacity: 0.5; box-shadow: none; transform: none; }
+.tss .book:disabled { cursor: default; opacity: 0.88; transform: none; }
 .tss .book:disabled::after { animation: none; }
 .tss .t-btn { display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; min-height: 3rem; padding: 0.75rem 1.5rem; border-radius: 999px; border: 0; font-weight: 800; cursor: pointer; text-decoration: none; transition: transform 0.3s var(--ease), opacity 0.2s; }
 .tss .t-btn:hover:not(:disabled) { transform: translateY(-2px); }
