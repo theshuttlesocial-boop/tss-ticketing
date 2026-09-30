@@ -143,6 +143,13 @@ export async function POST(req: Request) {
       await supabaseAdmin.from('credit_holds').delete().eq('booking_ref', booking_ref).then(() => {}, () => {})
     }
 
+    // ── 4a'. Welcome offer used on this booking (Phase 8, migration 026) ─────
+    if (pi.metadata?.welcome_pence) {
+      await supabaseAdmin.from('welcome_redemptions')
+        .update({ status: 'redeemed', redeemed_at: new Date().toISOString() })
+        .eq('booking_ref', booking_ref).then(() => {}, (err: unknown) => console.error('[webhook] welcome redeem failed:', err))
+    }
+
     // ── 4b. Waitlist claim resolution (this booking came from a claim link) ──
     //    Marks only the claimed waitlist row; the person's other entries stay
     //    'waiting'. Resolves the oldest unfilled release for this session and

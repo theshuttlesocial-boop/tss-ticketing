@@ -6,6 +6,7 @@ import { availableCreditPence, consumeCredits } from '@/lib/credits'
 import { sendBookingConfirmation, sendAdminBookingNotification } from '@/lib/email'
 import { logAudit } from '@/lib/audit'
 import { userFromRequest } from '@/lib/account'
+import { getWelcomeSettings, normaliseCode } from '@/lib/welcome'
 
 export async function POST(req: Request) {
   const body = await req.json()
@@ -104,6 +105,31 @@ export async function POST(req: Request) {
 
   const totalPence = session.price_pence * quantity
 
+  // ── Welcome discount (Phase 8): money off someone's first booking ─────────────
+  // The code comes from /welcome (?code=…). claim_welcome() (migration 026) checks the
+  // email has never paid for a booking or used the offer, and holds it under a lock.
+  let welcomePence = 0
+  let welcomeNote: string | null = null
+  const promo = normaliseCode(body.promo_code)
+  if (promo && !claim_token) {
+    const w = await getWelcomeSettings()
+    if (w.enabled && w.discountPence > 0 && promo === w.code) {
+      const amount = Math.min(w.discountPence, totalPence)
+      const { data: ok, error: wErr } = await supabaseAdmin.rpc('claim_welcome', {
+        p_email: email, p_booking_ref: bookingRef, p_amount: amount, p_code: promo,
+        p_src: String(body.src ?? '').replace(/[^a-z0-9_-]/gi, '').slice(0, 30) || null,
+      })
+      if (!wErr && ok) welcomePence = amount
+      else welcomeNote = 'The welcome offer is for your first booking only, so it wasn’t applied this time.'
+    } else {
+      welcomeNote = 'That offer code isn’t active any more, so it wasn’t applied.'
+    }
+  }
+  const releaseWelcomeHold = () => welcomePence > 0
+    ? supabaseAdmin.from('welcome_redemptions').delete().eq('booking_ref', bookingRef).eq('status', 'held').then(() => {}, () => {})
+    : Promise.resolve()
+  const orderPence = totalPence - welcomePence   // what the order costs after the welcome discount
+
   // ── Credit redemption (not for waitlist claims) ─────────────────────────────
   // Apply available credit to reduce (or fully cover) the charge. Never negative,
   // never more than the order total.
@@ -116,31 +142,33 @@ export async function POST(req: Request) {
     if (sameEmail) {
       // Set the credit aside under a per-email lock (migration 025), so two bookings at
       // the same moment can't both spend it. Without the migration: the old read-only check.
-      const { data: held, error: holdErr } = await supabaseAdmin.rpc('hold_credit', { p_email: email, p_want: totalPence, p_booking_ref: bookingRef })
-      creditToApply = holdErr ? Math.min(await availableCreditPence(email), totalPence) : Math.max(0, Number(held) || 0)
+      const { data: held, error: holdErr } = await supabaseAdmin.rpc('hold_credit', { p_email: email, p_want: orderPence, p_booking_ref: bookingRef })
+      creditToApply = holdErr ? Math.min(await availableCreditPence(email), orderPence) : Math.max(0, Number(held) || 0)
     }
   }
   const releaseCreditHold = () => creditToApply > 0
     ? supabaseAdmin.from('credit_holds').delete().eq('booking_ref', bookingRef).then(() => {}, () => {})
     : Promise.resolve()
-  const chargePence = totalPence - creditToApply
+  const chargePence = orderPence - creditToApply
 
   // Full cover: no Stripe. Create the booking as succeeded, consume credit, email.
-  if (chargePence <= 0 && creditToApply > 0) {
+  if (chargePence <= 0 && (creditToApply > 0 || welcomePence > 0)) {
     const additionalJson = additional_attendees ? JSON.stringify(additional_attendees) : null
     const { data: newBooking, error: insErr } = await supabaseAdmin.from('bookings').insert({
       session_id, name, email, phone: phone ?? null,
-      quantity, total_pence: totalPence, stripe_status: 'succeeded', booking_ref: bookingRef,
+      quantity, total_pence: orderPence, stripe_status: 'succeeded', booking_ref: bookingRef,
       additional_attendees: additionalJson,
     }).select('id').single()
     if (insErr) {
       await supabaseAdmin.from('seat_holds').delete().eq('hold_token', holdToken)
       await releaseCreditHold()
+      await releaseWelcomeHold()
       // Capacity trigger or other failure.
       return NextResponse.json({ error: 'Could not complete booking' }, { status: 409 })
     }
-    await consumeCredits(email, creditToApply, newBooking.id)
+    if (creditToApply > 0) await consumeCredits(email, creditToApply, newBooking.id)
     await releaseCreditHold()
+    if (welcomePence > 0) await supabaseAdmin.from('welcome_redemptions').update({ status: 'redeemed', redeemed_at: new Date().toISOString() }).eq('booking_ref', bookingRef)
     await supabaseAdmin.from('seat_holds').update({ used: true }).eq('hold_token', holdToken)
 
     const extras = additional_attendees ? additional_attendees.map((a: any) => a.name ?? a) : undefined
@@ -149,16 +177,16 @@ export async function POST(req: Request) {
       sendBookingConfirmation({
         to: email, name, bookingRef, sessionTitle: session.title, sessionLabel: session.label,
         sessionDate: session.date, sessionTime: session.time, venue: session.venue,
-        description: session.description, quantity, totalPence, additionalAttendees: extras,
+        description: session.description, quantity, totalPence: orderPence, additionalAttendees: extras,
       }).catch(err => console.error('[book] confirmation email failed:', err)),
       sendAdminBookingNotification({
         name, email, phone: phone ?? undefined, bookingRef, sessionTitle: session.title,
-        sessionDate: session.date, sessionTime: session.time, venue: session.venue, quantity, totalPence,
+        sessionDate: session.date, sessionTime: session.time, venue: session.venue, quantity, totalPence: orderPence,
         additionalAttendees: extras,
       }).catch(err => console.error('[book] admin email failed:', err)),
     ]).then(() => {}))
 
-    return NextResponse.json({ fullyCovered: true, bookingRef, creditApplied: creditToApply, totalPence })
+    return NextResponse.json({ fullyCovered: true, bookingRef, creditApplied: creditToApply, welcomePence, welcomeNote, totalPence })
   }
 
   let paymentIntent
@@ -169,17 +197,19 @@ export async function POST(req: Request) {
       extraMetadata: {
         ...(waitlistId ? { waitlist_id: waitlistId, claim: 'true' } : {}),
         ...(creditToApply > 0 ? { credit_applied: String(creditToApply) } : {}),
+        ...(welcomePence > 0 ? { welcome_pence: String(welcomePence) } : {}),
       },
     })
   } catch (err: any) {
     await supabaseAdmin.from('seat_holds').delete().eq('hold_token', holdToken)
     await releaseCreditHold()
+    await releaseWelcomeHold()
     return NextResponse.json({ error: 'Payment setup failed' }, { status: 500 })
   }
 
   await supabaseAdmin.from('bookings').insert({
     session_id, name, email, phone: phone ?? null,
-    quantity, total_pence: totalPence,
+    quantity, total_pence: orderPence,   // after any welcome discount; credit still counts as paid
     stripe_payment_intent_id: paymentIntent.id,
     stripe_status: 'pending',
     booking_ref: bookingRef,
@@ -188,6 +218,6 @@ export async function POST(req: Request) {
 
   return NextResponse.json({
     clientSecret: paymentIntent.client_secret, holdToken, bookingRef,
-    expiresAt: holdResult.expires_at, totalPence, chargePence, creditApplied: creditToApply,
+    expiresAt: holdResult.expires_at, totalPence, chargePence, creditApplied: creditToApply, welcomePence, welcomeNote,
   })
 }

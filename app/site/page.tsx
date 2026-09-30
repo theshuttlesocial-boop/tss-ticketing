@@ -10,6 +10,7 @@ import { RotatingWord } from './_components/RotatingWord'
 import { Arrow, SiteFooter, SiteNav } from './_components/SiteChrome'
 import { ScrollText } from './_components/ScrollText'
 import { STORY } from '@/lib/site/story'
+import { FAQS } from '@/lib/site/faqs'
 import { BOOK, INSTAGRAM, TIKTOK } from '@/lib/site/links'
 
 // Availability and the session count refresh every minute.
@@ -30,14 +31,6 @@ const PAL = {
   night: { background: '#0F2A1A', color: CREAM },
 }
 
-const FAQS: [string, string][] = [
-  ['How do I join?', 'Join our WhatsApp community linked in the @theshuttlesocial IG bio for all details about upcoming sessions and ticket releases.'],
-  ['Do I need to be good at badminton?', 'Not at all! We welcome all levels, from complete beginners to experienced players.'],
-  ['How do I book a session? Can I just show up?', 'Sessions are ticket-only. Spaces are limited and sell out fast. Grab yours through our ticket link, always shared on WhatsApp and Instagram.'],
-  ['Where are sessions held?', 'Our sessions are currently mainly in West London. We’ll be starting up again in East and South London.'],
-  ['What’s the format of a session?', 'Timed rounds of doubles with a new partner every round, finishing with a grand final.'],
-  ['Do I need to bring equipment?', 'Shuttles are provided. Please bring your own racket if possible. A few spares will be available.'],
-]
 
 const STEPS: Step[] = [
   { title: 'Book a space', body: '£10, no membership. Plans change? Release your space and the waitlist gets it.', kicker: 'Booking', big: 'You’re in for Thursday.', small: 'Your ticket and QR code are in your email and My sessions.' },
@@ -103,7 +96,7 @@ export default async function Home() {
     {
       '@context': 'https://schema.org', '@type': 'SportsOrganization', name: 'The Shuttle Social', sport: 'Badminton',
       url: 'https://theshuttlesocial.com', logo: 'https://theshuttlesocial.com/logo.jpg', email: 'theshuttlesocial@gmail.com',
-      description: 'Social badminton in West London for every level.', areaServed: 'London', sameAs: [INSTAGRAM, TIKTOK],
+      description: 'Social badminton in West London for every level.', areaServed: 'London', sameAs: [INSTAGRAM, TIKTOK, 'https://theshuttlesocial.com/join'],
     },
     ...upcoming.list.filter((s) => s.status === 'open').map((s) => ({
       '@context': 'https://schema.org', '@type': 'SportsEvent', name: s.title, sport: 'Badminton',

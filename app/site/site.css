@@ -312,3 +312,7 @@
   .tss .strip { overflow-x: auto; }
   .tss .strip-set[aria-hidden] { display: none; }
 }
+
+/* /welcome: the code card */
+.tss .welcome-code { max-width: 46rem; margin: 0 auto; align-items: flex-start; gap: 1rem; text-align: left; }
+.tss .welcome-code-n { font-size: clamp(3.5rem, 11vw, 7rem); letter-spacing: 0.02em; padding: 0.15em 0.35em; border: 3px dashed rgba(15, 42, 26, 0.35); border-radius: 1.25rem; }

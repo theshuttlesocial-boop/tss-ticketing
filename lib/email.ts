@@ -623,3 +623,32 @@ export async function sendContactMessage({ kind, name, email, fields, message }:
   })
   if (error) throw new Error(error.message)
 }
+
+// ── /join: a copy of the welcome message, with the WhatsApp invite (Phase 8) ─
+export async function sendJoinWelcome({ to, firstName, paragraphs, inviteUrl, faqs, offer }: {
+  to: string; firstName: string; paragraphs: string[]; inviteUrl: string; faqs: [string, string][]
+  offer?: { code: string; discount: string }
+}) {
+  if (!resend) { console.log(`[Email] Join welcome for ${to} - set RESEND_API_KEY to enable`); return }
+  const fromAddr = process.env.EMAIL_FROM ?? 'bookings@theshuttlesocial.com'
+  const safeUrl = /^https:\/\//.test(inviteUrl) ? inviteUrl : ''
+  const { error } = await resend.emails.send({
+    from: `The Shuttle Social <${fromAddr}>`,
+    to,
+    reply_to: 'theshuttlesocial@gmail.com',
+    subject: 'Welcome to The Shuttle Social',
+    text: `Hi ${firstName},\n\n${paragraphs.join('\n\n')}\n\n${safeUrl ? `Join the WhatsApp community: ${safeUrl}\n\n` : ''}${offer ? `New to our sessions? Use ${offer.code} for ${offer.discount} off your first booking: https://theshuttlesocial.com/welcome\n\n` : ''}${faqs.map(([q, a]) => `${q}\n${a}`).join('\n\n')}\n\nThe Shuttle Social`,
+    html: emailWrap(`
+      <div style="color:${ink};font-size:24px;font-weight:900;letter-spacing:-0.5px;line-height:1.15;margin-bottom:14px;">Hi ${escHtml(firstName)}, welcome!</div>
+      ${paragraphs.map((p) => `<p style="color:${text};font-size:15px;line-height:1.7;margin:0 0 12px;">${escHtml(p)}</p>`).join('')}
+      ${safeUrl ? `<div style="text-align:center;margin:22px 0;"><a href="${escHtml(safeUrl)}" style="${cta}">Join the WhatsApp community &rarr;</a></div>` : ''}
+      ${offer ? `<div style="${deepCard}margin:18px 0;">
+        <div style="font-size:11px;font-weight:700;color:${cardMuted};letter-spacing:2px;margin-bottom:8px;">NEW TO OUR SESSIONS?</div>
+        <div style="color:${cardText};font-size:15px;line-height:1.6;">Use <strong style="color:${lime};font-size:18px;">${escHtml(offer.code)}</strong> for ${escHtml(offer.discount)} off your first booking. <a href="https://theshuttlesocial.com/welcome" style="color:${lime};font-weight:700;">Book your first session</a></div>
+      </div>` : ''}
+      <div style="color:${ink};font-size:17px;font-weight:900;margin:24px 0 8px;">FAQs</div>
+      ${faqs.map(([q, a]) => `<p style="margin:0 0 12px;font-size:14px;line-height:1.6;color:${text};"><strong>${escHtml(q)}</strong><br/>${escHtml(a)}</p>`).join('')}
+    `),
+  })
+  if (error) throw new Error(error.message)
+}
