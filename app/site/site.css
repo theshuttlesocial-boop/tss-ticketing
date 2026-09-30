@@ -159,10 +159,11 @@
 /* Colourful stat tiles on a light section (About) */
 .tss .tiles-light .tile { color: #0F2A1A; }
 
-/* Menu button: every page. On wide screens the section links are already in the bar. */
-.tss .menu { display: block; }
-.tss .menu-sections { display: none; }
-@media (max-width: 767px) { .tss .menu-sections { display: contents; } }
+/* Phone menu (on wide screens the links sit in the bar) */
+.tss .menu { display: none; }
+/* Seven links: tighter spacing on mid-size screens */
+@media (min-width: 768px) and (max-width: 1180px) { .tss .nav-links { gap: 1rem; } .tss .nav .book-long { display: none; } .tss .nav .book-short { display: inline; } }
+@media (min-width: 768px) and (max-width: 960px) { .tss .nav-links { display: none; } .tss .menu { display: block; } }
 .tss .menu summary { list-style: none; width: 2.875rem; height: 2.875rem; border-radius: 50%; border: 1px solid rgba(255, 255, 255, 0.22); background: rgba(255, 255, 255, 0.08); display: grid; place-items: center; cursor: pointer; }
 .tss .menu summary::-webkit-details-marker { display: none; }
 .tss .menu[open] summary { background: var(--lime); }
