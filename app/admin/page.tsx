@@ -2,6 +2,7 @@
 import { RequireTwoStep } from '@/app/_components/TwoStep'
 import { T, inp } from '@/app/_design/theme'
 import { staffHeaders, whoAmI, signOutStaff } from '@/lib/staffClient'
+import { effectiveSessionStatus } from '@/lib/sessions/schedule'
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 
 // ── Midnight Green Theme ──────────────────────────────────────────────────────
@@ -33,7 +34,8 @@ interface Booking { id:string;name:string;email:string;phone?:string;quantity:nu
 
 function displayStatus(s:Session):{label:string;color:string} {
   if (s.opens_at && new Date(s.opens_at)>new Date() && s.status==='draft') return {label:`⏰ ${new Date(s.opens_at).toLocaleString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}${s.show_coming_soon===false?' · hidden':''}`,color:T.info}
-  if (s.status==='open') return {label:'✅ Open',color:T.accent}
+  // A draft past its opens_at is live and bookable, so show it as open.
+  if (effectiveSessionStatus(s.status,s.opens_at)==='open') return {label:'✅ Open',color:T.accent}
   if (s.status==='draft') return {label:'🔒 Draft',color:T.muted}
   if (s.status==='closed') return {label:'🚫 Closed',color:T.warning}
   return {label:'❌ Cancelled',color:T.danger}
@@ -339,7 +341,7 @@ function AdminPageInner() {
   const summary = useMemo(()=>({
     totalRev: sessions.reduce((a,s)=>a+(s.revenue_pence??0),0),
     totalBooked: sessions.reduce((a,s)=>a+(s.booked??0),0),
-    openCount: sessions.filter(s=>s.status==='open').length,
+    openCount: sessions.filter(s=>effectiveSessionStatus(s.status,s.opens_at)==='open').length,
   }),[sessions])
 
   // ── Login ─────────────────────────────────────────────────────────────────

@@ -1,7 +1,6 @@
 import { requireAdmin } from '@/lib/staff'
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { normaliseScheduledStatus } from '@/lib/sessions/schedule'
 
 /** Owners and admins (personal login, or the owner-only emergency password). */
 async function checkAdmin(req: Request) {
@@ -120,12 +119,6 @@ export async function PATCH(req: Request) {
   const fullUpdate: Record<string,any> = {}
   for (const k of coreFields) { if (k in rest) fullUpdate[k] = rest[k] }
   for (const k of optionalFields) { if (k in rest) fullUpdate[k] = rest[k] === '' ? null : rest[k] }
-
-  // Safeguard: scheduling a drop for a time that's already passed opens it now
-  // (matches the create path and keeps the booking gate and status in agreement).
-  if ('status' in fullUpdate && 'opens_at' in fullUpdate) {
-    fullUpdate.status = normaliseScheduledStatus(fullUpdate.status, fullUpdate.opens_at)
-  }
 
   const { data, error } = await supabaseAdmin.from('sessions').update(fullUpdate).eq('id', session_id).select().single()
 

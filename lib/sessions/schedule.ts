@@ -1,11 +1,11 @@
-// A scheduled-release session is created as status='draft' with an opens_at.
-// If that opens_at is already in the past, the session should just be OPEN — the
-// public page treats it as bookable, so the stored status must agree, otherwise
-// the atomic booking gate (claim_seat_hold) can reject it as "Session not
-// available". This keeps the persisted status honest at write time.
+// Sessions are normally created as status='draft' with a scheduled opens_at, and
+// the stored status is never flipped when that time passes. Everything that
+// decides "is this session open?" must therefore use the EFFECTIVE status:
+// a draft whose opens_at has passed is open. The public pages (lib/sessions/
+// public.ts) and the booking gate (claim_seat_hold, migration 017) already do.
 //
-// Only promotes draft -> open. Never touches open/closed/cancelled.
-export function normaliseScheduledStatus(
+// Only a draft is promoted. open/closed/cancelled are returned unchanged.
+export function effectiveSessionStatus(
   status: string | null | undefined,
   opensAt: string | null | undefined,
   now: Date = new Date(),
