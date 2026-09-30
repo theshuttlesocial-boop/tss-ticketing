@@ -7,7 +7,7 @@ import { Gallery, type Clip } from './_components/Gallery'
 import { HeroVisual } from './_components/HeroVisual'
 import { HowItWorks, type Step } from './_components/HowItWorks'
 import { RotatingWord } from './_components/RotatingWord'
-import { ThemeToggle } from './_components/ThemeToggle'
+import { ThemeToggle } from '@/app/_design/ThemeToggle'
 
 // Availability and the session count refresh every minute.
 export const revalidate = 60

@@ -1,0 +1,217 @@
+/*
+ * The Shuttle Social design system (V5): tokens, dark mode, type, buttons, theme switch.
+ * Shared by the marketing site and the app screens. Everything is scoped under .tss.
+ * Rules: docs/design-brief.md.
+ */
+
+/* ── Tokens ─────────────────────────────────────────────── */
+.tss {
+  /* Type: Urbanist everywhere; heavy for display, heavy italic for numbers */
+  --f-sans: var(--font-urbanist), system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --w-display: 800;
+  --w-hero: 900;
+  --w-num: 900;
+  --ls-display: -0.035em;
+
+  /* Fluid type scale (no fixed px sizes) */
+  --fs-hero: clamp(3rem, 5.8vw, 5.75rem);
+  --fs-h2: clamp(2.5rem, 6vw, 5.5rem);
+  --fs-h3: clamp(1.25rem, 1.7vw, 1.625rem);
+  --fs-lead: clamp(1.0625rem, 1.45vw, 1.375rem);
+  --fs-body: clamp(1rem, 1.15vw, 1.1875rem);
+  --fs-small: clamp(0.875rem, 0.95vw, 0.9375rem);
+  --fs-kicker: clamp(0.6875rem, 0.8vw, 0.8125rem);
+  --fs-date: clamp(2.75rem, 5vw, 4.5rem);
+
+  --pad-y: clamp(5rem, 12vh, 10rem);
+  --gutter: clamp(1.25rem, 5vw, 5.5rem);
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  /* Brand */
+  --ink-900: #0F2A1A;
+  --forest: #0E3B24;
+  --lime: #D9F46B;
+  --on-dark: #F4F7EC;
+  --on-dark-2: rgba(244, 247, 236, 0.8);
+
+  /* Theme (light) */
+  --page: #F6F7F1;
+  --ink: #0F2A1A;
+  --muted: #4A5A45;
+  --card: #FFFFFF;
+  --line: rgba(15, 42, 26, 0.12);
+  --chip: #E6EFDD;
+
+  /* App screens (tickets, account, admin): text-safe accent and functional colours */
+  --accent: #1E6B3E;
+  --accent-dim: rgba(30, 107, 62, 0.08);
+  --accent-line: rgba(30, 107, 62, 0.28);
+  --card-2: #F1F4EA;
+  --field: #FFFFFF;
+  --danger: #B42318;
+  --danger-dim: rgba(180, 35, 24, 0.08);
+  --warn: #A15C07;
+  --warn-dim: rgba(161, 92, 7, 0.1);
+  --info: #1D5FA8;
+  --info-dim: rgba(29, 95, 168, 0.08);
+  --overlay: rgba(7, 20, 12, 0.72);
+
+  /* Section rhythm: each section its own space */
+  --s-week: #F6F7F1;
+  --s-stats: #0B2416;
+  --s-how: linear-gradient(170deg, #E4F3E7 0%, #D2ECDB 100%);
+  --s-faq: linear-gradient(170deg, #0E3B24 0%, #155A34 55%, #2A8552 100%);
+  --s-real: linear-gradient(170deg, #F1F7DC 0%, #E4EFC2 100%);
+  --s-cta: radial-gradient(56rem 30rem at 78% 100%, rgba(217, 244, 107, 0.34), rgba(217, 244, 107, 0) 70%),
+           radial-gradient(44rem 26rem at 10% 0%, rgba(46, 139, 87, 0.45), rgba(46, 139, 87, 0) 70%),
+           #06170D;
+}
+
+:root[data-theme='dark'] .tss {
+  --page: #07140C;
+  --ink: #EEF3E6;
+  --muted: #A9B8A4;
+  --card: #10241A;
+  --line: rgba(238, 243, 230, 0.13);
+  --chip: #1A3324;
+  --accent: #D9F46B;
+  --accent-dim: rgba(217, 244, 107, 0.1);
+  --accent-line: rgba(217, 244, 107, 0.3);
+  --card-2: #142D20;
+  --field: #0C1D14;
+  --danger: #F28B82;
+  --danger-dim: rgba(242, 139, 130, 0.12);
+  --warn: #F2B35B;
+  --warn-dim: rgba(242, 179, 91, 0.12);
+  --info: #8CC4FF;
+  --info-dim: rgba(140, 196, 255, 0.1);
+  --overlay: rgba(0, 0, 0, 0.72);
+  --s-week: #07140C;
+  --s-how: linear-gradient(170deg, #0B1F14 0%, #0F2A1C 100%);
+  --s-real: linear-gradient(170deg, #101C0B 0%, #16260F 100%);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .tss {
+    --page: #07140C;
+    --ink: #EEF3E6;
+    --muted: #A9B8A4;
+    --card: #10241A;
+    --line: rgba(238, 243, 230, 0.13);
+    --chip: #1A3324;
+    --accent: #D9F46B;
+    --accent-dim: rgba(217, 244, 107, 0.1);
+    --accent-line: rgba(217, 244, 107, 0.3);
+    --card-2: #142D20;
+    --field: #0C1D14;
+    --danger: #F28B82;
+    --danger-dim: rgba(242, 139, 130, 0.12);
+    --warn: #F2B35B;
+    --warn-dim: rgba(242, 179, 91, 0.12);
+    --info: #8CC4FF;
+    --info-dim: rgba(140, 196, 255, 0.1);
+    --overlay: rgba(0, 0, 0, 0.72);
+    --s-week: #07140C;
+    --s-how: linear-gradient(170deg, #0B1F14 0%, #0F2A1C 100%);
+    --s-real: linear-gradient(170deg, #101C0B 0%, #16260F 100%);
+  }
+}
+
+/* The app's root layout paints the body near-black inline; the site owns its own canvas. */
+body:has(.tss) { background: #F6F7F1 !important; }
+:root[data-theme='dark'] body:has(.tss) { background: #07140C !important; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme='light']) body:has(.tss) { background: #07140C !important; } }
+
+/* ── Base ───────────────────────────────────────────────── */
+.tss {
+  display: flow-root; /* keep the hero's margin inside the page colour */
+  min-height: 100vh;
+  background: var(--page);
+  color: var(--ink);
+  font-family: var(--f-sans);
+  font-size: var(--fs-body);
+  font-weight: 500;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  transition: background-color 0.4s, color 0.4s;
+}
+.tss *, .tss *::before, .tss *::after { box-sizing: border-box; }
+:where(.tss) a { color: inherit; }
+:where(.tss) button { font: inherit; color: inherit; }
+:where(.tss) h1, :where(.tss) h2, :where(.tss) h3, :where(.tss) p, :where(.tss) ol, :where(.tss) figure { margin: 0; }
+.tss :focus-visible { outline: 3px solid var(--lime); outline-offset: 3px; border-radius: 0.75rem; }
+.tss .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.tss .skip { position: absolute; left: 1rem; top: -4rem; z-index: 50; background: var(--lime); color: var(--ink-900); padding: 0.75rem 1rem; border-radius: 0.75rem; font-weight: 700; }
+.tss .skip:focus { top: 1rem; }
+
+/* ── Typography ─────────────────────────────────────────── */
+.tss .disp { font-weight: var(--w-display); letter-spacing: var(--ls-display); line-height: 0.95; }
+.tss .h1 { font-size: var(--fs-hero); font-weight: var(--w-hero); }
+.tss .h2 { font-size: var(--fs-h2); }
+.tss .h3 { font-size: var(--fs-h3); font-weight: 700; line-height: 1.25; }
+.tss .lead { font-size: var(--fs-lead); line-height: 1.5; }
+.tss .small { font-size: var(--fs-small); }
+.tss .kicker { font-size: var(--fs-kicker); letter-spacing: 0.14em; text-transform: uppercase; font-weight: 700; }
+.tss .num { font-weight: var(--w-num); font-style: italic; letter-spacing: -0.04em; line-height: 0.9; font-variant-numeric: tabular-nums; }
+.tss .muted { color: var(--muted); }
+
+/* ── Layout ─────────────────────────────────────────────── */
+.tss .wrap { max-width: 81rem; margin: 0 auto; padding-inline: var(--gutter); }
+.tss .sec { position: relative; padding-block: var(--pad-y); overflow: clip; } /* clip, not hidden: keeps position: sticky working */
+.tss .head-row { display: flex; justify-content: space-between; align-items: flex-end; gap: 1.25rem; flex-wrap: wrap; margin-bottom: clamp(1.75rem, 3vw, 2.5rem); }
+
+/* ── Buttons ────────────────────────────────────────────── */
+.tss .pill { display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; border-radius: 999px; text-decoration: none; font-weight: 700; padding: 0.95em 1.6em; transition: transform 0.3s var(--ease), background-color 0.3s; }
+.tss .pill:hover { transform: translateY(-2px); }
+.tss .pill-ghost { background: rgba(255, 255, 255, 0.13); color: var(--on-dark); }
+.tss .pill-cream { background: #F4F7EC; color: var(--ink-900); }
+.tss .pill-line { border: 1px solid var(--line); }
+
+/* The one primary action: Book a session */
+.tss .book {
+  position: relative; isolation: isolate; overflow: hidden;
+  display: inline-flex; align-items: center; gap: 0.875rem;
+  padding: 0.5em 0.5em 0.5em 1.5em; border-radius: 999px;
+  background: linear-gradient(115deg, #F2FF9E 0%, #D9F46B 45%, #9FE8BE 100%);
+  color: var(--ink-900); font-weight: 800; letter-spacing: -0.01em; text-decoration: none; white-space: nowrap;
+  box-shadow: 0 0 0 4px rgba(217, 244, 107, 0.22), 0 16px 34px -12px rgba(190, 240, 90, 0.75);
+  transition: transform 0.3s var(--ease), box-shadow 0.3s var(--ease);
+}
+.tss .book:hover { transform: translateY(-2px) scale(1.03); box-shadow: 0 0 0 7px rgba(217, 244, 107, 0.28), 0 22px 44px -12px rgba(190, 240, 90, 0.85); }
+.tss .book-arrow { flex: 0 0 auto; width: 2.35em; height: 2.35em; border-radius: 50%; background: var(--ink-900); display: grid; place-items: center; transition: transform 0.35s var(--ease); }
+.tss .book:hover .book-arrow { transform: rotate(-45deg); }
+.tss .book::after { content: ''; position: absolute; inset: 0; z-index: -1; background: linear-gradient(105deg, transparent 35%, rgba(255, 255, 255, 0.75) 50%, transparent 65%); transform: translateX(-130%); animation: tss-shine 4.2s ease-in-out infinite; }
+.tss .book-lg { font-size: clamp(1.0625rem, 1.3vw, 1.25rem); padding: 0.6em 0.6em 0.6em 1.7em; }
+.tss .book-short { display: none; }
+
+/* ── Header ─────────────────────────────────────────────── */
+.tss .nav { position: relative; z-index: 5; margin: 1.125rem clamp(0.75rem, 2.2vw, 2rem) 0; display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; padding: 0.5rem 0.5rem 0.5rem 1.375rem; border-radius: 999px; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.18); color: var(--on-dark); }
+.tss .brand { font-weight: var(--w-display); font-size: clamp(1.0625rem, 1.4vw, 1.375rem); letter-spacing: -0.02em; text-decoration: none; white-space: nowrap; }
+.tss .nav-links { display: flex; gap: 1.75rem; align-items: center; font-size: var(--fs-small); font-weight: 600; }
+.tss .nav-links a { text-decoration: none; }
+.tss .nav-links a:hover { text-decoration: underline; text-underline-offset: 4px; }
+.tss .nav-right { display: flex; gap: 0.5rem; align-items: center; }
+.tss .theme-btn { width: 2.875rem; height: 2.875rem; border-radius: 50%; border: 1px solid rgba(255, 255, 255, 0.22); background: rgba(255, 255, 255, 0.08); display: grid; place-items: center; cursor: pointer; transition: transform 0.3s var(--ease); }
+.tss .theme-btn:hover { transform: rotate(-15deg); }
+.tss .theme-btn .i-sun { display: none; }
+:root[data-theme='dark'] .tss .theme-btn .i-sun { display: block; }
+:root[data-theme='dark'] .tss .theme-btn .i-moon { display: none; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .tss .theme-btn .i-sun { display: block; }
+  :root:not([data-theme='light']) .tss .theme-btn .i-moon { display: none; }
+}
+
+/* ── Motion ─────────────────────────────────────────────── */
+@keyframes tss-shine { 0%, 55% { transform: translateX(-130%); } 85%, 100% { transform: translateX(130%); } }
+@keyframes tss-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+@keyframes tss-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@keyframes tss-marq { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+@keyframes tss-drift { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(2.5rem, -1.875rem) scale(1.12); } }
+@keyframes tss-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .tss *, .tss *::before, .tss *::after { animation: none !important; transition: none !important; }
+}
+
+/* Book / pill styles on <button> elements */
+.tss button.book, .tss button.pill { border: 0; cursor: pointer; font-family: inherit; }

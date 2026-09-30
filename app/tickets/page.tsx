@@ -3,17 +3,11 @@ import { useEffect, useState, useCallback, useRef, useMemo, Component } from 're
 import type { ReactNode } from 'react'
 import { loadStripe } from '@stripe/stripe-js'
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js'
+import { ThemeToggle } from '@/app/_design/ThemeToggle'
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
 
-// ── Midnight Green Theme ──────────────────────────────────────────────────────
-const T = {
-  bg:'#080f08', card:'#0f180f', card2:'#142014', border:'#1e3220', borderHover:'#2d4a2d',
-  accent:'#6fcf40', accentDim:'rgba(111,207,64,0.1)', accentBorder:'rgba(111,207,64,0.25)',
-  text:'#edf5ed', muted:'#6b8a6b', danger:'#e05555', dangerDim:'rgba(224,85,85,0.1)',
-  warning:'#e09040', info:'#60b4ff', infoDim:'rgba(96,180,255,0.08)',
-}
-const inp = (extra?:object):React.CSSProperties => ({ width:'100%', background:'#142014', border:`1px solid ${T.border}`, borderRadius:8, padding:'10px 13px', color:T.text, fontSize:14, outline:'none', boxSizing:'border-box' as const, fontFamily:'inherit', ...extra })
+// Styling lives in app/_design/tss.css (shared V5 design system) and ./tickets.css.
 
 interface Session {
   id:string; title:string; label?:string; venue:string; region:string
@@ -26,7 +20,19 @@ const fmt = (p:number) => `£${(p/100).toFixed(2)}`
 const fmtDateLong = (d:string) => new Date(d).toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'})
 const fmtDateShort = (d:string) => new Date(d).toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'})
 const getDayNum = (d:string) => new Date(d).getDate()
-const getMonth = (d:string) => new Date(d).toLocaleString('en-GB',{month:'short'}).toUpperCase()
+const getMonth = (d:string) => new Date(d).toLocaleString('en-GB',{month:'short'})
+const getWeekday = (d:string) => new Date(d).toLocaleDateString('en-GB',{weekday:'long'})
+
+const INSTAGRAM = 'https://instagram.com/theshuttlesocial'
+const TIKTOK = 'https://tiktok.com/@theshuttlesocial'
+
+function Arrow() {
+  return (
+    <span className="book-arrow" aria-hidden="true">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#D9F46B" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+    </span>
+  )
+}
 
 // ── Error Boundary — catches React render crashes in booking flow ─────────────
 class ErrorBoundary extends Component<{children:ReactNode;fallback?:ReactNode},{hasError:boolean}> {
@@ -35,11 +41,12 @@ class ErrorBoundary extends Component<{children:ReactNode;fallback?:ReactNode},{
   componentDidCatch(err:Error){console.error('[ErrorBoundary]',err)}
   render(){
     if(this.state.hasError) return this.props.fallback??(
-      <div style={{padding:32,textAlign:'center',color:'#6b8a6b',fontSize:14}}>
-        <div style={{fontSize:32,marginBottom:12}}>⚠️</div>
-        <div style={{fontWeight:600,color:'#edf5ed',marginBottom:8}}>Something went wrong</div>
-        <div style={{marginBottom:16}}>Please refresh and try again. If you completed payment, check your email for a confirmation.</div>
-        <button onClick={()=>this.setState({hasError:false})} style={{padding:'10px 20px',background:'#6fcf40',color:'#080f08',border:'none',borderRadius:8,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>Try again</button>
+      <div className="t-overlay" role="alertdialog" aria-modal="true" aria-label="Something went wrong">
+        <div className="t-modal t-done">
+          <div className="t-modal-title">Something went wrong</div>
+          <p className="muted small">Please refresh and try again. If you completed payment, check your email for a confirmation.</p>
+          <button onClick={()=>this.setState({hasError:false})} className="t-btn t-btn-ink">Try again</button>
+        </div>
       </div>
     )
     return this.props.children
@@ -67,20 +74,20 @@ function SessionSchema({ session }: { session: Session }) {
   return <script type="application/ld+json" dangerouslySetInnerHTML={{__html: JSON.stringify(schema)}}/>
 }
 
-// ── Social media SVG icons (no image files, always clean on dark BG) ──────────
+// ── Social media SVG icons ────────────────────────────────────────────────────
 function SocialIcon({ platform, size=18 }: { platform:'whatsapp'|'instagram'|'tiktok'; size?:number }) {
   if (platform==='whatsapp') return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="white">
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="white" aria-hidden="true">
       <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
     </svg>
   )
   if (platform==='instagram') return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="white">
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="white" aria-hidden="true">
       <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
     </svg>
   )
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="white">
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="white" aria-hidden="true">
       <path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1V9.01a6.27 6.27 0 00-.79-.05 6.34 6.34 0 00-6.34 6.34 6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.33-6.34V8.69a8.17 8.17 0 004.78 1.52V6.75a4.85 4.85 0 01-1.01-.06z"/>
     </svg>
   )
@@ -93,18 +100,17 @@ function ShareButtons({ session }: { session: Session }) {
   const text = encodeURIComponent(`🏸 ${session.title} — ${fmtDateLong(session.date)} at ${session.venue}. Book now: `)
 
   const links = [
-    { platform:'whatsapp' as const, href:`https://wa.me/?text=${text}${urlEnc}`, aria:'WhatsApp', bg:'#25d366' },
-    { platform:'instagram' as const, href:`https://instagram.com/theshuttlesocial`, aria:'Instagram', bg:'linear-gradient(45deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888)' },
-    { platform:'tiktok' as const, href:`https://tiktok.com/@theshuttlesocial`, aria:'TikTok', bg:'#010101' },
+    { platform:'whatsapp' as const, href:`https://wa.me/?text=${text}${urlEnc}`, aria:'Share on WhatsApp', bg:'#25d366' },
+    { platform:'instagram' as const, href:INSTAGRAM, aria:'Instagram', bg:'linear-gradient(45deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888)' },
+    { platform:'tiktok' as const, href:TIKTOK, aria:'TikTok', bg:'#010101' },
   ]
 
   return (
-    <div style={{display:'flex',gap:8,alignItems:'center',marginTop:9}}>
-      <span style={{fontSize:11,color:T.muted}}>Share:</span>
+    <div className="t-share">
+      <span>Share</span>
       {links.map(l=>(
-        <a key={l.aria} href={l.href} target="_blank" rel="noopener noreferrer" aria-label={l.aria}
-          style={{width:26,height:26,borderRadius:'50%',background:l.bg,display:'flex',alignItems:'center',justifyContent:'center',textDecoration:'none',flexShrink:0}}>
-          <SocialIcon platform={l.platform} size={14}/>
+        <a key={l.aria} href={l.href} target="_blank" rel="noopener noreferrer" aria-label={l.aria} style={{background:l.bg}}>
+          <SocialIcon platform={l.platform} size={15}/>
         </a>
       ))}
     </div>
@@ -117,17 +123,13 @@ function VenueMap({ venue, maps_url }: { venue: string; maps_url?: string }) {
   const key = process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY
   const openUrl = maps_url ?? `https://www.google.com/maps/search/?api=1&query=${q}`
   return (
-    <div style={{marginTop:16,borderRadius:10,overflow:'hidden',border:`1px solid ${T.border}`}}>
+    <div className="t-map">
       <iframe
         title={`Map of ${venue}`}
-        width="100%" height="220" frameBorder="0" style={{border:0,display:'block'}}
         src={`https://www.google.com/maps/embed/v1/place?key=${key}&q=${q}`}
         allowFullScreen loading="lazy" referrerPolicy="no-referrer-when-downgrade"
       />
-      <a href={openUrl} target="_blank" rel="noopener noreferrer"
-        style={{display:'block',padding:'8px 12px',background:T.card2,fontSize:12,color:T.accent,textDecoration:'none',borderTop:`1px solid ${T.border}`}}>
-        📍 Open in Google Maps →
-      </a>
+      <a href={openUrl} target="_blank" rel="noopener noreferrer">Open in Google Maps →</a>
     </div>
   )
 }
@@ -158,7 +160,7 @@ function ComingSoonCountdown({ opensAt, onUnlocked }: { opensAt: string; onUnloc
   const h = Math.floor(secsLeft / 3600)
   const m = Math.floor((secsLeft % 3600) / 60)
   const s = secsLeft % 60
-  return <span>Opens in {h > 0 ? `${h}h ` : ''}{m}m {String(s).padStart(2,'0')}s</span>
+  return <span className="t-timer">Opens in {h > 0 ? `${h}h ` : ''}{m}m {String(s).padStart(2,'0')}s</span>
 }
 
 // ── Checkout Form (payment step — rendered inside Elements provider) ──────────
@@ -228,27 +230,24 @@ function CheckoutForm({ bookingRef, expiresAt, onSuccess }:{bookingRef:string;ex
   return(
     <div>
       {/* Calm seat-saved banner — only turns red in final 20 seconds */}
-      <div style={{display:'flex',justifyContent:'space-between',padding:'9px 13px',background:secs<20?T.dangerDim:T.accentDim,border:`1px solid ${secs<20?'rgba(224,85,85,0.35)':T.accentBorder}`,borderRadius:8,marginBottom:16,alignItems:'center',transition:'background 0.3s,border-color 0.3s'}}>
-        <span style={{fontSize:13,color:secs<20?T.danger:T.accent,fontWeight:600}}>Your spot is saved — complete payment below</span>
-        <span style={{fontFamily:'monospace',fontSize:13,color:secs<20?T.danger:T.muted,fontWeight:700}}>{mm}:{ss}</span>
+      <div className={'t-note t-saved'+(secs<20?' danger':'')} role="status">
+        <span>Your spot is saved. Complete payment below.</span>
+        <span className="t-timer" aria-label={`${mm} minutes ${ss} seconds left`}>{mm}:{ss}</span>
       </div>
       {/* Accordion layout puts Apple Pay / Google Pay / Link at the top */}
       <PaymentElement options={{layout:'accordion'}} onReady={()=>setStripeReady(true)}/>
       {/* Loading state — shown until Stripe's iframe signals it's interactive */}
-      {!stripeReady&&(
-        <div style={{marginTop:10,padding:'10px 14px',background:T.card2,border:`1px solid ${T.border}`,borderRadius:8,color:T.muted,fontSize:13,textAlign:'center'}}>
-          Loading payment form...
-        </div>
-      )}
+      {!stripeReady&&<div className="t-note plain" style={{marginTop:'0.75rem',textAlign:'center'}}>Loading payment form…</div>}
       {/* Overtime message — shown after 45s if still processing */}
       {overtime&&paying&&(
-        <div style={{marginTop:10,padding:'10px 14px',background:T.infoDim,border:`1px solid rgba(96,180,255,0.3)`,borderRadius:8,color:T.info,fontSize:12,lineHeight:1.6}}>
-          Still processing... If you completed Apple Pay or your bank auth, please check your email before retrying — your booking may already be confirmed.
+        <div className="t-note info" style={{marginTop:'0.75rem'}}>
+          Still processing… If you completed Apple Pay or your bank check, please look in your email before retrying. Your booking may already be confirmed.
         </div>
       )}
-      {error&&<div style={{marginTop:12,padding:'10px 14px',background:T.dangerDim,border:`1px solid rgba(224,85,85,0.3)`,borderRadius:8,color:T.danger,fontSize:13,lineHeight:1.5}}>{error}</div>}
-      <button onClick={pay} disabled={paying||!stripe||!stripeReady} style={{marginTop:16,width:'100%',padding:'16px',minHeight:56,borderRadius:10,background:(paying||!stripeReady)?T.border:T.accent,color:(paying||!stripeReady)?T.muted:'#080f08',border:'none',fontWeight:800,fontSize:18,cursor:(paying||!stripeReady)?'default':'pointer',fontFamily:'inherit',letterSpacing:'-0.2px'}}>
-        {paying?'Processing…':!stripeReady?'Loading payment form...':'Confirm & Pay →'}
+      {error&&<div className="t-note danger" role="alert" style={{marginTop:'0.75rem'}}>{error}</div>}
+      <button onClick={pay} disabled={paying||!stripe||!stripeReady} className="book t-wide" style={{marginTop:'1rem'}}>
+        {paying?'Processing…':!stripeReady?'Loading payment form…':'Confirm & pay'}
+        <Arrow/>
       </button>
     </div>
   )
@@ -276,73 +275,77 @@ function WaitlistModal({session,otherSessions,onClose}:{session:Session;otherSes
     setDone(d.position);setLoading(false)
   }
   return(
-    <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.92)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center',padding:16}} onClick={e=>{if(e.target===e.currentTarget)onClose()}}>
-      <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:16,width:'100%',maxWidth:440,padding:28,position:'relative',maxHeight:'92vh',overflowY:'auto'}}>
-        <button onClick={onClose} style={{position:'absolute',top:16,right:16,background:'none',border:'none',color:T.muted,fontSize:22,cursor:'pointer'}} aria-label="Close">✕</button>
+    <div className="t-overlay" onClick={e=>{if(e.target===e.currentTarget)onClose()}} role="dialog" aria-modal="true" aria-label="Join the waitlist">
+      <div className="t-modal">
+        <button onClick={onClose} className="t-close" aria-label="Close">✕</button>
         {done?(
-          <div style={{textAlign:'center',padding:'10px 0'}}>
-            <div style={{fontSize:48,fontWeight:900,color:T.accent,marginBottom:8}}>#{done}</div>
-            <div style={{fontSize:20,fontWeight:700,color:T.text,marginBottom:8}}>You're on the waitlist!</div>
-            <div style={{color:T.muted,fontSize:13,marginBottom:20}}>We'll message you the moment a spot opens up{extraIds.length?' for any of your chosen sessions':''}. Keep an eye on your email.</div>
-            <button onClick={onClose} style={{padding:'12px 28px',background:T.accent,color:'#080f08',border:'none',borderRadius:10,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>Done</button>
+          <div className="t-done">
+            <span className="kicker muted">Your place</span>
+            <div className="num">#{done}</div>
+            <div className="t-modal-title">You’re on the waitlist</div>
+            <p className="muted small">We’ll message you the moment a spot opens up{extraIds.length?' for any of your chosen sessions':''}. Keep an eye on your email.</p>
+            <button onClick={onClose} className="t-btn t-btn-ink">Done</button>
           </div>
         ):(
           <>
-            <div style={{fontWeight:700,fontSize:18,color:T.accent,marginBottom:4}}>🎯 Join Waitlist</div>
-            <div style={{fontSize:13,color:T.muted,marginBottom:20}}>{session.title} · {fmtDateShort(session.date)}</div>
-            {[['Full Name *','text',name,setName,'Your name','name'],['Email *','email',email,setEmail,'you@email.com','email'],['Phone *','tel',phone,setPhone,'+44 7700 000000','tel']].map(([l,t,v,sv,ph,ac])=>(
-              <div key={l as string} style={{marginBottom:14}}>
-                <label style={{fontSize:12,color:T.muted,display:'block',marginBottom:5}}>{l as string}</label>
-                <input type={t as string} value={v as string} onChange={e=>(sv as any)(e.target.value)} placeholder={ph as string} autoComplete={ac as string} style={inp()}/>
+            <div className="t-modal-h">
+              <span className="kicker muted">Sold out</span>
+              <div className="t-modal-title">Join the waitlist</div>
+              <div className="muted small">{session.title} · {fmtDateShort(session.date)}</div>
+            </div>
+            {[['Full name','text',name,setName,'Your name','name'],['Email','email',email,setEmail,'you@email.com','email'],['Phone','tel',phone,setPhone,'+44 7700 000000','tel']].map(([l,t,v,sv,ph,ac])=>(
+              <div key={l as string} className="t-field-row">
+                <label className="t-label" htmlFor={`wl-${ac}`}>{l as string} *</label>
+                <input id={`wl-${ac}`} className="t-input" type={t as string} value={v as string} onChange={e=>(sv as any)(e.target.value)} placeholder={ph as string} autoComplete={ac as string} required/>
               </div>
             ))}
 
             {/* How many spaces */}
-            <div style={{marginBottom:14}}>
-              <label style={{fontSize:12,color:T.muted,display:'block',marginBottom:6}}>How many spaces do you need?</label>
-              <div style={{display:'flex',gap:8}}>
+            <div className="t-field-row">
+              <span className="t-label" id="wl-spaces">How many spaces do you need?</span>
+              <div className="t-choices" role="group" aria-labelledby="wl-spaces">
                 {[1,2,3,4].map(n=>(
-                  <button key={n} onClick={()=>setSpaces(n)} style={{flex:1,padding:'10px 0',borderRadius:8,cursor:'pointer',border:`1px solid ${spacesNeeded===n?T.accent:T.border}`,background:spacesNeeded===n?T.accentDim:T.card2,color:spacesNeeded===n?T.accent:T.text,fontWeight:700,fontSize:15,fontFamily:'inherit'}}>{n}</button>
+                  <button key={n} onClick={()=>setSpaces(n)} className="t-choice" aria-pressed={spacesNeeded===n}>{n}</button>
                 ))}
               </div>
             </div>
 
             {/* Fewest acceptable */}
             {spacesNeeded>1&&(
-              <div style={{marginBottom:14}}>
-                <label style={{fontSize:12,color:T.muted,display:'block',marginBottom:6}}>What's the fewest you'd take?</label>
-                <div style={{display:'flex',gap:8}}>
+              <div className="t-field-row">
+                <span className="t-label" id="wl-min">What’s the fewest you’d take?</span>
+                <div className="t-choices" role="group" aria-labelledby="wl-min">
                   {Array.from({length:spacesNeeded},(_,i)=>i+1).map(n=>(
-                    <button key={n} onClick={()=>setMinSpaces(n)} style={{flex:1,padding:'10px 0',borderRadius:8,cursor:'pointer',border:`1px solid ${minSpaces===n?T.accent:T.border}`,background:minSpaces===n?T.accentDim:T.card2,color:minSpaces===n?T.accent:T.text,fontWeight:700,fontSize:15,fontFamily:'inherit'}}>{n}</button>
+                    <button key={n} onClick={()=>setMinSpaces(n)} className="t-choice" aria-pressed={minSpaces===n}>{n}</button>
                   ))}
                 </div>
-                <div style={{fontSize:11,color:T.muted,marginTop:5}}>Set this lower if you'd still come with a smaller group.</div>
+                <div className="t-hint">Set this lower if you’d still come with a smaller group.</div>
               </div>
             )}
 
             {/* Also waitlist for other sessions, ranked by pick order */}
             {otherSessions.length>0&&(
-              <div style={{marginBottom:16}}>
-                <label style={{fontSize:12,color:T.muted,display:'block',marginBottom:6}}>Also waitlist me for (we'll offer your top choice first):</label>
-                <div style={{display:'flex',flexDirection:'column' as const,gap:6}}>
+              <div className="t-field-row" style={{marginBottom:'1rem'}}>
+                <span className="t-label">Also waitlist me for (we’ll offer your top choice first):</span>
+                <div style={{display:'flex',flexDirection:'column',gap:'0.375rem'}}>
                   {otherSessions.map(s=>{
                     const idx=extraIds.indexOf(s.id)
                     const checked=idx>=0
                     return(
-                      <button key={s.id} onClick={()=>toggleExtra(s.id)} style={{display:'flex',alignItems:'center',gap:10,textAlign:'left',padding:'9px 11px',borderRadius:8,cursor:'pointer',border:`1px solid ${checked?T.accent:T.border}`,background:checked?T.accentDim:T.card2,fontFamily:'inherit'}}>
-                        <span style={{width:18,height:18,borderRadius:5,border:`1px solid ${checked?T.accent:T.border}`,background:checked?T.accent:'transparent',color:'#080f08',fontSize:12,fontWeight:900,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>{checked?idx+2:''}</span>
-                        <span style={{flex:1,fontSize:13,color:T.text}}>{s.title}<span style={{color:T.muted}}> · {fmtDateShort(s.date)}</span></span>
+                      <button key={s.id} onClick={()=>toggleExtra(s.id)} className="t-option" aria-pressed={checked}>
+                        <span className="t-option-n">{checked?idx+2:''}</span>
+                        <span className="small" style={{flex:1}}>{s.title}<span className="muted"> · {fmtDateShort(s.date)}</span></span>
                       </button>
                     )
                   })}
                 </div>
-                {extraIds.length>0&&<div style={{fontSize:11,color:T.muted,marginTop:5}}>Numbers show the order we'll offer spots — this session is your first choice.</div>}
+                {extraIds.length>0&&<div className="t-hint">Numbers show the order we’ll offer spots. This session is your first choice.</div>}
               </div>
             )}
 
-            {error&&<div style={{color:T.danger,fontSize:13,marginBottom:12}}>{error}</div>}
-            <button onClick={join} disabled={!name||!email||!phone||loading} style={{width:'100%',padding:'12px',background:(!name||!email||!phone||loading)?T.border:T.accent,color:(!name||!email||!phone||loading)?T.muted:'#080f08',border:'none',borderRadius:10,fontWeight:700,fontSize:15,cursor:'pointer',fontFamily:'inherit'}}>
-              {loading?'Joining…':'Join Waitlist'}
+            {error&&<div className="t-note danger" role="alert">{error}</div>}
+            <button onClick={join} disabled={!name||!email||!phone||loading} className="t-btn t-btn-ink t-btn-block">
+              {loading?'Joining…':'Join the waitlist'}
             </button>
           </>
         )}
@@ -353,11 +356,24 @@ function WaitlistModal({session,otherSessions,onClose}:{session:Session;otherSes
 
 // ── Stable Elements wrapper — memoises options so the Stripe iframe never remounts ─
 function ElementsWithStableOptions({clientSecret,bookingRef,expiresAt,onSuccess}:{clientSecret:string;bookingRef:string;expiresAt:string;onSuccess:()=>void}){
-  // options object is stable: clientSecret is set once and never changes after mount
-  const options=useMemo(()=>({
-    clientSecret,
-    appearance:{theme:'night' as const,variables:{colorPrimary:T.accent,colorBackground:T.card,colorText:T.text,borderRadius:'8px'}},
-  }),[clientSecret])
+  // options object is stable: clientSecret is set once and never changes after mount.
+  // The payment form matches the page's light or dark theme at the moment it opens.
+  const options=useMemo(()=>{
+    const set=document.documentElement.dataset.theme
+    const dark=set?set==='dark':matchMedia('(prefers-color-scheme: dark)').matches
+    return {
+      clientSecret,
+      fonts:[{cssSrc:'https://fonts.googleapis.com/css2?family=Urbanist:wght@500;600;700&display=swap'}],
+      appearance:{
+        theme:(dark?'night':'stripe') as 'night'|'stripe',
+        variables:{
+          colorPrimary:dark?'#D9F46B':'#1E6B3E', colorBackground:dark?'#0C1D14':'#FFFFFF',
+          colorText:dark?'#EEF3E6':'#0F2A1A', colorDanger:dark?'#F28B82':'#B42318',
+          fontFamily:'Urbanist, system-ui, sans-serif', fontSizeBase:'16px', borderRadius:'14px',
+        },
+      },
+    }
+  },[clientSecret])
   return(
     <Elements stripe={stripePromise} options={options}>
       <CheckoutForm bookingRef={bookingRef} expiresAt={expiresAt} onSuccess={onSuccess}/>
@@ -427,102 +443,90 @@ function BookingModal({session,termsText,onClose}:{session:Session;termsText:str
 
   // ── Done screen
   if(done) return(
-    <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.92)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center',padding:16}} role="dialog" aria-modal="true">
-      <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:16,width:'100%',maxWidth:480,padding:28,textAlign:'center'}}>
-        <div style={{fontSize:52,marginBottom:12}}>🏸</div>
-        <div style={{fontSize:26,fontWeight:700,color:T.accent,marginBottom:8}}>You're in!</div>
-        <p style={{color:T.muted,fontSize:14,marginBottom:8}}>Confirmation sent to <strong style={{color:T.text}}>{email}</strong></p>
-        <p style={{color:T.muted,fontSize:14,marginBottom:20}}>Booking ref: <strong style={{color:T.accent}}>{bookingRef}</strong></p>
-        <button onClick={onClose} style={{padding:'12px 28px',background:T.accent,color:'#080f08',border:'none',borderRadius:10,fontWeight:700,fontSize:15,cursor:'pointer',fontFamily:'inherit'}}>Done</button>
+    <div className="t-overlay" role="dialog" aria-modal="true" aria-label="Booking confirmed">
+      <div className="t-modal t-done">
+        <div className="t-done-mark" aria-hidden="true">✓</div>
+        <div className="t-modal-title">You’re in!</div>
+        <p className="muted small">Confirmation sent to <strong style={{color:'var(--ink)'}}>{email}</strong></p>
+        <p className="muted small">Booking ref <strong style={{color:'var(--accent)'}}>{bookingRef}</strong></p>
+        <button onClick={onClose} className="t-btn t-btn-ink">Done</button>
       </div>
     </div>
   )
 
   return(
-    <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.92)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center',padding:16}} onClick={e=>{if(e.target===e.currentTarget)onClose()}} role="dialog" aria-modal="true" aria-label="Book tickets">
-      <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:16,width:'100%',maxWidth:480,padding:28,position:'relative',maxHeight:'92vh',overflowY:'auto'}}>
-        <button onClick={onClose} style={{position:'absolute',top:16,right:16,background:'none',border:'none',color:T.muted,fontSize:22,cursor:'pointer'}} aria-label="Close checkout">✕</button>
+    <div className="t-overlay" onClick={e=>{if(e.target===e.currentTarget)onClose()}} role="dialog" aria-modal="true" aria-label="Book tickets">
+      <div className="t-modal">
+        <button onClick={onClose} className="t-close" aria-label="Close checkout">✕</button>
 
         {/* Session header */}
-        <div style={{marginBottom:20}}>
-          {session.label&&<span style={{background:T.accentDim,color:T.accent,fontSize:11,fontWeight:700,padding:'2px 8px',borderRadius:20,border:`1px solid ${T.accentBorder}`,marginBottom:6,display:'inline-block'}}>{session.label} London</span>}
-          <div style={{fontWeight:700,fontSize:18,color:T.accent}}>{session.title}</div>
-          <div style={{display:'flex',gap:12,marginTop:6,flexWrap:'wrap' as const}}>
-            <span style={{fontSize:13,color:T.muted}}>📅 {fmtDateLong(session.date)}</span>
-            <span style={{fontSize:13,color:T.muted}}>🕐 {session.time}</span>
-            <span style={{fontSize:13,color:T.muted}}>📍 {session.venue}</span>
+        <div className="t-modal-h">
+          {session.label&&<span className="t-tag" style={{alignSelf:'flex-start'}}>{session.label} London</span>}
+          <div className="t-modal-title">{session.title}</div>
+          <div className="t-meta">
+            <span>{fmtDateLong(session.date)} · {session.time}</span>
+            <span>{session.venue}</span>
           </div>
         </div>
 
         {/* Description — only shown before seat is reserved */}
-        {!clientSecret&&session.description&&<div style={{marginBottom:16,padding:'12px 14px',background:T.accentDim,border:`1px solid ${T.accentBorder}`,borderRadius:8,fontSize:13,color:'#a0c890',lineHeight:1.6,whiteSpace:'pre-wrap'}}>{session.description}</div>}
+        {!clientSecret&&session.description&&<div className="t-note plain t-desc-box">{session.description}</div>}
 
         {/* Form fields — locked (read-only overlay) once seat is reserved */}
         <div style={{opacity:clientSecret?0.55:1,pointerEvents:clientSecret?'none':'auto',transition:'opacity 0.3s'}}>
 
           {/* Returning customer banner */}
           {hasSavedUser&&!clientSecret&&(
-            <div style={{marginBottom:12,display:'flex',justifyContent:'space-between',alignItems:'center',padding:'8px 12px',background:T.accentDim,border:`1px solid ${T.accentBorder}`,borderRadius:8}}>
-              <span style={{fontSize:13,color:T.accent}}>👋 Welcome back, {name.split(' ')[0]}!</span>
-              <button onClick={clearSaved} style={{background:'none',border:'none',color:T.muted,cursor:'pointer',fontSize:12,fontFamily:'inherit',textDecoration:'underline'}}>Not you? Clear</button>
+            <div className="t-note t-saved">
+              <span>Welcome back, {name.split(' ')[0]}!</span>
+              <button onClick={clearSaved} className="t-link" style={{color:'var(--muted)'}}>Not you? Clear</button>
             </div>
           )}
 
-          {/* Name */}
-          <div style={{marginBottom:14}}>
-            <label style={{fontSize:12,color:T.muted,display:'block',marginBottom:5}}>Full Name *</label>
-            <input type="text" value={name} onChange={e=>setName(e.target.value)} placeholder="Your name" autoComplete="name" style={inp()}
-              onFocus={e=>(e.target.style.borderColor=T.accent)} onBlur={e=>(e.target.style.borderColor=T.border)}/>
+          <div className="t-field-row">
+            <label className="t-label" htmlFor="bk-name">Full name *</label>
+            <input id="bk-name" className="t-input" type="text" value={name} onChange={e=>setName(e.target.value)} placeholder="Your name" autoComplete="name" required/>
           </div>
-
-          {/* Email */}
-          <div style={{marginBottom:14}}>
-            <label style={{fontSize:12,color:T.muted,display:'block',marginBottom:5}}>Email *</label>
-            <input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="you@email.com" autoComplete="email" style={inp()}
-              onFocus={e=>(e.target.style.borderColor=T.accent)} onBlur={e=>(e.target.style.borderColor=T.border)}/>
+          <div className="t-field-row">
+            <label className="t-label" htmlFor="bk-email">Email *</label>
+            <input id="bk-email" className="t-input" type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="you@email.com" autoComplete="email" required/>
           </div>
-
-          {/* Phone */}
-          <div style={{marginBottom:14}}>
-            <label style={{fontSize:12,color:T.muted,display:'block',marginBottom:5}}>Phone *</label>
-            <input type="tel" value={phone} onChange={e=>setPhone(e.target.value)} placeholder="+44 7700 000000" autoComplete="tel" style={inp()}
-              onFocus={e=>(e.target.style.borderColor=T.accent)} onBlur={e=>(e.target.style.borderColor=T.border)}/>
+          <div className="t-field-row">
+            <label className="t-label" htmlFor="bk-phone">Phone *</label>
+            <input id="bk-phone" className="t-input" type="tel" value={phone} onChange={e=>setPhone(e.target.value)} placeholder="+44 7700 000000" autoComplete="tel" required/>
           </div>
 
           {/* Quantity */}
-          <div style={{marginBottom:20}}>
-            <label style={{fontSize:12,color:T.muted,display:'block',marginBottom:8}}>Number of Tickets</label>
-            <div style={{display:'flex',gap:8}}>
+          <div className="t-field-row" style={{marginBottom:'1.25rem'}}>
+            <span className="t-label" id="bk-qty">Number of tickets</span>
+            <div className="t-choices" role="group" aria-labelledby="bk-qty">
               {Array.from({length:maxQty},(_,i)=>i+1).map(n=>(
-                <button key={n} onClick={()=>updateQty(n)} style={{flex:1,padding:'10px 0',borderRadius:8,cursor:'pointer',border:`1px solid ${qty===n?T.accent:T.border}`,background:qty===n?T.accentDim:T.card,color:qty===n?T.accent:T.text,fontWeight:700,fontSize:15,fontFamily:'inherit'}}>{n}</button>
+                <button key={n} onClick={()=>updateQty(n)} className="t-choice" aria-pressed={qty===n}>{n}</button>
               ))}
             </div>
           </div>
 
           {/* Additional attendees */}
           {qty>1&&(
-            <div style={{marginBottom:20,padding:'14px',background:'rgba(255,255,255,0.02)',border:`1px solid ${T.border}`,borderRadius:10}}>
-              <div style={{fontSize:12,color:T.muted,marginBottom:10,fontWeight:600}}>Additional attendee names (required)</div>
+            <div className="t-box">
+              <div className="t-label">Other attendees’ names (required)</div>
               {Array.from({length:qty-1},(_,i)=>(
-                <div key={i} style={{marginBottom:10}}>
-                  <label style={{fontSize:12,color:T.muted,display:'block',marginBottom:4}}>Attendee {i+2} full name *</label>
-                  <input value={additionalNames[i]??''} onChange={e=>{const a=[...additionalNames];a[i]=e.target.value;setAdditionalNames(a)}}
-                    placeholder={`Full name of attendee ${i+2}`} autoComplete="off" style={inp()}
-                    onFocus={e=>(e.target.style.borderColor=T.accent)} onBlur={e=>(e.target.style.borderColor=T.border)}/>
+                <div key={i} className="t-field-row">
+                  <label className="t-label" htmlFor={`bk-att-${i}`} style={{fontWeight:600}}>Attendee {i+2} full name *</label>
+                  <input id={`bk-att-${i}`} className="t-input" value={additionalNames[i]??''} onChange={e=>{const a=[...additionalNames];a[i]=e.target.value;setAdditionalNames(a)}}
+                    placeholder={`Full name of attendee ${i+2}`} autoComplete="off"/>
                 </div>
               ))}
             </div>
           )}
 
           {/* Terms */}
-          <div style={{marginBottom:20,padding:'14px',background:'rgba(255,255,255,0.02)',border:`1px solid ${T.border}`,borderRadius:10}}>
-            <label style={{display:'flex',alignItems:'flex-start',gap:10,cursor:'pointer'}}>
-              <input type="checkbox" checked={termsAccepted} onChange={e=>setTermsAccepted(e.target.checked)} style={{marginTop:2,width:16,height:16,accentColor:T.accent}}/>
-              <span style={{fontSize:13,color:T.muted,lineHeight:1.5}}>
+          <div className="t-box">
+            <label className="t-check">
+              <input type="checkbox" checked={termsAccepted} onChange={e=>setTermsAccepted(e.target.checked)}/>
+              <span>
                 I agree to the{' '}
-                <button onClick={e=>{e.preventDefault();setShowTerms(true)}} style={{background:'none',border:'none',color:T.accent,cursor:'pointer',fontSize:13,textDecoration:'underline',fontFamily:'inherit',padding:0}}>
-                  Terms & Conditions
-                </button>
+                <button onClick={e=>{e.preventDefault();setShowTerms(true)}} className="t-link">Terms &amp; Conditions</button>
               </span>
             </label>
           </div>
@@ -530,47 +534,43 @@ function BookingModal({session,termsText,onClose}:{session:Session;termsText:str
 
         {/* Available credit — apply toggle */}
         {!clientSecret&&creditAvailable>0&&(
-          <div style={{marginBottom:12,display:'flex',justifyContent:'space-between',alignItems:'center',padding:'10px 12px',background:T.accentDim,border:`1px solid ${T.accentBorder}`,borderRadius:8}}>
-            <label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer'}}>
-              <input type="checkbox" checked={applyCredit} onChange={e=>setApplyCredit(e.target.checked)} style={{width:16,height:16,accentColor:T.accent}}/>
-              <span style={{fontSize:13,color:T.accent}}>You have {fmt(creditAvailable)} credit — apply it?</span>
+          <div className="t-note">
+            <label className="t-check" style={{color:'var(--accent)'}}>
+              <input type="checkbox" checked={applyCredit} onChange={e=>setApplyCredit(e.target.checked)}/>
+              <span>You have {fmt(creditAvailable)} credit. Apply it?</span>
             </label>
           </div>
         )}
 
         {/* Dynamic price total — live update as quantity/credit changes */}
-        <div style={{padding:'12px 0',borderTop:`1px solid ${T.border}`,marginBottom:16}}>
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline'}}>
-            <span style={{fontSize:13,color:T.muted}}>{qty} × {fmt(session.price_pence)}</span>
-            <span style={{fontSize:15,color:creditApplied>0?T.muted:T.accent,fontWeight:creditApplied>0?400:700,textDecoration:creditApplied>0?'line-through':'none'}}>{fmt(total)}</span>
+        <div className="t-total">
+          <div className="t-total-row">
+            <span>{qty} × {fmt(session.price_pence)}</span>
+            {creditApplied>0
+              ?<span className="t-strike">{fmt(total)}</span>
+              :<span className="num">{fmt(total)}</span>}
           </div>
           {creditApplied>0&&(
             <>
-              <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginTop:4}}>
-                <span style={{fontSize:13,color:T.muted}}>Credit applied</span>
-                <span style={{fontSize:13,color:T.accent}}>−{fmt(creditApplied)}</span>
+              <div className="t-total-row">
+                <span>Credit applied</span>
+                <span style={{color:'var(--accent)',fontWeight:700}}>−{fmt(creditApplied)}</span>
               </div>
-              <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginTop:6,paddingTop:6,borderTop:`1px solid ${T.border}`}}>
-                <span style={{fontSize:13,color:T.text,fontWeight:600}}>{duePence<=0?'Nothing to pay':'To pay'}</span>
-                <span style={{fontWeight:700,fontSize:20,color:T.accent}}>{fmt(duePence)}</span>
+              <div className="t-total-row" style={{paddingTop:'0.5rem',borderTop:'1px solid var(--line)'}}>
+                <strong>{duePence<=0?'Nothing to pay':'To pay'}</strong>
+                <span className="num">{fmt(duePence)}</span>
               </div>
             </>
           )}
         </div>
 
-        {error&&<div style={{marginBottom:12,padding:'10px',background:T.dangerDim,color:T.danger,borderRadius:8,fontSize:13}}>{error}</div>}
+        {error&&<div className="t-note danger" role="alert">{error}</div>}
 
         {/* Reserve button — visible only before seat is held */}
         {!clientSecret&&(
-          <button onClick={reserveSeat} disabled={!formComplete||loading}
-            style={{width:'100%',padding:'18px 24px',minHeight:56,borderRadius:12,border:'none',
-              background:(!formComplete||loading)?T.border:T.accent,
-              color:(!formComplete||loading)?T.muted:'#080f08',
-              fontWeight:800,fontSize:18,cursor:formComplete&&!loading?'pointer':'default',
-              fontFamily:'inherit',letterSpacing:'-0.2px',
-              boxShadow:formComplete&&!loading?`0 4px 24px rgba(111,207,64,0.35)`:'none',
-              transition:'box-shadow 0.2s,transform 0.1s'}}>
-            {loading?'Reserving your seat…':duePence<=0?'Confirm booking →':'Continue to Payment →'}
+          <button onClick={reserveSeat} disabled={!formComplete||loading} className="book t-wide">
+            {loading?'Reserving your spot…':duePence<=0?'Confirm booking':'Continue to payment'}
+            <Arrow/>
           </button>
         )}
 
@@ -581,12 +581,12 @@ function BookingModal({session,termsText,onClose}:{session:Session;termsText:str
 
         {/* Terms overlay */}
         {showTerms&&(
-          <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.95)',zIndex:2000,display:'flex',alignItems:'center',justifyContent:'center',padding:16}} role="dialog" aria-modal="true">
-            <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:16,width:'100%',maxWidth:520,padding:28,maxHeight:'80vh',overflowY:'auto'}}>
-              <div style={{fontWeight:700,fontSize:18,color:T.accent,marginBottom:16}}>Terms & Conditions</div>
-              <pre style={{whiteSpace:'pre-wrap',fontSize:13,color:T.muted,lineHeight:1.7,fontFamily:'inherit'}}>{termsText}</pre>
-              <button onClick={()=>{setShowTerms(false);setTermsAccepted(true)}} style={{marginTop:20,width:'100%',padding:'12px',background:T.accent,color:'#080f08',border:'none',borderRadius:10,fontWeight:700,fontSize:15,cursor:'pointer',fontFamily:'inherit'}}>
-                Accept & Close
+          <div className="t-overlay top" role="dialog" aria-modal="true" aria-label="Terms and conditions">
+            <div className="t-modal wide">
+              <div className="t-modal-title" style={{marginBottom:'1rem'}}>Terms &amp; Conditions</div>
+              <pre className="t-terms">{termsText}</pre>
+              <button onClick={()=>{setShowTerms(false);setTermsAccepted(true)}} className="t-btn t-btn-ink t-btn-block" style={{marginTop:'1.25rem'}}>
+                Accept &amp; close
               </button>
             </div>
           </div>
@@ -605,89 +605,74 @@ function SessionCard({session,onSelect,onWaitlist,onUnlocked}:{session:Session;o
   const spotsLeft=session.spotsRemaining
 
   return(
-    <article style={{background:T.card,border:`1px solid ${isComingSoon?'rgba(96,180,255,0.25)':hot?T.accent:T.border}`,borderRadius:12,overflow:'hidden',transition:'transform 0.15s,box-shadow 0.15s'}}
-      onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.transform='translateY(-2px)';(e.currentTarget as HTMLElement).style.boxShadow='0 8px 32px rgba(111,207,64,0.08)'}}
-      onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.transform='none';(e.currentTarget as HTMLElement).style.boxShadow='none'}}>
-
-      <div style={{padding:'15px 17px',background:session.image_url?'none':'linear-gradient(135deg,#1a3a1a 0%,#0a1a0a 100%)'}}>
-        {/* Badges row */}
-        <div style={{display:'flex',gap:6,marginBottom:10,flexWrap:'wrap' as const}}>
-          {session.label&&<span style={{background:isComingSoon?T.infoDim:T.accentDim,color:isComingSoon?T.info:T.accent,fontSize:10,fontWeight:700,padding:'2px 8px',borderRadius:20,border:`1px solid ${isComingSoon?'rgba(96,180,255,0.25)':T.accentBorder}`}}>{session.label.toUpperCase()} LONDON</span>}
-          {isComingSoon&&<span style={{background:T.infoDim,color:T.info,fontSize:10,fontWeight:700,padding:'2px 8px',borderRadius:20,border:'1px solid rgba(96,180,255,0.35)'}}>COMING SOON</span>}
-          {hot&&!soldOut&&<span style={{background:'rgba(224,144,64,0.15)',color:T.warning,fontSize:10,fontWeight:700,padding:'2px 8px',borderRadius:20,border:'1px solid rgba(224,144,64,0.4)'}}>🔥 SELLING FAST</span>}
-          {soldOut&&<span style={{background:T.dangerDim,color:T.danger,fontSize:10,fontWeight:700,padding:'2px 8px',borderRadius:20,border:'1px solid rgba(224,85,85,0.4)'}}>SOLD OUT</span>}
+    <article className={'t-card'+(isComingSoon?' is-soon':hot&&!soldOut?' is-hot':'')}>
+      <div className="t-card-top">
+        <div className="t-date">
+          <span className="kicker muted">{getWeekday(session.date)}</span>
+          <span className="disp">{getDayNum(session.date)} {getMonth(session.date)}</span>
         </div>
-
-        <div style={{display:'flex',gap:14,alignItems:'flex-start'}}>
-          {/* Date block */}
-          <div style={{background:isComingSoon?T.infoDim:T.accentDim,border:`1px solid ${isComingSoon?'rgba(96,180,255,0.25)':T.accentBorder}`,borderRadius:10,padding:'10px 12px',minWidth:52,textAlign:'center',flexShrink:0}}>
-            <div style={{fontSize:26,fontWeight:900,color:isComingSoon?T.info:T.accent,lineHeight:1}}>{getDayNum(session.date)}</div>
-            <div style={{fontSize:11,color:T.muted}}>{getMonth(session.date)}</div>
-          </div>
-
-          <div style={{flex:1,minWidth:0}}>
-            <h2 style={{fontWeight:700,fontSize:17,marginBottom:6,color:T.text,margin:'0 0 6px'}}>{session.title}</h2>
-
-            {/* Event meta — date, time, location like Ticket Tailor */}
-            <div style={{display:'flex',flexDirection:'column' as const,gap:4,marginBottom:10}}>
-              <span style={{fontSize:13,color:T.muted}}>📅 {fmtDateLong(session.date)}, {session.time}</span>
-              <span style={{fontSize:13,color:T.muted}}>📍 {session.venue}, London</span>
-            </div>
-
-            {session.description&&(
-              <div style={{marginBottom:10}}>
-                <p style={{fontSize:12,color:'#7a9a7a',lineHeight:1.5,margin:0,whiteSpace:'pre-wrap'}}>
-                  {expanded||session.description.length<=120 ? session.description : session.description.slice(0,120)+'…'}
-                </p>
-                {session.description.length>120&&(
-                  <button onClick={()=>setExpanded(!expanded)} style={{background:'none',border:'none',color:T.accent,cursor:'pointer',fontSize:12,padding:0,fontFamily:'inherit',marginTop:4}}>
-                    {expanded?'Show less ↑':'Read more + map ↓'}
-                  </button>
-                )}
-              </div>
-            )}
-
-            {/* Availability indicator */}
-            <div style={{marginBottom:12}}>
-              {hot&&(
-                <div style={{height:5,background:T.border,borderRadius:3,marginBottom:5}}>
-                  <div style={{height:'100%',width:`${Math.max(80,100-(spotsLeft??1)*4)}%`,background:T.warning,borderRadius:3,transition:'width 0.5s'}}/>
-                </div>
-              )}
-              <div style={{display:'flex',justifyContent:'space-between',fontSize:12}}>
-                <span style={{color:soldOut?T.danger:hot?T.warning:T.muted}}>
-                  {soldOut?'🔴 Sold out':hot?`🟠 Only ${spotsLeft} spot${spotsLeft===1?'':'s'} remaining`:'🟢 Tickets available'}
-                </span>
-                <span style={{color:T.accent,fontWeight:600}}>{fmt(session.price_pence)} / person</span>
-              </div>
-              {session.max_tickets_per_order&&!soldOut&&<div style={{fontSize:11,color:T.muted,marginTop:3}}>Max {session.max_tickets_per_order} per order</div>}
-            </div>
-
-            {/* CTA buttons */}
-            <div style={{display:'flex',gap:8}}>
-              {isComingSoon?(
-                <div style={{flex:1,padding:'11px 14px',background:T.infoDim,color:T.info,border:`1px solid rgba(96,180,255,0.25)`,borderRadius:9,fontWeight:600,fontSize:13,display:'flex',alignItems:'center',gap:6,userSelect:'none' as const}}>
-                  ⏰ <ComingSoonCountdown opensAt={session.opens_at!} onUnlocked={onUnlocked??(() =>{})}/>
-                </div>
-              ):!soldOut?(
-                <button onClick={()=>{fetch('/api/analytics',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session_id:session.id,event:'book_now_click'})}).catch(()=>{});onSelect()}} style={{flex:1,padding:'11px',background:T.accent,color:'#080f08',border:'none',borderRadius:9,fontWeight:700,fontSize:14,cursor:'pointer',fontFamily:'inherit'}}>
-                  Book Now →
-                </button>
-              ):(
-                <button onClick={onWaitlist} style={{flex:1,padding:'11px',background:T.infoDim,color:T.info,border:`1px solid rgba(96,180,255,0.25)`,borderRadius:9,fontWeight:700,fontSize:14,cursor:'pointer',fontFamily:'inherit'}}>
-                  🎯 Join Waitlist
-                </button>
-              )}
-            </div>
-
-            {/* Share buttons */}
-            <ShareButtons session={session}/>
-          </div>
+        <div className="t-tags">
+          {session.label&&<span className="t-tag">{session.label} London</span>}
+          {isComingSoon&&<span className="t-tag soon">Coming soon</span>}
+          {hot&&!soldOut&&<span className="t-tag hot">Selling fast</span>}
+          {soldOut&&<span className="t-tag full">Sold out</span>}
         </div>
-
-        {/* Venue map — expandable */}
-        {expanded&&<VenueMap venue={session.venue} maps_url={session.maps_url}/>}
       </div>
+
+      <div style={{display:'flex',flexDirection:'column',gap:'0.5rem'}}>
+        <h2 className="t-title">{session.title}</h2>
+        <div className="t-meta">
+          <span>{fmtDateLong(session.date)}, {session.time}</span>
+          <span>{session.venue}, London</span>
+        </div>
+      </div>
+
+      {session.description&&(
+        <div>
+          <p className="t-desc">
+            {expanded||session.description.length<=120 ? session.description : session.description.slice(0,120)+'…'}
+          </p>
+          {session.description.length>120&&(
+            <button onClick={()=>setExpanded(!expanded)} className="t-link" aria-expanded={expanded} style={{marginTop:'0.375rem'}}>
+              {expanded?'Show less':'Read more and map'}
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Availability indicator */}
+      <div style={{display:'flex',flexDirection:'column',gap:'0.5rem'}}>
+        {hot&&!soldOut&&(
+          <div className="t-bar" aria-hidden="true"><span style={{width:`${Math.max(80,100-(spotsLeft??1)*4)}%`}}/></div>
+        )}
+        <div className="t-avail">
+          <span className={'t-status '+(soldOut?'full':hot?'hot':'ok')}>
+            {soldOut?'Sold out':hot?`Only ${spotsLeft} spot${spotsLeft===1?'':'s'} left`:'Tickets available'}
+          </span>
+          <span className="t-price"><span className="num">{fmt(session.price_pence)}</span> <span className="muted">/ person</span></span>
+        </div>
+        {session.max_tickets_per_order&&!soldOut&&<div className="t-hint" style={{marginTop:0}}>Max {session.max_tickets_per_order} per order</div>}
+      </div>
+
+      {/* Call to action */}
+      <div className="t-actions">
+        {isComingSoon?(
+          <div className="t-soon" role="status">
+            <ComingSoonCountdown opensAt={session.opens_at!} onUnlocked={onUnlocked??(() =>{})}/>
+          </div>
+        ):!soldOut?(
+          <button onClick={()=>{fetch('/api/analytics',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session_id:session.id,event:'book_now_click'})}).catch(()=>{});onSelect()}} className="book">
+            Book now<Arrow/>
+          </button>
+        ):(
+          <button onClick={onWaitlist} className="t-btn t-btn-ink">Join the waitlist</button>
+        )}
+      </div>
+
+      <ShareButtons session={session}/>
+
+      {/* Venue map — expandable */}
+      {expanded&&<VenueMap venue={session.venue} maps_url={session.maps_url}/>}
     </article>
   )
 }
@@ -743,104 +728,73 @@ export default function TicketsPage() {
       {/* Schema.org for all open sessions — helps Google index your events */}
       {open.map(s=><SessionSchema key={s.id} session={s}/>)}
 
-      {/* Accessibility: skip to main content */}
-      <a href="#main-content" style={{position:'absolute',left:'-9999px',top:'auto',width:1,height:1,overflow:'hidden'}} onFocus={e=>(e.currentTarget.style.left='0')}>
-        Skip to main content
-      </a>
+      <a className="skip" href="#main-content">Skip to main content</a>
 
-      <div style={{minHeight:'100vh',background:T.bg,color:T.text,fontFamily:"system-ui,sans-serif"}}>
-
-        {/* Header with logo + social links */}
-        <header style={{borderBottom:`1px solid ${T.border}`,padding:'14px 20px',display:'flex',justifyContent:'space-between',alignItems:'center',background:T.bg,position:'sticky',top:0,zIndex:50}}>
-          <a href="/tickets" style={{display:'flex',alignItems:'center',gap:14,textDecoration:'none'}}>
-            <div style={{width:56,height:56,borderRadius:'50%',background:'#1a3a1a',border:`2px solid ${T.border}`,display:'flex',alignItems:'center',justifyContent:'center',overflow:'hidden',flexShrink:0}}>
-              <img src="/logo.jpg" alt="The Shuttle Social" style={{width:'100%',height:'100%',objectFit:'cover'}} onError={e=>{(e.target as HTMLImageElement).style.display='none';(e.target as HTMLImageElement).parentElement!.textContent='🏸'}}/>
-            </div>
-            <div>
-              <div style={{fontWeight:900,fontSize:18,color:T.accent,lineHeight:1,letterSpacing:0.5}}>The Shuttle Social</div>
-              <div style={{fontSize:10,color:T.muted,letterSpacing:2,marginTop:1}}>BADMINTON FOR EVERYONE</div>
-            </div>
-          </a>
-
-          {/* Social links */}
-          <nav aria-label="Social media" style={{display:'flex',gap:10,alignItems:'center'}}>
-            <a href="/account" style={{color:T.accent,fontSize:13,fontWeight:700,textDecoration:'none',padding:'8px 10px',border:`1px solid ${T.border}`,borderRadius:20}}>My TSS</a>
-            {([
-              {href:'https://instagram.com/theshuttlesocial',label:'Instagram',platform:'instagram' as const,bg:'linear-gradient(45deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888)'},
-              {href:'https://tiktok.com/@theshuttlesocial',label:'TikTok',platform:'tiktok' as const,bg:'#010101'},
-            ] as const).map(s=>(
-              <a key={s.label} href={s.href} target="_blank" rel="noopener noreferrer" aria-label={s.label}
-                style={{width:34,height:34,borderRadius:'50%',background:s.bg,display:'flex',alignItems:'center',justifyContent:'center',textDecoration:'none'}}>
-                <SocialIcon platform={s.platform} size={20}/>
-              </a>
-            ))}
-          </nav>
+      <div className="t-hero">
+        <header className="nav">
+          <a href="/tickets" className="brand">the shuttle social</a>
+          <div className="nav-right">
+            <a href="/account" className="pill t-pill-nav small">My TSS</a>
+            <ThemeToggle/>
+          </div>
         </header>
-
-        <main id="main-content" style={{maxWidth:640,margin:'0 auto',padding:'28px 20px 60px'}}>
-          <h1 style={{fontSize:'clamp(32px,7vw,52px)',fontWeight:900,lineHeight:0.95,marginBottom:16,color:T.text}}>
-            BOOK YOUR<br/><span style={{color:T.accent}}>NEXT SESSION</span>
-          </h1>
-
-          {settings.about_text&&(
-            <div style={{marginBottom:28,padding:'16px 18px',background:T.card,border:`1px solid ${T.border}`,borderRadius:12,fontSize:14,color:'#a0c090',lineHeight:1.7,borderLeft:`3px solid ${T.accent}`,whiteSpace:'pre-wrap'}}>
-              {settings.about_text}
-            </div>
-          )}
-
-          {loading?(
-            <div style={{color:T.muted,textAlign:'center',padding:60}}>
-              <div style={{fontSize:32,marginBottom:12,animation:'spin 1s linear infinite'}}>⏳</div>
-              Loading sessions…
-            </div>
-          ):(
-            <>
-              {open.length>0&&(
-                <section aria-label="Open for booking">
-                  <div style={{fontSize:11,color:T.muted,letterSpacing:3,marginBottom:12,textTransform:'uppercase'}}>Open for booking</div>
-                  <div style={{display:'flex',flexDirection:'column',gap:16,marginBottom:32}}>
-                    {open.map(s=><SessionCard key={s.id} session={s} onSelect={()=>setSelected(s)} onWaitlist={()=>setWaitlistSession(s)}/>)}
-                  </div>
-                </section>
-              )}
-              {comingSoon.length>0&&(
-                <section aria-label="Coming soon" style={{marginBottom:32}}>
-                  <div style={{fontSize:11,color:T.muted,letterSpacing:3,marginBottom:12,textTransform:'uppercase'}}>Coming soon</div>
-                  <div style={{display:'flex',flexDirection:'column',gap:16}}>
-                    {comingSoon.map(s=><SessionCard key={s.id} session={s} onSelect={()=>{}} onWaitlist={()=>{}} onUnlocked={fetchSessions}/>)}
-                  </div>
-                </section>
-              )}
-              {open.length===0&&comingSoon.length===0&&(
-                <div style={{textAlign:'center',padding:80,color:T.muted}}>
-                  <div style={{fontSize:48,marginBottom:16}}>🏸</div>
-                  <div style={{fontWeight:700,fontSize:18,marginBottom:8}}>No sessions open right now</div>
-                  <div style={{fontSize:14}}>Follow us on <a href="https://instagram.com/theshuttlesocial" target="_blank" rel="noopener" style={{color:T.accent}}>Instagram</a> or <a href="https://tiktok.com/@theshuttlesocial" target="_blank" rel="noopener" style={{color:T.accent}}>TikTok</a> for updates</div>
-                </div>
-              )}
-            </>
-          )}
-        </main>
-
-        <footer style={{borderTop:`1px solid ${T.border}`,padding:'24px 20px'}}>
-          {/* Already booked? Self-service spot release */}
-          <div style={{maxWidth:640,margin:'0 auto 16px',padding:'12px 16px',background:T.card,border:`1px solid ${T.border}`,borderRadius:10,display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap' as const,gap:8}}>
-            <span style={{fontSize:13,color:T.muted}}>Already booked but can't make it?</span>
-            <a href="/release" style={{fontSize:13,fontWeight:700,color:T.accent,textDecoration:'none',whiteSpace:'nowrap' as const}}>Release your spot →</a>
-          </div>
-          <div style={{maxWidth:640,margin:'0 auto',display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap' as const,gap:12}}>
-            <div style={{fontSize:12,color:T.muted}}>
-              The Shuttle Social · <a href="https://instagram.com/theshuttlesocial" target="_blank" rel="noopener" style={{color:T.accent,textDecoration:'none'}}>@theshuttlesocial</a> · <a href="https://tiktok.com/@theshuttlesocial" target="_blank" rel="noopener" style={{color:T.accent,textDecoration:'none'}}>TikTok</a> · <a href="/privacy" style={{color:T.accent,textDecoration:'none'}}>Privacy</a>
-            </div>
-          </div>
-          {/* Back to top — like Ticket Tailor */}
-          <div style={{maxWidth:640,margin:'12px auto 0',textAlign:'right'}}>
-            <a href="#main-content" style={{fontSize:12,color:T.muted,textDecoration:'none'}} onClick={e=>{e.preventDefault();window.scrollTo({top:0,behavior:'smooth'})}}>
-              Back to top ↑
-            </a>
-          </div>
-        </footer>
+        <div className="wrap t-hero-copy">
+          <span className="kicker" style={{color:'var(--lime)'}}>Tickets</span>
+          <h1 className="disp h1">Book your<br/><span className="t-word">next session.</span></h1>
+          {settings.about_text&&<p className="lead t-about">{settings.about_text}</p>}
+        </div>
       </div>
+
+      <main id="main-content" className="wrap t-main">
+        {loading?(
+          <div className="t-loading" role="status">
+            <div className="dot-row" aria-hidden="true"><span/><span/><span/></div>
+            <div>Loading sessions…</div>
+          </div>
+        ):(
+          <>
+            {open.length>0&&(
+              <section className="t-group" aria-labelledby="open-h">
+                <h2 id="open-h" className="kicker t-group-h">Open for booking</h2>
+                <div className="t-cards">
+                  {open.map(s=><SessionCard key={s.id} session={s} onSelect={()=>setSelected(s)} onWaitlist={()=>setWaitlistSession(s)}/>)}
+                </div>
+              </section>
+            )}
+            {comingSoon.length>0&&(
+              <section className="t-group" aria-labelledby="soon-h">
+                <h2 id="soon-h" className="kicker t-group-h">Coming soon</h2>
+                <div className="t-cards">
+                  {comingSoon.map(s=><SessionCard key={s.id} session={s} onSelect={()=>{}} onWaitlist={()=>{}} onUnlocked={fetchSessions}/>)}
+                </div>
+              </section>
+            )}
+            {open.length===0&&comingSoon.length===0&&(
+              <div className="t-empty">
+                <div className="t-title" style={{marginBottom:'0.5rem',color:'var(--ink)'}}>No sessions open right now</div>
+                <div className="small">New sessions are announced first on <a href={INSTAGRAM} target="_blank" rel="noopener" style={{color:'var(--accent)'}}>Instagram</a> and <a href={TIKTOK} target="_blank" rel="noopener" style={{color:'var(--accent)'}}>TikTok</a>.</div>
+              </div>
+            )}
+          </>
+        )}
+      </main>
+
+      <footer className="wrap t-foot">
+        {/* Already booked? Self-service spot release */}
+        <div className="t-release">
+          <span className="muted small">Already booked but can’t make it?</span>
+          <a href="/release" className="small">Release your spot →</a>
+        </div>
+        <div className="t-foot-links">
+          <span>The Shuttle Social</span>
+          <nav aria-label="Footer">
+            <a href={INSTAGRAM} target="_blank" rel="noopener">Instagram</a>
+            <a href={TIKTOK} target="_blank" rel="noopener">TikTok</a>
+            <a href="/privacy">Privacy</a>
+            <a href="#main-content" onClick={e=>{e.preventDefault();window.scrollTo({top:0,behavior:'smooth'})}}>Back to top ↑</a>
+          </nav>
+        </div>
+      </footer>
 
       {selected&&(
         <ErrorBoundary>
