@@ -352,16 +352,18 @@ function AdminPageInner() {
   return(
     <div style={base}>
       {/* Header */}
-      <div style={{borderBottom:`1px solid ${T.border}`,padding:'14px 20px',display:'flex',justifyContent:'space-between',alignItems:'center',position:'sticky',top:0,background:T.bg,zIndex:10}}>
+      <div style={{borderBottom:`1px solid ${T.border}`,padding:'14px 20px',display:'flex',flexWrap:'wrap' as const,gap:10,justifyContent:'space-between',alignItems:'center',position:'sticky',top:0,background:T.bg,zIndex:10}}>
         <div style={{display:'flex',alignItems:'center',gap:10}}>
           <div style={{width:38,height:38,borderRadius:'50%',background:'#0E3B24',border:`2px solid ${T.border}`,display:'flex',alignItems:'center',justifyContent:'center',overflow:'hidden'}}>
             <img src="/logo.jpg" alt="" style={{width:'100%',height:'100%',objectFit:'cover'}} onError={e=>{(e.target as HTMLImageElement).style.display='none';(e.target as HTMLImageElement).parentElement!.textContent='🏸'}}/>
           </div>
           <div style={{fontWeight:800,fontSize:16,color:T.accent}}>TSS Admin</div>
         </div>
-        <div style={{display:'flex',gap:8,alignItems:'center'}}>
+        <div style={{display:'flex',flexWrap:'wrap' as const,justifyContent:'flex-end',gap:8,alignItems:'center'}}>
           {msg&&<div style={{fontSize:12,color:T.accent,padding:'5px 12px',background:T.accentDim,borderRadius:20,border:`1px solid ${T.accentBorder}`}}>{msg}</div>}
           <a href="/tickets" target="_blank" style={{fontSize:12,color:T.muted,textDecoration:'none',padding:'5px 12px',border:`1px solid ${T.border}`,borderRadius:8}}>View site ↗</a>
+          <a href="/lead" style={{fontSize:12,color:T.accent,textDecoration:'none',padding:'5px 12px',border:`1px solid ${T.accentBorder}`,borderRadius:8}}>Live sessions</a>
+          <a href="/live/setup" style={{fontSize:12,color:T.accent,textDecoration:'none',padding:'5px 12px',border:`1px solid ${T.accentBorder}`,borderRadius:8}}>+ New live session</a>
           {staff?.role==='owner'&&<a href="/staff" style={{fontSize:12,color:T.accent,textDecoration:'none',padding:'5px 12px',border:`1px solid ${T.accentBorder}`,borderRadius:8}}>Staff</a>}
           {staff&&<span title={staff.email??'emergency password'} style={{fontSize:12,color:staff.via==='password'?T.warning:T.muted}}>
             {staff.via==='password'?'Emergency password':`${staff.email} · ${staff.role==='owner'?'Owner':'Admin'}`}
