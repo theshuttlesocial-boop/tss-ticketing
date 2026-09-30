@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { T, btn } from '../live/_components/theme'
+import { T, btn } from '@/app/_design/theme'
 
 const get = (k: string) => { try { return localStorage.getItem(k) } catch { return null } }
 const set = (k: string, v: string) => { try { localStorage.setItem(k, v) } catch { /* private mode */ } }
@@ -27,7 +27,7 @@ export function InstallApp() {
   }, [])
   if (!show) return null
   return (
-    <section style={{ background:T.card, border:`1px solid ${T.accentBorder}`, borderRadius:12, padding:14, marginBottom:16, display:'flex', gap:12, alignItems:'flex-start' }}>
+    <section style={{ background:T.card, border:`1px solid ${T.accentBorder}`, borderRadius:20, padding:16, marginBottom:16, display:'flex', gap:12, alignItems:'flex-start' }}>
       <img src="/icons/icon-192.png" alt="" width={44} height={44} style={{ borderRadius:10, flexShrink:0 }} />
       <div style={{ flex:1 }}>
         <strong style={{ fontSize:15 }}>Get the TSS app</strong>

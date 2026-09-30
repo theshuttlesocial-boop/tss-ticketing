@@ -1,11 +1,11 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { authHeader } from '@/lib/accountClient'
-import { T, btn } from '../../live/_components/theme'
+import { T, btn } from '@/app/_design/theme'
 import type { History, Tally } from '@/lib/accounts/history'
 
-const wrap: React.CSSProperties = { minHeight:'100vh', background:T.bg, color:T.text, padding:'28px 18px 48px',
-  fontFamily:'DM Sans, system-ui, sans-serif', boxSizing:'border-box', maxWidth:620, margin:'0 auto' }
+const wrap: React.CSSProperties = { color:T.text, padding:'28px 18px 48px',
+  fontFamily:'inherit', boxSizing:'border-box', maxWidth:620, margin:'0 auto' }
 const day = (d: string) => new Date(d).toLocaleDateString('en-GB', { weekday:'short', day:'numeric', month:'short', year:'numeric' })
 const badge = (r: 'W' | 'L' | 'D') => ({ W: T.accent, L: T.danger, D: T.warning }[r])
 
@@ -36,8 +36,8 @@ export default function HistoryPage() {
   const trend = [...h.sessions].reverse()
   return (
     <div style={wrap}>
-      <a href="/account" style={{ color:T.muted, fontSize:14, textDecoration:'none' }}>← My TSS</a>
-      <h1 style={{ fontSize:30, fontWeight:900, margin:'14px 0 12px' }}>My games</h1>
+      <a href="/account" style={{ color:T.muted, fontSize:14, textDecoration:'none' }}>← My portal</a>
+      <h1 style={{ fontSize:36, fontWeight:900, letterSpacing:'-0.03em', margin:'14px 0 12px' }}>My games</h1>
 
       {h.totals.sessions === 0 ? (
         <p style={{ color:T.muted, fontSize:15, lineHeight:1.5 }}>
@@ -47,8 +47,8 @@ export default function HistoryPage() {
       ) : <>
         <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:8, marginBottom:16 }}>
           {[['Sessions', h.totals.sessions], ['Games', h.totals.games], ['Won', h.totals.won], ['Lost', h.totals.lost]].map(([k, v]) => (
-            <div key={k as string} style={{ background:T.card, border:`1px solid ${T.border}`, borderRadius:10, padding:'10px 8px', textAlign:'center' }}>
-              <div style={{ fontSize:24, fontWeight:900 }}>{v}</div>
+            <div key={k as string} style={{ background:T.card, border:`1px solid ${T.border}`, borderRadius:18, padding:'12px 8px', textAlign:'center' }}>
+              <div style={{ fontSize:28, fontWeight:900, fontStyle:'italic', letterSpacing:'-0.03em', color:T.accent }}>{v}</div>
               <div style={{ fontSize:11, color:T.muted, textTransform:'uppercase', letterSpacing:'1px' }}>{k}</div>
             </div>
           ))}
@@ -66,7 +66,7 @@ export default function HistoryPage() {
         </div>
 
         {tab === 'sessions' && h.sessions.map((s) => (
-          <section key={s.sessionId} style={{ background:T.card, border:`1px solid ${T.border}`, borderRadius:12, padding:'12px 14px', marginBottom:10 }}>
+          <section key={s.sessionId} style={{ background:T.card, border:`1px solid ${T.border}`, borderRadius:20, padding:'14px 16px', marginBottom:10 }}>
             <div style={{ display:'flex', justifyContent:'space-between', gap:8, marginBottom:8 }}>
               <div><strong>{s.name}</strong><div style={{ color:T.muted, fontSize:12 }}>{day(s.date)}</div></div>
               <div style={{ textAlign:'right', fontSize:13 }}>
@@ -98,7 +98,7 @@ function Tallies({ rows, empty, verb }: { rows: Tally[]; empty: string; verb: st
   return (
     <div style={{ display:'grid', gap:6 }}>
       {rows.map((t) => (
-        <div key={t.key} style={{ background:T.card, border:`1px solid ${T.border}`, borderRadius:10, padding:'10px 12px', display:'flex', gap:10, alignItems:'center' }}>
+        <div key={t.key} style={{ background:T.card, border:`1px solid ${T.border}`, borderRadius:18, padding:'12px 14px', display:'flex', gap:10, alignItems:'center' }}>
           <div style={{ flex:1, minWidth:0 }}>
             <div style={{ fontWeight:700 }}><span style={{ color:T.muted, fontWeight:400 }}>{verb} </span>{t.name}</div>
             <div style={{ color:T.muted, fontSize:12 }}>
@@ -122,7 +122,7 @@ function Trend({ points }: { points: { label: string; value: number }[] }) {
   const x = (i: number) => (i / (points.length - 1)) * (W - 20) + 10
   const y = (v: number) => H - 10 - ((v - lo) / (hi - lo)) * (H - 20)
   return (
-    <figure style={{ margin:0, background:T.card, border:`1px solid ${T.border}`, borderRadius:12, padding:'10px 12px' }}>
+    <figure style={{ margin:0, background:T.card, border:`1px solid ${T.border}`, borderRadius:20, padding:'12px 14px' }}>
       <figcaption style={{ fontSize:11, color:T.muted, textTransform:'uppercase', letterSpacing:'1px', marginBottom:4 }}>
         Rating at the end of each session
       </figcaption>

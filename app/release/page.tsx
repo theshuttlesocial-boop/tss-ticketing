@@ -1,14 +1,8 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { computeRefundQuote } from '@/lib/release'
+import { T, inp, doneMark } from '@/app/_design/theme'
 
-const T = {
-  bg:'#080f08', card:'#0f180f', card2:'#142014', border:'#1e3220',
-  accent:'#6fcf40', accentDim:'rgba(111,207,64,0.1)', accentBorder:'rgba(111,207,64,0.25)',
-  text:'#edf5ed', muted:'#6b8a6b', danger:'#e05555', dangerDim:'rgba(224,85,85,0.1)',
-  warning:'#e09040', info:'#60b4ff', infoDim:'rgba(96,180,255,0.08)',
-}
-const inp = (extra?:object):React.CSSProperties => ({ width:'100%', background:T.card2, border:`1px solid ${T.border}`, borderRadius:8, padding:'11px 13px', color:T.text, fontSize:15, outline:'none', boxSizing:'border-box' as const, fontFamily:'inherit', ...extra })
 const fmt = (p:number) => `£${(p/100).toFixed(2)}`
 const fmtDate = (d:string) => new Date(d).toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'})
 
@@ -19,7 +13,7 @@ interface Booking {
 }
 type Step = 'email'|'link-sent'|'loading'|'link-invalid'|'choose'|'spaces'|'route'|'done'
 
-const panel:React.CSSProperties = { background:T.card, border:`1px solid ${T.border}`, borderRadius:14, padding:22, marginBottom:16 }
+const panel:React.CSSProperties = { background:T.card, border:`1px solid ${T.border}`, borderRadius:24, padding:22, marginBottom:16 }
 
 export default function ReleasePage(){
   const [step,setStep]=useState<Step>('email')
@@ -64,25 +58,15 @@ export default function ReleasePage(){
   const quote = booking ? computeRefundQuote(booking.pricePencePerSpace, spaces, priorCardRefunds) : null
 
   return(
-    <div style={{minHeight:'100vh',background:T.bg,color:T.text,fontFamily:'system-ui,sans-serif'}}>
-      <header style={{borderBottom:`1px solid ${T.border}`,padding:'14px 20px'}}>
-        <a href="/tickets" style={{display:'flex',alignItems:'center',gap:12,textDecoration:'none'}}>
-          <div style={{width:44,height:44,borderRadius:'50%',background:'#1a3a1a',border:`2px solid ${T.border}`,display:'flex',alignItems:'center',justifyContent:'center',overflow:'hidden'}}>
-            <img src="/logo.jpg" alt="" style={{width:'100%',height:'100%',objectFit:'cover'}} onError={e=>{(e.target as HTMLImageElement).style.display='none'}}/>
-          </div>
-          <div>
-            <div style={{fontWeight:900,fontSize:16,color:T.accent,lineHeight:1}}>Release your spot</div>
-            <div style={{fontSize:11,color:T.muted,marginTop:2}}>The Shuttle Social</div>
-          </div>
-        </a>
-      </header>
+    <div style={{color:T.text}}>
 
       <main style={{maxWidth:520,margin:'0 auto',padding:'28px 20px 60px'}}>
+        <div style={{fontSize:12,fontWeight:800,letterSpacing:'0.14em',textTransform:'uppercase',color:T.muted,marginBottom:10}}>Release your spot</div>
 
         {/* STEP — request a magic link */}
         {step==='email'&&(
           <>
-            <h1 style={{fontSize:24,fontWeight:900,marginBottom:8}}>Can't make it?</h1>
+            <h1 style={{fontSize:34,fontWeight:900,letterSpacing:'-0.03em',marginBottom:8}}>Can't make it?</h1>
             <p style={{color:T.muted,fontSize:14,lineHeight:1.6,marginBottom:20}}>
               Enter the email you booked with and we'll send you a secure link to manage your spot. No booking reference needed.
             </p>
@@ -90,7 +74,7 @@ export default function ReleasePage(){
               <label style={{fontSize:12,color:T.muted,display:'block',marginBottom:5}}>Email</label>
               <input type="email" value={email} onChange={e=>setEmail(e.target.value)} onKeyDown={e=>e.key==='Enter'&&email&&requestLink()} placeholder="you@email.com" autoComplete="email" style={inp()}/>
               {error&&<div style={{marginTop:12,padding:'10px 12px',background:T.dangerDim,color:T.danger,borderRadius:8,fontSize:13}}>{error}</div>}
-              <button onClick={requestLink} disabled={!email||loading} style={{marginTop:16,width:'100%',padding:'14px',minHeight:52,borderRadius:10,border:'none',background:(!email||loading)?T.border:T.accent,color:(!email||loading)?T.muted:'#080f08',fontWeight:800,fontSize:16,cursor:(!email||loading)?'default':'pointer',fontFamily:'inherit'}}>
+              <button onClick={requestLink} disabled={!email||loading} style={{marginTop:16,width:'100%',padding:'14px',minHeight:52,borderRadius:999,border:'none',background:(!email||loading)?T.card2:T.cta,color:(!email||loading)?T.muted:T.onCta,boxShadow:(!email||loading)?'none':T.ctaGlow,fontWeight:800,fontSize:16,cursor:(!email||loading)?'default':'pointer',fontFamily:'inherit'}}>
                 {loading?'Sending…':'Email me a link →'}
               </button>
             </div>
@@ -100,7 +84,7 @@ export default function ReleasePage(){
         {/* STEP — link sent */}
         {step==='link-sent'&&(
           <div style={{...panel,textAlign:'center',padding:'32px 24px'}}>
-            <div style={{fontSize:44,marginBottom:12}}>📬</div>
+            <div style={doneMark}>✉</div>
             <div style={{fontSize:22,fontWeight:900,color:T.accent,marginBottom:8}}>Check your email</div>
             <p style={{color:T.muted,fontSize:14,lineHeight:1.7}}>
               If <strong style={{color:T.text}}>{email}</strong> has an upcoming booking, we've sent a secure link to manage it. It works for 30 minutes.
@@ -117,17 +101,17 @@ export default function ReleasePage(){
           <div style={{...panel,textAlign:'center',padding:'32px 24px'}}>
             <div style={{fontSize:20,fontWeight:800,color:T.danger,marginBottom:8}}>Link expired or not valid</div>
             <p style={{color:T.muted,fontSize:14,lineHeight:1.7,marginBottom:20}}>This link may have expired (they last 30 minutes) or there's no upcoming booking to manage.</p>
-            <button onClick={()=>{setStep('email');setToken('')}} style={{padding:'12px 24px',background:T.accent,color:'#080f08',border:'none',borderRadius:10,fontWeight:700,fontSize:14,cursor:'pointer',fontFamily:'inherit'}}>Request a new link</button>
+            <button onClick={()=>{setStep('email');setToken('')}} style={{padding:'12px 24px',background:T.cta,color:T.onCta,boxShadow:T.ctaGlow,border:'none',borderRadius:999,fontWeight:700,fontSize:14,cursor:'pointer',fontFamily:'inherit'}}>Request a new link</button>
           </div>
         )}
 
         {/* STEP — choose which booking (multiple upcoming) */}
         {step==='choose'&&(
           <>
-            <h1 style={{fontSize:22,fontWeight:900,marginBottom:6}}>Which booking?</h1>
+            <h1 style={{fontSize:30,fontWeight:900,letterSpacing:'-0.03em',marginBottom:6}}>Which booking?</h1>
             <p style={{color:T.muted,fontSize:14,marginBottom:18}}>You have more than one upcoming booking. Pick the one you can't make.</p>
             {bookings.map(b=>(
-              <button key={b.id} onClick={()=>pick(b)} style={{width:'100%',textAlign:'left',background:T.card,border:`1px solid ${T.border}`,borderRadius:14,padding:18,marginBottom:12,cursor:'pointer',fontFamily:'inherit'}}>
+              <button key={b.id} onClick={()=>pick(b)} style={{width:'100%',textAlign:'left',background:T.card,border:`1px solid ${T.border}`,borderRadius:20,padding:18,marginBottom:12,cursor:'pointer',fontFamily:'inherit'}}>
                 {b.session.label&&<span style={{background:T.accentDim,color:T.accent,fontSize:11,fontWeight:700,padding:'2px 8px',borderRadius:20,border:`1px solid ${T.accentBorder}`,marginBottom:8,display:'inline-block'}}>{b.session.label} London</span>}
                 <div style={{fontWeight:800,fontSize:16,color:T.text}}>{b.session.title}</div>
                 <div style={{fontSize:13,color:T.muted,marginTop:4,lineHeight:1.6}}>{fmtDate(b.session.date)}, {b.session.time} · {b.session.venue}</div>
@@ -149,7 +133,7 @@ export default function ReleasePage(){
                 ))}
               </div>
               {booking.spacesReleased>0&&<div style={{fontSize:12,color:T.muted,marginTop:10}}>You've already released {booking.spacesReleased} of {booking.quantity} spot(s).</div>}
-              <button onClick={()=>{setRoute(null);setError('');setStep('route')}} style={{marginTop:18,width:'100%',padding:'14px',minHeight:52,borderRadius:10,border:'none',background:T.accent,color:'#080f08',fontWeight:800,fontSize:16,cursor:'pointer',fontFamily:'inherit'}}>
+              <button onClick={()=>{setRoute(null);setError('');setStep('route')}} style={{marginTop:18,width:'100%',padding:'14px',minHeight:52,borderRadius:999,border:'none',background:T.cta,color:T.onCta,boxShadow:T.ctaGlow,fontWeight:800,fontSize:16,cursor:'pointer',fontFamily:'inherit'}}>
                 Continue →
               </button>
               {bookings.length>1&&<button onClick={()=>setStep('choose')} style={{marginTop:10,width:'100%',padding:'10px',borderRadius:10,border:`1px solid ${T.border}`,background:'none',color:T.muted,fontWeight:600,fontSize:13,cursor:'pointer',fontFamily:'inherit'}}>Back</button>}
@@ -203,7 +187,7 @@ export default function ReleasePage(){
         {/* STEP — confirmation */}
         {step==='done'&&done&&(
           <div style={{...panel,textAlign:'center',padding:'32px 24px'}}>
-            <div style={{fontSize:44,marginBottom:12}}>{done.kind==='transfer'?'📨':'✅'}</div>
+            <div style={doneMark}>{done.kind==='transfer'?'✉':'✓'}</div>
             {done.kind==='transfer'?(
               <>
                 <div style={{fontSize:22,fontWeight:900,color:T.accent,marginBottom:8}}>Almost there</div>
@@ -219,7 +203,7 @@ export default function ReleasePage(){
                 </p>
               </>
             )}
-            <a href="/tickets" style={{display:'inline-block',marginTop:20,padding:'12px 24px',background:T.accent,color:'#080f08',borderRadius:10,fontWeight:700,fontSize:14,textDecoration:'none'}}>Back to sessions</a>
+            <a href="/tickets" style={{display:'inline-block',marginTop:20,padding:'12px 24px',background:T.cta,color:T.onCta,boxShadow:T.ctaGlow,borderRadius:999,fontWeight:700,fontSize:14,textDecoration:'none'}}>Back to sessions</a>
           </div>
         )}
       </main>
@@ -259,7 +243,7 @@ function BookingHeader({booking}:{booking:Booking}){
 
 function RouteCard({title,subtitle,badge,emphasised,selected,onClick,children}:{title:string;subtitle:string;badge?:string;emphasised?:boolean;selected:boolean;onClick:()=>void;children?:React.ReactNode}){
   return(
-    <div style={{background:T.card,border:`1px solid ${selected?T.accent:emphasised?T.accentBorder:T.border}`,borderRadius:14,padding:18,marginBottom:14,boxShadow:emphasised&&!selected?`0 0 0 1px ${T.accentBorder}`:'none'}}>
+    <div style={{background:T.card,border:`1px solid ${selected?T.accent:emphasised?T.accentBorder:T.border}`,borderRadius:20,padding:18,marginBottom:14,boxShadow:emphasised&&!selected?`0 0 0 1px ${T.accentBorder}`:'none'}}>
       <div onClick={onClick} style={{cursor:'pointer',display:'flex',alignItems:'flex-start',gap:12}}>
         <div style={{width:20,height:20,borderRadius:'50%',border:`2px solid ${selected?T.accent:T.border}`,flexShrink:0,marginTop:2,display:'flex',alignItems:'center',justifyContent:'center'}}>
           {selected&&<div style={{width:10,height:10,borderRadius:'50%',background:T.accent}}/>}
@@ -282,7 +266,7 @@ function ConfirmRelease({label,onConfirm,loading,error}:{label:string;onConfirm:
         Your spot is offered to the waitlist. You're only paid out once someone takes it - if nobody does before the session, your booking stands.
       </div>
       {error&&<div style={{marginBottom:12,padding:'10px 12px',background:T.dangerDim,color:T.danger,borderRadius:8,fontSize:13}}>{error}</div>}
-      <button onClick={onConfirm} disabled={loading} style={{width:'100%',padding:'13px',minHeight:50,borderRadius:10,border:'none',background:loading?T.border:T.accent,color:loading?T.muted:'#080f08',fontWeight:800,fontSize:15,cursor:loading?'default':'pointer',fontFamily:'inherit'}}>
+      <button onClick={onConfirm} disabled={loading} style={{width:'100%',padding:'13px',minHeight:50,borderRadius:999,border:'none',background:loading?T.card2:T.cta,color:loading?T.muted:T.onCta,boxShadow:loading?'none':T.ctaGlow,fontWeight:800,fontSize:15,cursor:loading?'default':'pointer',fontFamily:'inherit'}}>
         {loading?'Releasing…':label}
       </button>
     </div>
@@ -318,7 +302,7 @@ function TransferForm({booking,spaces,token,onDone}:{booking:Booking;spaces:numb
         <span style={{fontSize:13,color:T.muted,lineHeight:1.5}}>I confirm this person has agreed to take my place and to us contacting them about it.</span>
       </label>
       {error&&<div style={{marginBottom:12,padding:'10px 12px',background:T.dangerDim,color:T.danger,borderRadius:8,fontSize:13}}>{error}</div>}
-      <button onClick={submit} disabled={!ready||loading} style={{width:'100%',padding:'13px',minHeight:50,borderRadius:10,border:'none',background:(!ready||loading)?T.border:T.accent,color:(!ready||loading)?T.muted:'#080f08',fontWeight:800,fontSize:15,cursor:(!ready||loading)?'default':'pointer',fontFamily:'inherit'}}>
+      <button onClick={submit} disabled={!ready||loading} style={{width:'100%',padding:'13px',minHeight:50,borderRadius:999,border:'none',background:(!ready||loading)?T.card2:T.cta,color:(!ready||loading)?T.muted:T.onCta,boxShadow:(!ready||loading)?'none':T.ctaGlow,fontWeight:800,fontSize:15,cursor:(!ready||loading)?'default':'pointer',fontFamily:'inherit'}}>
         {loading?'Sending…':'Send them a confirm link →'}
       </button>
     </div>
