@@ -147,6 +147,9 @@ function Account() {
       <a href="/account/history" style={{ ...btn('primary'), display:'block', textAlign:'center', textDecoration:'none', padding:14, fontSize:15, marginBottom:10 }}>
         My games, head-to-head &amp; best partners →
       </a>
+      <a href="/ratings" style={{ ...btn(), display:'block', textAlign:'center', textDecoration:'none', padding:12, fontSize:14, marginBottom:10 }}>
+        How ratings work →
+      </a>
       <LeaderboardToggle on={me!.profile.leaderboard} onSaved={load} />
 
       {me!.profile.displayName && <Profile onSaved={load} name={me!.profile.displayName} level={me!.profile.level} compact />}
