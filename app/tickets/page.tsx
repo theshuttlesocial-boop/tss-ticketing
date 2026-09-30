@@ -4,6 +4,7 @@ import type { ReactNode } from 'react'
 import { loadStripe } from '@stripe/stripe-js'
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js'
 import { ThemeToggle } from '@/app/_design/ThemeToggle'
+import { authHeader } from '@/lib/accountClient'
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
 
@@ -391,6 +392,7 @@ function BookingModal({session,termsText,onClose}:{session:Session;termsText:str
   const [clientSecret,setCs]=useState(''); const [bookingRef,setRef]=useState(''); const [expiresAt,setExpires]=useState('')
   const [done,setDone]=useState(false); const [hasSavedUser,setHasSavedUser]=useState(false)
   const [creditAvailable,setCreditAvailable]=useState(0); const [applyCredit,setApplyCredit]=useState(true)
+  const [signedIn,setSignedIn]=useState(false)
 
   const maxQty=session.availability==='limited'
     ?Math.min(session.max_tickets_per_order??4,session.spotsRemaining??1)
@@ -399,13 +401,18 @@ function BookingModal({session,termsText,onClose}:{session:Session;termsText:str
   const creditApplied=applyCredit?Math.min(creditAvailable,total):0
   const duePence=total-creditApplied
 
-  // Look up available credit once a plausible email is entered.
+  // Credit is private: it's only shown (and can only be used) when you're signed in
+  // to My portal with the same email you're booking with.
   useEffect(()=>{
     if(clientSecret)return
-    const e=email.trim()
+    const e=email.trim().toLowerCase()
     if(!e||!e.includes('@')){setCreditAvailable(0);return}
-    const t=setTimeout(()=>{
-      fetch(`/api/credits?email=${encodeURIComponent(e)}`).then(r=>r.json()).then(d=>setCreditAvailable(d.availablePence??0)).catch(()=>{})
+    const t=setTimeout(async()=>{
+      try{
+        const d=await (await fetch('/api/credits',{headers:await authHeader()})).json()
+        setSignedIn(!!d.signedIn)
+        setCreditAvailable(d.email&&d.email===e?(d.availablePence??0):0)
+      }catch{}
     },400)
     return()=>clearTimeout(t)
   },[email,clientSecret])
@@ -430,7 +437,7 @@ function BookingModal({session,termsText,onClose}:{session:Session;termsText:str
   async function reserveSeat(){
     setLoading(true);setError('')
     try{
-      const res=await fetch('/api/book',{method:'POST',headers:{'Content-Type':'application/json'},
+      const res=await fetch('/api/book',{method:'POST',headers:{'Content-Type':'application/json',...(await authHeader())},
         body:JSON.stringify({session_id:session.id,quantity:qty,name,email,phone,apply_credit:applyCredit&&creditAvailable>0,additional_attendees:additionalNames.filter(Boolean).map(n=>({name:n}))})})
       const d=await res.json()
       if(!res.ok){setError(d.error??'Could not reserve seat');return}
@@ -541,6 +548,13 @@ function BookingModal({session,termsText,onClose}:{session:Session;termsText:str
               <span>You have {fmt(creditAvailable)} credit. Apply it?</span>
             </label>
           </div>
+        )}
+
+        {/* Credit needs a sign-in: point credit holders to My portal */}
+        {!clientSecret&&!signedIn&&(
+          <p className="t-hint" style={{marginTop:0,marginBottom:'0.75rem'}}>
+            Have credit from a released spot? <a href="/account?next=/tickets" style={{color:'var(--accent)',fontWeight:700}}>Sign in to My portal</a> with this email to use it.
+          </p>
         )}
 
         {/* Dynamic price total — live update as quantity/credit changes */}

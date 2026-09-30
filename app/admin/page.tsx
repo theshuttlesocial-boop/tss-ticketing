@@ -952,6 +952,25 @@ function AdminPageInner() {
                 <DebouncedTextarea value={settings.terms_and_conditions??''} onChange={v=>setSettings(s=>({...s,terms_and_conditions:v}))} rows={10} placeholder="Enter your full terms and conditions…" style={inp({resize:'vertical',lineHeight:1.7,fontFamily:'monospace'})}/>
               </Field>
               <button onClick={()=>saveSetting('terms_and_conditions',settings.terms_and_conditions??'')} style={{padding:'9px 20px',background:T.cta,color:T.onCta,boxShadow:T.ctaGlow,border:'none',borderRadius:999,fontWeight:700,fontSize:13,cursor:'pointer',fontFamily:'inherit'}}>💾 Save Terms & Conditions</button>
+
+              {/* Read by the nightly retention job (migration 024); missing means on */}
+              {(()=>{const on=settings.auto_delete_signin_records!=='off';return(
+                <div style={{marginTop:28,paddingTop:20,borderTop:`1px solid ${T.border}`,display:'flex',gap:16,alignItems:'flex-start',justifyContent:'space-between'}}>
+                  <div>
+                    <div style={{fontWeight:800,fontSize:15,marginBottom:4}}>Auto-delete sign-in records after 1 month</div>
+                    <div style={{fontSize:13,color:T.muted,lineHeight:1.6}}>
+                      &ldquo;Manage my booking&rdquo; email links and &ldquo;find my booking&rdquo; attempts (with the visitor&apos;s IP address).
+                      Keep this on unless you&apos;re looking into misuse: the privacy notice says they&apos;re kept 1 month.
+                    </div>
+                  </div>
+                  <button role="switch" aria-checked={on} aria-label="Auto-delete sign-in records after 1 month"
+                    onClick={()=>{const v=on?'off':'on';setSettings(s=>({...s,auto_delete_signin_records:v}));saveSetting('auto_delete_signin_records',v)}}
+                    style={{flexShrink:0,width:56,height:32,borderRadius:999,border:`1px solid ${on?'transparent':T.border}`,padding:3,cursor:'pointer',
+                      background:on?T.cta:T.card2,boxShadow:on?T.ctaGlow:'none',display:'flex',justifyContent:on?'flex-end':'flex-start'}}>
+                    <span style={{width:24,height:24,borderRadius:'50%',background:on?'#0F2A1A':T.muted}}/>
+                  </button>
+                </div>
+              )})()}
             </div>
           </div>
         )}
