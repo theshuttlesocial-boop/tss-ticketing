@@ -6,8 +6,7 @@ export const EMAIL = 'theshuttlesocial@gmail.com'
 
 /** Main navigation, in order. The homepage FAQs are linked from the footer. */
 export const NAV: [href: string, label: string][] = [
-  ['/sessions', 'Sessions'],
-  ['/about', 'About'],
+  ['/sessions', 'Sessions & about'],
   ['/community', 'Community'],
   ['/join-us', 'Join us'],
   ['/contact', 'Contact'],

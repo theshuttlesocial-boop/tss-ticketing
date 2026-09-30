@@ -42,8 +42,8 @@ export default function PrivacyPage() {
           <li><strong>A TSS account (optional):</strong> your email, name and level, so you can sign in and see your bookings and
             games (contract). Showing you on the public leaderboard happens only if you turn it on (consent), and you can turn it off at any time.</li>
           <li><strong>Forms on theshuttlesocial.com (contact, Join us applications and the suggestions box):</strong> your name, email
-            and what you tell us, so we can reply or consider your application (for Join us, also your answers, the roles, nights and
-            area that suit you). You tick a box to agree before sending; suggestions can be sent anonymously. Each form is emailed to our
+            and what you tell us, so we can reply or consider your application (for Join us, also your answers, the areas you&apos;d like
+            to help with and where in London suits you). You tick a box to agree before sending; suggestions can be sent anonymously. Each form is emailed to our
             inbox; nothing is stored on the website or added to a mailing list. We note your IP address for up to 1 month to stop spam.</li>
           <li><strong>Emails:</strong> booking confirmations, sign-in codes and messages about sessions you booked. We don&apos;t send marketing emails.</li>
         </ul>

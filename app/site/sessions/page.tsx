@@ -1,21 +1,29 @@
 import type { Metadata } from 'next'
 import { getPublicSessions, type PublicSession } from '@/lib/sessions/public'
-import { CLUB_STATS } from '@/lib/site/stats'
+import { CLUB_STATS, getSessionsRun } from '@/lib/site/stats'
 import { BOOK, INSTAGRAM } from '@/lib/site/links'
+import { STORY } from '@/lib/site/story'
 import { FaqList } from '../_components/FaqList'
 import { HowItWorks, type Step } from '../_components/HowItWorks'
-import { Icon } from '../_components/Icon'
+import { Icon, type IconName } from '../_components/Icon'
 import { RotatingWord } from '../_components/RotatingWord'
+import { ScrollText } from '../_components/ScrollText'
 import { Arrow, PageHero, SiteFooter } from '../_components/SiteChrome'
 
 // Availability refreshes every minute.
 export const revalidate = 60
 
 export const metadata: Metadata = {
-  title: 'Sessions',
-  description: 'Upcoming social badminton sessions in London: dates, venues, prices and live availability. £10, all levels, no membership.',
+  title: 'Sessions & about us',
+  description: 'Upcoming social badminton sessions in London with live availability, and the story of The Shuttle Social. £10, all levels, no membership.',
   alternates: { canonical: '/sessions' },
 }
+
+const VALUES: [IconName, string, string, string][] = [
+  ['users', 'Come on your own', 'Most people do. A new partner every round means you’ll have played with half the room by the end of the night.', 'c-lime'],
+  ['shuttle', 'Every level', 'From complete beginners to experienced players. We match you to close games, so everyone gets a proper game.', 'c-mint'],
+  ['heart', 'Friends first', 'Scores count and there’s a grand final, but the friendships are why people keep coming back.', 'c-teal'],
+]
 
 function status(s: PublicSession) {
   if (s.status === 'coming_soon') {
@@ -42,17 +50,17 @@ const TICKETS: [string, string][] = [
 ]
 
 export default async function SessionsPage() {
-  const pub = await getPublicSessions()
+  const [pub, sessionsRun] = await Promise.all([getPublicSessions(), getSessionsRun()])
   const sessions = 'sessions' in pub ? pub.sessions : []
 
   return (
     <>
-      <PageHero current="/sessions" kicker="Sessions"
+      <PageHero current="/sessions" kicker="Sessions & about us"
         srTitle="Your next night on court."
         title={<>Your next night <RotatingWord words={['on court.', 'of doubles.', 'with friends.']} /></>}
         lead="Every session is ticket-only and spaces go fast. £10, all levels, no membership."
         chips={[<><Icon name="ticket" size={18} />£10 · all levels</>, <>Next up · <strong>new partner</strong></>, <><Icon name="flame" size={18} />Sold out in {CLUB_STATS.fastestSellOutSeconds}s</>]}
-        strip={{ label: 'Sessions at a glance', items: [['£10', 'per session'], ['All', 'levels welcome'], [`${CLUB_STATS.fastestSellOutSeconds}s`, 'fastest sell-out'], ['New', 'partner every round'], ['1', 'grand final a night'], ['0', 'membership fees']] }}>
+        strip={{ label: 'The Shuttle Social at a glance', items: [[`${CLUB_STATS.players}+`, 'different players'], [String(sessionsRun), 'sessions and counting'], ['£10', 'per session'], ['All', 'levels welcome'], [`${CLUB_STATS.regulars}+`, 'regulars'], [`${CLUB_STATS.fastestSellOutSeconds}s`, 'fastest sell-out']] }}>
         <a href={BOOK} className="book book-lg">Book a session<Arrow /></a>
       </PageHero>
 
@@ -97,6 +105,35 @@ export default async function SessionsPage() {
           </div>
         </section>
 
+        <section className="sec story-sec" id="story" aria-labelledby="story-h">
+          <span className="decor decor-lime" data-parallax="0.4" aria-hidden="true" style={{ right: '-6rem', top: '8%', width: '22rem', height: '22rem', opacity: 0.35 }} />
+          <div className="wrap split">
+            <div data-reveal="" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <span className="kicker" style={{ color: 'var(--lime)' }}>About us · since August 2025</span>
+              <h2 id="story-h" className="disp h2">Our story</h2>
+            </div>
+            <ScrollText paragraphs={STORY} />
+          </div>
+        </section>
+
+        <section className="sec" style={{ background: 'var(--s-real)' }} aria-labelledby="val-h">
+          <span className="decor decor-green" data-parallax="0.35" aria-hidden="true" style={{ right: '6%', top: '10%', width: '10rem', height: '10rem' }} />
+          <div className="wrap">
+            <div className="head-row" data-reveal="">
+              <h2 id="val-h" className="disp h2">What we’re about</h2>
+            </div>
+            <div className="cards" data-reveal-stagger="">
+              {VALUES.map(([icon, t, b, c]) => (
+                <div key={t} className={`card ${c}`} data-reveal="">
+                  <span className="icon"><Icon name={icon} /></span>
+                  <h3 className="h3" style={{ fontWeight: 800 }}>{t}</h3>
+                  <p className="muted">{b}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
         <section className="sec" style={{ background: 'var(--s-how)' }} aria-labelledby="night-h">
           <HowItWorks steps={NIGHT} title="What a night looks like" headingId="night-h" intro="Come on your own or bring friends. Everyone plays with everyone." />
         </section>
@@ -113,7 +150,7 @@ export default async function SessionsPage() {
           </div>
         </section>
 
-        <section className="sec" style={{ background: 'var(--s-real)' }} aria-labelledby="where-h">
+        <section className="sec" style={{ background: 'var(--s-week)' }} aria-labelledby="where-h">
           <span className="decor decor-green" data-parallax="0.3" aria-hidden="true" style={{ left: '-6rem', bottom: '0', width: '22rem', height: '22rem' }} />
           <div className="wrap split">
             <h2 id="where-h" className="disp h2" data-reveal="">Where we play</h2>

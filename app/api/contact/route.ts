@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { sendContactMessage } from '@/lib/email'
 import { allowReleaseLookup, clientIp } from '@/lib/rate-limit'
-import { AREAS, JOIN_INTERESTS, JOIN_QUESTIONS, JOIN_ROLES, NIGHTS, SUGGESTION_TOPICS, TOPICS } from '@/lib/site/forms'
+import { AREAS, JOIN_INTERESTS, JOIN_QUESTIONS, SUGGESTION_TOPICS, TOPICS } from '@/lib/site/forms'
 
 const clean = (v: unknown, max: number) => String(v ?? '').slice(0, max).trim()
 const bad = (error: string) => NextResponse.json({ error }, { status: 400 })
@@ -39,17 +39,14 @@ export async function POST(req: Request) {
   } else if (kind === 'suggestion') {
     fields.push(['Topic', SUGGESTION_TOPICS.includes(String(body.topic)) ? String(body.topic) : 'Something else'])
   } else {
-    const role = String(body.role)
-    if (!JOIN_ROLES.includes(role)) return bad('Please choose what you’d like to do.')
+    const interests = pick(body.interests, JOIN_INTERESTS)
+    const other = clean(body.other, 120)
+    if (!interests.length && !other) return bad('Please pick at least one area you’d like to help with.')
     const answers = (Array.isArray(body.answers) ? body.answers : []).map((a) => clean(a, 1500))
     const missing = JOIN_QUESTIONS.findIndex((_, k) => (answers[k] ?? '').length < 10)
     if (missing >= 0) return bad(`Please answer question ${missing + 1} (a sentence or two is fine).`)
-    const interests = pick(body.interests, JOIN_INTERESTS)
-    const other = clean(body.other, 120)
     fields.push(
-      ['Would like to', role],
-      ['Interested in', [...interests, ...(other ? [`Other: ${other}`] : [])].join(', ') || 'Not given'],
-      ['Nights', pick(body.nights, NIGHTS).join(', ') || 'Not given'],
+      ['Interested in', [...interests, ...(other ? [`Other: ${other}`] : [])].join(', ')],
       ['Area', AREAS.includes(String(body.area)) ? String(body.area) : 'Not given'],
     )
     text = JOIN_QUESTIONS.map((q, k) => `${k + 1}. ${q}\n${answers[k]}`).join('\n\n')

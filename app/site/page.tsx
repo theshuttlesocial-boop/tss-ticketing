@@ -227,8 +227,8 @@ export default async function Home() {
             <div>
               <ScrollText paragraphs={STORY} />
               <div className="story-sig" data-reveal="">
-                <a href="/about" className="pill pill-line small">More about us</a>
-                <a href="/join-us" className="pill pill-line small">Join us</a>
+                <a href="/sessions#story" className="pill pill-ghost small">More about us</a>
+                <a href="/join-us" className="pill pill-ghost small">Join us</a>
               </div>
             </div>
           </div>

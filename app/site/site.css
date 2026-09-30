@@ -149,7 +149,11 @@
 /* Words light up as the block scrolls through (ScrollText.tsx) */
 .tss .scroll-text { display: flex; flex-direction: column; gap: 1.125rem; font-size: clamp(1.375rem, 2.6vw, 2.25rem); font-weight: 700; line-height: 1.3; letter-spacing: -0.02em; }
 .tss .scroll-text[data-live] span { opacity: clamp(0.18, calc((var(--p, 0) * (var(--n) + 12) - var(--i)) / 6), 1); transition: opacity 0.15s linear; }
-.tss .story-sec { background: var(--s-story); }
+/* Our story: always a dark green space, so the lit-up words stand out */
+.tss .story-sec { color: var(--on-dark); background: radial-gradient(40rem 24rem at 85% 10%, rgba(217, 244, 107, 0.16), rgba(217, 244, 107, 0) 70%), linear-gradient(160deg, #0B2416 0%, #0E3B24 55%, #155A34 100%); }
+.tss .story-sec .muted { color: var(--on-dark-2); }
+.tss .story-sec .scroll-text { color: #F4F7EC; }
+.tss .story-sec .scroll-text p:last-child { color: var(--lime); }
 .tss .story-sig { display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap; margin-top: 1.5rem; }
 
 /* Colourful stat tiles on a light section (About) */

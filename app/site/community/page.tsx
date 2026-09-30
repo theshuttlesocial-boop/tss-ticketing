@@ -2,23 +2,15 @@ import type { Metadata } from 'next'
 import { CLUB_STATS } from '@/lib/site/stats'
 import { INSTAGRAM, TIKTOK } from '@/lib/site/links'
 import { ContactForm } from '../_components/ContactForm'
-import { FaqList } from '../_components/FaqList'
 import { Icon } from '../_components/Icon'
 import { RotatingWord } from '../_components/RotatingWord'
-import { PageHero, Ph, SiteFooter } from '../_components/SiteChrome'
+import { PageHero, SiteFooter } from '../_components/SiteChrome'
 
 export const metadata: Metadata = {
   title: 'Community',
-  description: 'Join The Shuttle Social community: our WhatsApp group, Instagram and TikTok, the leaderboard, our guidelines and a suggestions box.',
+  description: 'Join The Shuttle Social community: our WhatsApp group, Instagram and TikTok, the leaderboard and a suggestions box.',
   alternates: { canonical: '/community' },
 }
-
-const GUIDELINES: [string, string][] = [
-  ['Be welcoming', 'Say hello to new faces and mix with people you don’t know yet. Everyone was new once.'],
-  ['Play fair', 'Call the score honestly, give the benefit of the doubt on close shots, and play so the game is fun for everyone on court.'],
-  ['Respect the venue', 'Arrive on time, wear non-marking shoes, and leave the hall as you found it.'],
-  ['Look out for each other', 'If someone’s hurt or something doesn’t feel right, tell a host straight away. We want everyone to feel safe.'],
-]
 
 export default function CommunityPage() {
   const whatsapp = CLUB_STATS.whatsapp.toLocaleString('en-GB')
@@ -66,18 +58,7 @@ export default function CommunityPage() {
           </div>
         </section>
 
-        <section className="sec faq-sec" aria-labelledby="rules-h">
-          <span className="decor decor-lime" data-parallax="0.4" aria-hidden="true" style={{ right: '-10rem', top: '-6rem', width: '30rem', height: '30rem', opacity: 0.6 }} />
-          <div className="wrap faq">
-            <div data-reveal="" style={{ display: 'flex', flexDirection: 'column', gap: '1.125rem', alignItems: 'flex-start' }}>
-              <h2 id="rules-h" className="disp h2 faq-title">Community guidelines</h2>
-              <p className="lead" style={{ color: 'var(--on-dark-2)', maxWidth: '24ch' }}>So every night is a good night, for everyone.</p>
-            </div>
-            <FaqList items={GUIDELINES} />
-          </div>
-        </section>
-
-        <section className="sec story-sec" id="suggestions" aria-labelledby="sug-h">
+        <section className="sec" id="suggestions" style={{ background: 'var(--s-how)' }} aria-labelledby="sug-h">
           <span className="decor decor-green" data-parallax="0.3" aria-hidden="true" style={{ left: '-6rem', top: '10%', width: '24rem', height: '24rem' }} />
           <div className="wrap split">
             <div data-reveal="" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -87,17 +68,6 @@ export default function CommunityPage() {
             </div>
             <div className="card card-deep static" data-reveal="" style={{ gap: '1.5rem' }}>
               <ContactForm kind="suggestion" />
-            </div>
-          </div>
-        </section>
-
-        <section className="sec" style={{ background: 'var(--s-real)' }} aria-labelledby="partners-h">
-          <div className="wrap split">
-            <h2 id="partners-h" className="disp h2" data-reveal="">Friends of the club</h2>
-            <div className="card c-sage" data-reveal="">
-              <span className="icon"><Icon name="users" /></span>
-              <p className="lead"><Ph>Partner and community names, with a line about each, once you’re happy to show them</Ph></p>
-              <p className="muted small">Want to work with us? <a href="/contact">Get in touch</a>.</p>
             </div>
           </div>
         </section>

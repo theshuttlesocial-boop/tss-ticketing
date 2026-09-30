@@ -123,7 +123,7 @@ export function SiteFooter() {
         </div>
         <nav aria-label="Pages" className="foot-list">
           <a href="/sessions">Sessions</a>
-          <a href="/about">About</a>
+          <a href="/sessions#story">About us</a>
           <a href="/community">Community</a>
           <a href="/join-us">Join us</a>
           <a href="/contact">Contact</a>

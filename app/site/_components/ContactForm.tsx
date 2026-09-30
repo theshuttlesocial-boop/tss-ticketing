@@ -1,6 +1,6 @@
 'use client'
 import { useState } from 'react'
-import { AREAS, JOIN_INTERESTS, JOIN_QUESTIONS, JOIN_ROLES, NIGHTS, SUGGESTION_TOPICS, TOPICS } from '@/lib/site/forms'
+import { AREAS, JOIN_INTERESTS, JOIN_QUESTIONS, SUGGESTION_TOPICS, TOPICS } from '@/lib/site/forms'
 import { Icon } from './Icon'
 
 type Kind = 'contact' | 'join' | 'suggestion'
@@ -21,7 +21,6 @@ export function ContactForm({ kind = 'contact' }: { kind?: Kind }) {
   const [state, setState] = useState<'idle' | 'sending' | 'sent'>('idle')
   const [error, setError] = useState('')
   const [email, setEmail] = useState('')
-  const [role, setRole] = useState('')
 
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -32,7 +31,7 @@ export function ContactForm({ kind = 'contact' }: { kind?: Kind }) {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           kind, name: f.get('name'), email: f.get('email'), topic: f.get('topic'), area: f.get('area'),
-          nights: f.getAll('nights'), role: f.get('role'), interests: f.getAll('interests'), other: f.get('other'),
+          interests: f.getAll('interests'), other: f.get('other'),
           answers: JOIN_QUESTIONS.map((_, k) => f.get(`q${k}`)), message: f.get('message'),
           consent: f.get('consent') === 'yes', website: f.get('website'),
         }),
@@ -85,24 +84,14 @@ export function ContactForm({ kind = 'contact' }: { kind?: Kind }) {
 
       {kind === 'join' && (
         <>
-          <fieldset className="choices stack">
-            <legend>Would you like to: <span className="req">*</span></legend>
-            {JOIN_ROLES.map((r) => (
-              <label key={r} className="choice"><input type="radio" name="role" value={r} required checked={role === r} onChange={() => setRole(r)} />{r}</label>
-            ))}
-          </fieldset>
           <fieldset className="choices">
-            <legend>Which areas interest you?</legend>
+            <legend>Which areas would you like to help with? <span className="req">*</span></legend>
             {JOIN_INTERESTS.map((a) => <label key={a} className="choice"><input type="checkbox" name="interests" value={a} />{a}</label>)}
           </fieldset>
-          <label className="field"><span>Anything else? <span className="opt">(optional)</span></span>
-            <input className="input" name="other" maxLength={120} />
-          </label>
           <div className="form-2">
-            <fieldset className="choices">
-              <legend>Which nights could you help?</legend>
-              {NIGHTS.map((n) => <label key={n} className="choice"><input type="checkbox" name="nights" value={n} />{n}</label>)}
-            </fieldset>
+            <label className="field"><span>Something else? <span className="opt">(optional)</span></span>
+              <input className="input" name="other" maxLength={120} />
+            </label>
             <label className="field"><span>Where in London?</span>
               <select className="input" name="area" defaultValue="West London">{AREAS.map((a) => <option key={a}>{a}</option>)}</select>
             </label>
