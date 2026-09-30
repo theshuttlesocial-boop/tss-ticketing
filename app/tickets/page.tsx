@@ -747,9 +747,7 @@ export default function TicketsPage() {
 
       <div className="t-hero">
         <header className="nav">
-          <a href="https://theshuttlesocial.com" className="book small t-home" aria-label="The Shuttle Social: home page">
-            <span>the shuttle social</span><small>home</small>
-          </a>
+          <a href="https://theshuttlesocial.com" className="pill pill-ghost t-home">Home</a>
           <div className="nav-right">
             <a href="/account" className="book small">My portal<Arrow/></a>
             <ThemeToggle/>
