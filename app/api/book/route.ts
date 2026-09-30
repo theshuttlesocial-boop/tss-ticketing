@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+import { NextResponse, after } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { createPaymentIntent, stripe } from '@/lib/stripe'
 import { nanoid } from 'nanoid'
@@ -114,10 +114,15 @@ export async function POST(req: Request) {
     const u = await userFromRequest(req)
     const sameEmail = !!u && u.email.trim().toLowerCase() === String(email ?? '').trim().toLowerCase()
     if (sameEmail) {
-      const available = await availableCreditPence(email)
-      creditToApply = Math.min(available, totalPence)
+      // Set the credit aside under a per-email lock (migration 025), so two bookings at
+      // the same moment can't both spend it. Without the migration: the old read-only check.
+      const { data: held, error: holdErr } = await supabaseAdmin.rpc('hold_credit', { p_email: email, p_want: totalPence, p_booking_ref: bookingRef })
+      creditToApply = holdErr ? Math.min(await availableCreditPence(email), totalPence) : Math.max(0, Number(held) || 0)
     }
   }
+  const releaseCreditHold = () => creditToApply > 0
+    ? supabaseAdmin.from('credit_holds').delete().eq('booking_ref', bookingRef).then(() => {}, () => {})
+    : Promise.resolve()
   const chargePence = totalPence - creditToApply
 
   // Full cover: no Stripe. Create the booking as succeeded, consume credit, email.
@@ -130,23 +135,28 @@ export async function POST(req: Request) {
     }).select('id').single()
     if (insErr) {
       await supabaseAdmin.from('seat_holds').delete().eq('hold_token', holdToken)
+      await releaseCreditHold()
       // Capacity trigger or other failure.
       return NextResponse.json({ error: 'Could not complete booking' }, { status: 409 })
     }
     await consumeCredits(email, creditToApply, newBooking.id)
+    await releaseCreditHold()
     await supabaseAdmin.from('seat_holds').update({ used: true }).eq('hold_token', holdToken)
 
     const extras = additional_attendees ? additional_attendees.map((a: any) => a.name ?? a) : undefined
-    sendBookingConfirmation({
-      to: email, name, bookingRef, sessionTitle: session.title, sessionLabel: session.label,
-      sessionDate: session.date, sessionTime: session.time, venue: session.venue,
-      description: session.description, quantity, totalPence, additionalAttendees: extras,
-    }).catch(err => console.error('[book] confirmation email failed:', err))
-    sendAdminBookingNotification({
-      name, email, phone: phone ?? undefined, bookingRef, sessionTitle: session.title,
-      sessionDate: session.date, sessionTime: session.time, venue: session.venue, quantity, totalPence,
-      additionalAttendees: extras,
-    }).catch(err => console.error('[book] admin email failed:', err))
+    // after(): the emails finish sending even though the response has already gone.
+    after(() => Promise.allSettled([
+      sendBookingConfirmation({
+        to: email, name, bookingRef, sessionTitle: session.title, sessionLabel: session.label,
+        sessionDate: session.date, sessionTime: session.time, venue: session.venue,
+        description: session.description, quantity, totalPence, additionalAttendees: extras,
+      }).catch(err => console.error('[book] confirmation email failed:', err)),
+      sendAdminBookingNotification({
+        name, email, phone: phone ?? undefined, bookingRef, sessionTitle: session.title,
+        sessionDate: session.date, sessionTime: session.time, venue: session.venue, quantity, totalPence,
+        additionalAttendees: extras,
+      }).catch(err => console.error('[book] admin email failed:', err)),
+    ]).then(() => {}))
 
     return NextResponse.json({ fullyCovered: true, bookingRef, creditApplied: creditToApply, totalPence })
   }
@@ -163,6 +173,7 @@ export async function POST(req: Request) {
     })
   } catch (err: any) {
     await supabaseAdmin.from('seat_holds').delete().eq('hold_token', holdToken)
+    await releaseCreditHold()
     return NextResponse.json({ error: 'Payment setup failed' }, { status: 500 })
   }
 

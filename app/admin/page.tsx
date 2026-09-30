@@ -77,7 +77,7 @@ function AdminPageInner() {
   const [staff,setStaff]=useState<{email:string|null;role:string;via:string}|null>(null)
   const [sessions,setSessions]=useState<Session[]>([]); const [bookings,setBookings]=useState<Booking[]>([])
   const [waitlist,setWaitlist]=useState<any[]>([]); const [analytics,setAnalytics]=useState<any>(null)
-  const [tab,setTab]=useState<'overview'|'sessions'|'create'|'bookings'|'attendees'|'waitlist'|'analytics'|'settings'|'blocked'|'credits'|'releases'|'transfers'>('overview')
+  const [tab,setTab]=useState<'overview'|'sessions'|'create'|'bookings'|'attendees'|'waitlist'|'analytics'|'settings'|'blocked'|'credits'|'releases'|'transfers'|'inbox'>('overview')
   const [loading,setLoading]=useState(false); const [error,setError]=useState(''); const [msg,setMsg]=useState('')
   const [editing,setEditing]=useState<Session|null>(null)
   const [filterSession,setFilterSession]=useState(''); const [filterStatus,setFilterStatus]=useState('')
@@ -88,6 +88,7 @@ function AdminPageInner() {
   const [attendeeSearch,setAttendeeSearch]=useState('')
   const [searchLoading,setSearchLoading]=useState(false)
   const allBookingsRef=useRef<Booking[]>([])
+  const [inbox,setInbox]=useState<{messages:any[];missing?:boolean}>({messages:[]}); const [inboxFilter,setInboxFilter]=useState<'new'|'all'|'join'|'suggestion'>('new')
   const [credits,setCredits]=useState<any[]>([]); const [creditForm,setCreditForm]=useState({email:'',amount:''})
   const [releasesData,setReleasesData]=useState<{unresolved:any[];resolved:any[];offers:any[]}>({unresolved:[],resolved:[],offers:[]})
   const [transfers,setTransfers]=useState<any[]>([])
@@ -187,6 +188,17 @@ function AdminPageInner() {
     if(!confirm(`Remove ${email} from blocklist?`))return
     await fetch(`/api/admin/blocked?id=${id}`,{method:'DELETE',headers:{...staffHeaders(secret)}})
     loadBlocked();flash('✅ Removed from blocklist')
+  }
+
+  // ── Inbox (Join us applications and suggestions from the website) ──
+  async function loadInbox(){
+    const res=await fetch('/api/admin/inbox',{headers:{...staffHeaders(secret)}})
+    const d=await res.json().catch(()=>({}));setInbox({messages:d.messages??[],missing:!!d.missing})
+  }
+  async function markInbox(id:string,status:'reviewed'|'new'){
+    const res=await fetch('/api/admin/inbox',{method:'PATCH',headers:{'Content-Type':'application/json',...staffHeaders(secret)},body:JSON.stringify({id,status})})
+    if(!res.ok){flash('❌ Could not update');return}
+    loadInbox()
   }
 
   // ── Credits ──
@@ -289,6 +301,7 @@ function AdminPageInner() {
     if(tab==='analytics')loadAnalytics()
     if(tab==='blocked')loadBlocked()
     if(tab==='credits')loadCredits()
+    if(tab==='inbox')loadInbox()
     if(tab==='releases')loadReleases()
     if(tab==='transfers')loadTransfers()
   },[authed,tab,filterSession])
@@ -346,8 +359,8 @@ function AdminPageInner() {
   )
 
   const base:React.CSSProperties={minHeight:'100vh',background:T.bg,color:T.text,fontFamily:'inherit'}
-  const tabs=[['overview','📊'],['sessions','📅'],['create','➕'],['bookings','🎟'],['attendees','👥'],['waitlist','📋'],['releases','🔄'],['transfers','↔️'],['credits','💷'],['analytics','📈'],['settings','⚙️'],['blocked','🚫']]
-  const tabLabels:Record<string,string>={overview:'Overview',sessions:'Sessions',create:'New Session',bookings:'Bookings',attendees:'Attendees',waitlist:'Waitlist',releases:'Releases',transfers:'Transfers',credits:'Credits',analytics:'Analytics',settings:'Settings',blocked:'Blocked'}
+  const tabs=[['overview','📊'],['sessions','📅'],['create','➕'],['bookings','🎟'],['attendees','👥'],['waitlist','📋'],['releases','🔄'],['transfers','↔️'],['credits','💷'],['analytics','📈'],['inbox','✉️'],['settings','⚙️'],['blocked','🚫']]
+  const tabLabels:Record<string,string>={overview:'Overview',sessions:'Sessions',create:'New Session',bookings:'Bookings',attendees:'Attendees',waitlist:'Waitlist',releases:'Releases',transfers:'Transfers',credits:'Credits',inbox:'Inbox',analytics:'Analytics',settings:'Settings',blocked:'Blocked'}
 
   return(
     <div style={base}>
@@ -854,6 +867,53 @@ function AdminPageInner() {
             })}
           </div>
         )}
+
+        {/* INBOX */}
+        {tab==='inbox'&&(()=>{
+          const shown=inbox.messages.filter((m:any)=>inboxFilter==='all'?true:inboxFilter==='new'?m.status==='new':m.kind===inboxFilter)
+          const newCount=inbox.messages.filter((m:any)=>m.status==='new').length
+          const chip=(k:typeof inboxFilter,label:string)=>(
+            <button key={k} onClick={()=>setInboxFilter(k)} style={{padding:'7px 14px',borderRadius:999,fontSize:12,fontWeight:700,cursor:'pointer',fontFamily:'inherit',border:`1px solid ${inboxFilter===k?T.accentBorder:T.border}`,background:inboxFilter===k?T.accentDim:'transparent',color:inboxFilter===k?T.accent:T.muted}}>{label}</button>
+          )
+          return(
+            <div style={cardStyle}>
+              <div style={{padding:'12px 18px',borderBottom:`1px solid ${T.border}`,display:'flex',justifyContent:'space-between',alignItems:'center',gap:10,flexWrap:'wrap' as const}}>
+                <span style={{fontWeight:600,fontSize:12,color:T.muted,textTransform:'uppercase',letterSpacing:1}}>Website inbox · {newCount} new</span>
+                <div style={{display:'flex',gap:6,flexWrap:'wrap' as const}}>{chip('new','New')}{chip('join','Join us')}{chip('suggestion','Suggestions')}{chip('all','All')}</div>
+              </div>
+              {inbox.missing&&<div style={{padding:16,fontSize:13,color:T.warning}}>The inbox needs migration 025 (run it in the Supabase SQL Editor). Until then, messages still arrive by email.</div>}
+              {!inbox.missing&&shown.length===0&&<div style={{padding:40,textAlign:'center',color:T.muted}}>{inboxFilter==='new'?'All caught up':'Nothing here yet'}</div>}
+              {shown.map((m:any,i:number)=>{
+                const fields:[string,string][]=Array.isArray(m.fields)?m.fields:[]
+                const isNew=m.status==='new'
+                return(
+                  <div key={m.id} style={{padding:'16px 18px',borderBottom:i<shown.length-1?`1px solid var(--card-2)`:'none',opacity:isNew?1:0.75}}>
+                    <div style={{display:'flex',justifyContent:'space-between',gap:12,alignItems:'flex-start',flexWrap:'wrap' as const}}>
+                      <div style={{minWidth:0}}>
+                        <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap' as const}}>
+                          <span style={{padding:'2px 9px',borderRadius:20,fontSize:11,fontWeight:700,background:`color-mix(in srgb, ${m.kind==='join'?T.accent:T.info} 12%, transparent)`,color:m.kind==='join'?T.accent:T.info}}>{m.kind==='join'?'Join us':'Suggestion'}</span>
+                          <strong style={{fontSize:15}}>{m.name||'Anonymous'}</strong>
+                          {m.email&&<a href={`mailto:${m.email}`} style={{fontSize:13,color:T.accent}}>{m.email}</a>}
+                        </div>
+                        <div style={{fontSize:11,color:T.muted,marginTop:4}}>
+                          {new Date(m.created_at).toLocaleString('en-GB',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})}
+                          {!isNew&&m.reviewed_by?` · reviewed by ${m.reviewed_by}`:''}
+                        </div>
+                      </div>
+                      <button onClick={()=>markInbox(m.id,isNew?'reviewed':'new')} style={isNew?{padding:'8px 16px',background:T.cta,color:T.onCta,boxShadow:T.ctaGlow,border:'none',borderRadius:999,fontWeight:700,fontSize:12,cursor:'pointer',fontFamily:'inherit'}:{padding:'8px 16px',background:'transparent',color:T.muted,border:`1px solid ${T.border}`,borderRadius:999,fontWeight:600,fontSize:12,cursor:'pointer',fontFamily:'inherit'}}>
+                        {isNew?'Mark reviewed':'Mark as new'}
+                      </button>
+                    </div>
+                    {fields.length>0&&<div style={{display:'flex',gap:'4px 16px',flexWrap:'wrap' as const,fontSize:12,color:T.muted,marginTop:10}}>
+                      {fields.map(([k,v])=><span key={k}><strong style={{color:T.text}}>{k}:</strong> {v}</span>)}
+                    </div>}
+                    <div style={{whiteSpace:'pre-wrap',fontSize:14,lineHeight:1.6,marginTop:10,padding:'12px 14px',borderRadius:14,background:'var(--card-2)'}}>{m.message}</div>
+                  </div>
+                )
+              })}
+            </div>
+          )
+        })()}
 
         {/* CREDITS */}
         {tab==='credits'&&(

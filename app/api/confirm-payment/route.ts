@@ -139,6 +139,8 @@ export async function POST(req: Request) {
       if (amt > 0) {
         await consumeCredits(booking.email, amt, booking.id).catch(err => console.error('[webhook] credit consume failed:', err))
       }
+      // The credit is spent now: drop the hold that reserved it at checkout (migration 025).
+      await supabaseAdmin.from('credit_holds').delete().eq('booking_ref', booking_ref).then(() => {}, () => {})
     }
 
     // ── 4b. Waitlist claim resolution (this booking came from a claim link) ──
