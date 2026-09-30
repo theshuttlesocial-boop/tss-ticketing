@@ -5,6 +5,7 @@ import { nanoid } from 'nanoid'
 import { availableCreditPence, consumeCredits } from '@/lib/credits'
 import { sendBookingConfirmation, sendAdminBookingNotification } from '@/lib/email'
 import { logAudit } from '@/lib/audit'
+import { userFromRequest } from '@/lib/account'
 
 export async function POST(req: Request) {
   const body = await req.json()
@@ -106,10 +107,16 @@ export async function POST(req: Request) {
   // ── Credit redemption (not for waitlist claims) ─────────────────────────────
   // Apply available credit to reduce (or fully cover) the charge. Never negative,
   // never more than the order total.
+  // Only the owner of the email can spend its credit: the booker must be signed in
+  // with that same email. Otherwise the booking goes ahead at full price.
   let creditToApply = 0
   if (!claim_token && body.apply_credit) {
-    const available = await availableCreditPence(email)
-    creditToApply = Math.min(available, totalPence)
+    const u = await userFromRequest(req)
+    const sameEmail = !!u && u.email.trim().toLowerCase() === String(email ?? '').trim().toLowerCase()
+    if (sameEmail) {
+      const available = await availableCreditPence(email)
+      creditToApply = Math.min(available, totalPence)
+    }
   }
   const chargePence = totalPence - creditToApply
 
