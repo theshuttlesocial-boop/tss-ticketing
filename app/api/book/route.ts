@@ -8,6 +8,7 @@ import { logAudit } from '@/lib/audit'
 import { userFromRequest } from '@/lib/account'
 import { getWelcomeSettings, normaliseCode } from '@/lib/welcome'
 import { settleReleasesFilledBy } from '@/lib/settlement'
+import { isSessionDayLondon, SESSION_DAY_CLAIM_HOLD_SECONDS } from '@/lib/waitlist-alloc'
 
 export async function POST(req: Request) {
   const body = await req.json()
@@ -16,6 +17,7 @@ export async function POST(req: Request) {
 
   // ── Waitlist claim: validate the live offer and size the order from it ──────
   let waitlistId: string | null = null
+  let shortHold = false   // session-day claim: hold the seat for 1 minute, not 10
   if (claim_token) {
     const { data: offer } = await supabaseAdmin.from('waitlist')
       .select('id,session_id,claim_spaces,claim_expires_at,status')
@@ -27,6 +29,8 @@ export async function POST(req: Request) {
     waitlistId = offer.id
     quantity = offer.claim_spaces ?? 1   // authoritative: size the order from the offer
     logAudit('claim_attempt', { waitlistId, sessionId: session_id, spaces: quantity }, offer.id).catch(() => {})
+    const { data: s } = await supabaseAdmin.from('sessions').select('date').eq('id', session_id).single()
+    shortHold = !!s?.date && isSessionDayLondon(s.date, new Date())
   }
 
   if (!session_id || !quantity || !name || !email || !phone)
@@ -70,16 +74,21 @@ export async function POST(req: Request) {
       if (pi.status === 'requires_payment_method' || pi.status === 'requires_confirmation' || pi.status === 'requires_action') {
         const holdToken = pi.metadata?.hold_token
         let expiresAt = new Date(Date.now() + 8 * 60 * 1000).toISOString()
+        let holdLive = false
         if (holdToken) {
           const { data: hold } = await supabaseAdmin
             .from('seat_holds').select('expires_at').eq('hold_token', holdToken).single()
-          if (hold?.expires_at) expiresAt = hold.expires_at
+          if (hold?.expires_at) { expiresAt = hold.expires_at; holdLive = new Date(hold.expires_at) > new Date() }
         }
-        console.log('[book] dedup: returning existing PI for', email, session_id)
-        return NextResponse.json({
-          clientSecret: pi.client_secret, holdToken, bookingRef: existingBooking.booking_ref,
-          expiresAt, totalPence: existingBooking.total_pence,
-        })
+        // A session-day claim's 1-minute hold may have run out: take a fresh hold
+        // below rather than hand back a payment with no seat held behind it.
+        if (!shortHold || holdLive) {
+          console.log('[book] dedup: returning existing PI for', email, session_id)
+          return NextResponse.json({
+            clientSecret: pi.client_secret, holdToken, bookingRef: existingBooking.booking_ref,
+            expiresAt, totalPence: existingBooking.total_pence,
+          })
+        }
       }
     } catch (e) {
       // If PI retrieval fails, fall through and create a fresh one
@@ -103,6 +112,13 @@ export async function POST(req: Request) {
 
   if (holdError) return NextResponse.json({ error: 'Could not process request' }, { status: 500 })
   if (!holdResult.success) return NextResponse.json({ error: holdResult.error, available: holdResult.available ?? 0 }, { status: 409 })
+
+  // Session-day claim: shorten the seat hold to 1 minute (see SESSION_DAY_CLAIM_HOLD_SECONDS).
+  if (shortHold) {
+    const shortExpiry = new Date(Date.now() + SESSION_DAY_CLAIM_HOLD_SECONDS * 1000).toISOString()
+    await supabaseAdmin.from('seat_holds').update({ expires_at: shortExpiry }).eq('hold_token', holdToken)
+    holdResult.expires_at = shortExpiry
+  }
 
   const { data: session } = await supabaseAdmin.from('sessions').select('price_pence, title, label, date, time, venue, description, max_tickets_per_order').eq('id', session_id).single()
   if (!session) return NextResponse.json({ error: 'Session not found' }, { status: 404 })

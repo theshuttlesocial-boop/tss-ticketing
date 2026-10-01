@@ -124,7 +124,10 @@ export default function ClaimPage(){
         <button onClick={()=>setConfirmDecline(true)} style={{width:'100%',marginTop:10,padding:'10px',background:'none',border:'none',color:T.muted,fontSize:13,cursor:'pointer',fontFamily:'inherit',textDecoration:'underline'}}>Can&apos;t make it? Pass it on</button>
         </>
       ):(
-        <ClaimCheckout clientSecret={clientSecret} onSuccess={()=>setDone(true)} onGone={()=>setGone(true)}/>
+        <>
+          {offer.competitive&&<p style={{color:T.muted,fontSize:13,lineHeight:1.5,margin:'0 0 12px'}}>Your spot is held for 1 minute while you pay. If it runs out, someone else on the waitlist can take it.</p>}
+          <ClaimCheckout clientSecret={clientSecret} onSuccess={()=>setDone(true)} onGone={()=>setGone(true)}/>
+        </>
       )}
     </div>
   )
