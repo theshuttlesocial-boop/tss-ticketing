@@ -2,18 +2,28 @@ import { requireAdmin } from '@/lib/staff'
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendWaitlistConfirmation, sendAdminWaitlistNotification } from '@/lib/email'
+import { validateWaitlistInput } from '@/lib/waitlist-validate'
+import { allowWaitlistSignup, clientIp } from '@/lib/rate-limit'
 
 export async function POST(req: Request) {
-  const body = await req.json()
-  const { name, email, phone } = body
+  const body = await req.json().catch(() => ({}))
 
   // Accept the new multi-session shape, or fall back to a single session_id.
   const sessionIds: string[] = Array.isArray(body.session_ids) && body.session_ids.length
     ? body.session_ids
     : (body.session_id ? [body.session_id] : [])
 
-  if (!sessionIds.length || !name || !email || !phone)
+  if (!sessionIds.length)
     return NextResponse.json({ error: 'All fields required' }, { status: 400 })
+
+  // Flood guard (generous; see lib/rate-limit.ts for how the cap was chosen).
+  if (!(await allowWaitlistSignup(clientIp(req))))
+    return NextResponse.json({ error: 'Too many sign-ups from this connection. Please try again in a few minutes.' }, { status: 429 })
+
+  // Reject only details that can't belong to a real person (see lib/waitlist-validate.ts).
+  const check = validateWaitlistInput(body)
+  if ('error' in check) return NextResponse.json({ error: check.error, field: check.field }, { status: 400 })
+  const { name, email, phone } = check
 
   const spacesNeeded = Math.min(4, Math.max(1, Number(body.spaces_needed) || 1))
   let minSpaces = Number(body.min_spaces_acceptable) || 1
