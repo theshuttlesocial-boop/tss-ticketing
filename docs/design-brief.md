@@ -128,6 +128,7 @@ tickets.theshuttlesocial.com (tickets, My portal and player pages, live-session 
   and parallax shapes. No white cards: cards use the palette (`.c-mint`, `.c-lime`, `.c-sage`, `.c-teal`, `.c-forest`,
   `.card-deep`). Icons are line SVGs (`Icon.tsx`), never emoji.
   Terms shows the same text as the booking pop-up (Admin → Settings). Local preview: http://site.localhost:3000.
+- "Real nights" clips: `public/videos/*.mp4` (H.264, no audio, 540 px wide portrait or 960 px wide landscape, about 1.2–1.6 Mbps) with a `.jpg` cover each, listed in `CLIPS` in `app/site/page.tsx`. They load and play only when on screen; with reduced motion they show the cover and controls.
 - Functional screens use the same type, colours and components with less decorative motion. The TV board is
   always dark. QR codes stay black on white.
 - Emails (`lib/email.ts`) still use the older look; bring them in line separately.
