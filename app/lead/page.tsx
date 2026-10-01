@@ -133,7 +133,7 @@ function LeadPageInner() {
   )
 }
 
-/** Owners and admins pass the authenticator step first (Phase 5d). */
+/** The authenticator step (Phase 5d) only shows if STAFF_TWO_STEP=on; it's off by default. */
 export default function LeadPage() {
   return <RequireTwoStep><LeadPageInner /></RequireTwoStep>
 }

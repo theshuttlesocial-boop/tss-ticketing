@@ -9,7 +9,8 @@ type Member = { id: string; email: string; role: 'owner' | 'admin' | 'session_le
   assignments: { id: string; label: string; valid_from: string | null; valid_to: string | null; live: boolean }[] }
 type Data = { staff: Member[]; upcoming: { id: string; title: string; venue: string; date: string; time: string }[]
   live: { id: string; name: string; status: string }[]
-  audit: { at: string; source: 'site' | 'live'; event: string; who: string | null; detail: any; entity?: string }[] }
+  audit: { at: string; source: 'site' | 'live'; event: string; who: string | null; detail: any; entity?: string }[]
+  twoStepRequired?: boolean }
 
 const ROLE: Record<string, string> = { owner: 'Owner', admin: 'Admin', session_lead: 'Session lead' }
 const wrap: React.CSSProperties = { minHeight:'100vh', background:T.bg, color:T.text, padding:'20px 16px 48px',
@@ -139,7 +140,7 @@ function MemberCard({ m, data, busy, self, call }: { m: Member; data: Data; busy
         <div style={{ minWidth:0 }}>
           <div style={{ fontWeight:800, wordBreak:'break-all' }}>{m.email}{self ? ' (you)' : ''}</div>
           <div style={{ fontSize:12, color: m.active ? T.muted : T.danger }}>{m.active ? ROLE[m.role] : `Access removed ${when(m.revoked_at)}`}
-            {m.active && m.role !== 'session_lead' && <span style={{ color: m.twoStep ? T.accent : T.warning }}> · {m.twoStep ? 'two-step on' : 'two-step not set up yet'}</span>}
+            {data.twoStepRequired && m.active && m.role !== 'session_lead' && <span style={{ color: m.twoStep ? T.accent : T.warning }}> · {m.twoStep ? 'two-step on' : 'two-step not set up yet'}</span>}
           </div>
         </div>
         {m.active
@@ -154,7 +155,7 @@ function MemberCard({ m, data, busy, self, call }: { m: Member; data: Data; busy
           {Object.entries(ROLE).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
       )}
-      {m.active && m.twoStep && !self && (
+      {data.twoStepRequired && m.active && m.twoStep && !self && (
         <button style={{ ...btn(), width:'100%', minHeight:40, marginBottom:8, fontSize:13 }} disabled={busy}
           onClick={() => { if (confirm(`Reset ${m.email}'s two-step login? Their authenticator stops working, they're signed out everywhere, and they set it up again next time they sign in.`)) call('/api/staff', 'PATCH', { id: m.id, resetTwoStep: true }, `Two-step reset for ${m.email}`) }}>
           Reset two-step (lost phone)
@@ -194,7 +195,7 @@ function MemberCard({ m, data, busy, self, call }: { m: Member; data: Data; busy
   )
 }
 
-/** Owners and admins pass the authenticator step first (Phase 5d). */
+/** The authenticator step (Phase 5d) only shows if STAFF_TWO_STEP=on; it's off by default. */
 export default function StaffPage() {
   return <RequireTwoStep><StaffPageInner /></RequireTwoStep>
 }

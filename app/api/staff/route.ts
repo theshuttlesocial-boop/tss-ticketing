@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { requireOwner } from '@/lib/staff'
+import { needsTwoStep } from '@/lib/staffRules'
 import { auditFeed, inviteStaff, listStaff, resetTwoStep, StaffError, updateStaff } from '@/lib/staffAdmin'
 
 const fail = (e: unknown) => NextResponse.json({ error: (e as Error).message }, { status: e instanceof StaffError ? 400 : 500 })
@@ -8,7 +9,7 @@ const fail = (e: unknown) => NextResponse.json({ error: (e as Error).message }, 
 export async function GET(req: Request) {
   if (!(await requireOwner(req))) return NextResponse.json({ error: 'Owners only' }, { status: 403 })
   const [team, audit] = await Promise.all([listStaff(), auditFeed()])
-  return NextResponse.json({ ...team, audit })
+  return NextResponse.json({ ...team, audit, twoStepRequired: needsTwoStep('owner') })
 }
 
 /** Invite: { email, role, sendEmail } */
