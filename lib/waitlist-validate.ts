@@ -14,6 +14,12 @@ const INVISIBLE = /[​-‏‪-‮⁠-⁤﻿ ]/g
 // Anything else can't receive our emails anyway.
 const EMAIL = /^[^\s@]+@[^\s@]+\.\p{L}{2,}$/u
 
+/** Same email rule as the waitlist, for other forms (e.g. live-session registration). */
+export function looksLikeEmail(raw: unknown): boolean {
+  const email = String(raw ?? '').replace(INVISIBLE, '').trim()
+  return EMAIL.test(email) && email.length <= 254
+}
+
 export type ValidationResult =
   | { ok: true; name: string; email: string; phone: string }
   | { ok: false; field: 'name' | 'email' | 'phone'; error: string }

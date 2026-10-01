@@ -2,13 +2,14 @@
  * Session-lead console data (Roadmap Phase 5b). Server only.
  *
  * A session lead sees only the sessions assigned to them, inside the
- * assignment's time window, and of each booking only what running the door
- * needs: first name + last initial, spaces, and check-in. No email, phone,
- * payment or refund data. Owners and admins see every session happening today.
+ * assignment's time window: how many booked, and who attended (registered in
+ * the live session) as first name + last initial. No email, phone, payment or
+ * refund data. Owners and admins see every session happening today, with
+ * attendees' emails and whether each one booked.
  */
 import { supabaseAdmin } from '@/lib/supabase';
-import { publicName } from '@/lib/accounts/history';
 import { assignmentActive, isAdminRole, StaffUser } from '@/lib/staffRules';
+import { attendanceFor } from '@/lib/attendance';
 
 export interface LeadAssignment { live_session_id: string | null; ticket_session_id: string | null; valid_from: string | null; valid_to: string | null }
 
@@ -21,7 +22,7 @@ export async function assignmentsFor(s: StaffUser): Promise<LeadAssignment[]> {
   return (data ?? []).filter((a) => assignmentActive(a, Date.now()));
 }
 
-/** May this staff member check people in for this booking session? */
+/** May this staff member run this booking session (see attendance, add players)? */
 export async function canRunTicketSession(s: StaffUser, ticketSessionId: string) {
   if (isAdminRole(s.role)) return true;
   return (await assignmentsFor(s)).some((a) => a.ticket_session_id === ticketSessionId);
@@ -40,24 +41,27 @@ export async function leadConsole(s: StaffUser) {
         .gte('created_at', new Date(Date.now() - 18 * 3600e3).toISOString())).data ?? []).map((x) => x.id)
     : mine.map((a) => a.live_session_id).filter(Boolean) as string[];
 
-  const [{ data: ticketSessions }, { data: bookings }, { data: live }] = await Promise.all([
+  const [{ data: ticketSessions }, { data: bookings }, { data: live }, attendance] = await Promise.all([
     ticketIds.length ? supabaseAdmin.from('sessions').select('id,title,venue,date,time,capacity').in('id', ticketIds) : Promise.resolve({ data: [] as any[] }),
     ticketIds.length
-      ? supabaseAdmin.from('bookings').select('id,session_id,name,quantity,checked_in_at').in('session_id', ticketIds).eq('stripe_status', 'succeeded')
+      ? supabaseAdmin.from('bookings').select('session_id,quantity,spaces_released').in('session_id', ticketIds).in('stripe_status', ['succeeded', 'partially_refunded'])
       : Promise.resolve({ data: [] as any[] }),
     liveIds.length ? supabaseAdmin.from('live_sessions').select('id,name,status,created_at').in('id', liveIds) : Promise.resolve({ data: [] as any[] }),
+    // Who attended = who registered in the linked live session. Leads see first
+    // name + last initial only; owners/admins also see emails and who booked.
+    attendanceFor(ticketIds, isAdminRole(s.role)),
   ]);
 
   return {
     role: s.role,
     sessions: (ticketSessions ?? []).map((t: any) => {
-      const list = (bookings ?? []).filter((b: any) => b.session_id === t.id)
-        .map((b: any) => ({ id: b.id, name: publicName(b.name ?? 'Guest'), spaces: b.quantity, checkedIn: !!b.checked_in_at }))
-        .sort((a: any, b: any) => a.name.localeCompare(b.name));
+      const a = attendance?.[t.id];
       return { id: t.id, title: t.title, venue: t.venue, date: t.date, time: t.time, capacity: t.capacity,
-        booked: list.reduce((n: number, b: any) => n + b.spaces, 0),
-        arrived: list.filter((b: any) => b.checkedIn).reduce((n: number, b: any) => n + b.spaces, 0),
-        attendees: list };
+        booked: (bookings ?? []).filter((b: any) => b.session_id === t.id)
+          .reduce((n: number, b: any) => n + b.quantity - (b.spaces_released ?? 0), 0),
+        attendanceReady: attendance !== null,      // false until migration 029 is run
+        hasLiveSession: (a?.liveSessionIds.length ?? 0) > 0,
+        attendees: a?.attendees ?? [] };
     }),
     live: (live ?? []).sort((a: any, b: any) => (a.created_at < b.created_at ? 1 : -1))
       .map((l: any) => ({ id: l.id, name: l.name, status: l.status })),

@@ -5,6 +5,7 @@ import { playerCookie } from '@/lib/live-session/pin'
 import { issuePin } from '@/lib/live-session/pinServer'
 import { supabaseAdmin } from '@/lib/supabase'
 import { ensurePlayer, userFromRequest } from '@/lib/account'
+import { cleanOptionalEmail, saveLivePlayerEmail } from '@/lib/attendance'
 
 type Ctx = { params: Promise<{ id: string }> }
 
@@ -22,12 +23,16 @@ type Ctx = { params: Promise<{ id: string }> }
  */
 export async function POST(req: Request, { params }: Ctx) {
   const { id } = await params
-  const { name, level } = await req.json()
+  const { name, level, email } = await req.json()
 
   const clean = String(name ?? '').trim().replace(/\s+/g, ' ')
   if (clean.length < 2) return NextResponse.json({ error: 'Please enter your name' }, { status: 400 })
   if (clean.length > 40) return NextResponse.json({ error: 'That name is too long' }, { status: 400 })
   if (!LEVELS.includes(level)) return NextResponse.json({ error: 'Pick a level' }, { status: 400 })
+  // Optional: links them to their booking and lets their attendance show in My portal.
+  let typedEmail: string | null
+  try { typedEmail = cleanOptionalEmail(email) }
+  catch (e) { return NextResponse.json({ error: (e as Error).message }, { status: 400 }) }
 
   try {
     const meta = await autoFinishIfStale(id, await loadMeta(id))
@@ -64,6 +69,9 @@ export async function POST(req: Request, { params }: Ctx) {
 
     const playerId = await addPlayer(id, clean, level, { actor: 'player' })
     if (account) await supabaseAdmin.from('live_session_players').update({ player_id: account.id }).eq('id', playerId)
+    // Signed in: their account email is proven, so record that. Otherwise the one
+    // they typed (linked to an account only once they sign in with it).
+    await saveLivePlayerEmail(playerId, account?.email ?? typedEmail, 'player').catch(() => {})
     // Signed-in players don't need a PIN: signing in gets them back anywhere.
     const pin = account ? null : await issuePin(playerId)
     // Shown once: only its hash is kept. The cookie lets this phone (in this
