@@ -7,6 +7,7 @@ import { sendBookingConfirmation, sendAdminBookingNotification } from '@/lib/ema
 import { logAudit } from '@/lib/audit'
 import { userFromRequest } from '@/lib/account'
 import { getWelcomeSettings, normaliseCode } from '@/lib/welcome'
+import { settleReleasesFilledBy } from '@/lib/settlement'
 
 export async function POST(req: Request) {
   const body = await req.json()
@@ -89,9 +90,16 @@ export async function POST(req: Request) {
   const holdToken  = nanoid(24)
   const bookingRef = 'TSS-' + nanoid(5).toUpperCase()
 
-  const { data: holdResult, error: holdError } = await supabaseAdmin.rpc('claim_seat_hold', {
-    p_session_id: session_id, p_quantity: quantity, p_hold_token: holdToken,
+  // Waitlist claims may use spaces held for live offers; public bookings may not
+  // (migration 028). Until 028 is run, fall back to the old three-argument function.
+  let { data: holdResult, error: holdError } = await supabaseAdmin.rpc('claim_seat_hold', {
+    p_session_id: session_id, p_quantity: quantity, p_hold_token: holdToken, p_for_waitlist: !!claim_token,
   })
+  if (holdError?.code === 'PGRST202') {
+    ;({ data: holdResult, error: holdError } = await supabaseAdmin.rpc('claim_seat_hold', {
+      p_session_id: session_id, p_quantity: quantity, p_hold_token: holdToken,
+    }))
+  }
 
   if (holdError) return NextResponse.json({ error: 'Could not process request' }, { status: 500 })
   if (!holdResult.success) return NextResponse.json({ error: holdResult.error, available: holdResult.available ?? 0 }, { status: 409 })
@@ -170,6 +178,8 @@ export async function POST(req: Request) {
     await releaseCreditHold()
     if (welcomePence > 0) await supabaseAdmin.from('welcome_redemptions').update({ status: 'redeemed', redeemed_at: new Date().toISOString() }).eq('booking_ref', bookingRef)
     await supabaseAdmin.from('seat_holds').update({ used: true }).eq('hold_token', holdToken)
+    // A credit-paid booking can also take a released space: pay that releaser.
+    await settleReleasesFilledBy(session_id, newBooking.id, quantity).catch(err => console.error('[book] release settlement failed:', err))
 
     const extras = additional_attendees ? additional_attendees.map((a: any) => a.name ?? a) : undefined
     // after(): the emails finish sending even though the response has already gone.

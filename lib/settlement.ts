@@ -3,7 +3,7 @@ import { stripe } from '@/lib/stripe'
 import { computeRefundQuote } from '@/lib/release'
 import { sendCreditIssued, sendCardRefundIssued } from '@/lib/email'
 import { logAudit } from '@/lib/audit'
-import { isFeeAccruingRelease, withinPriorWindow } from '@/lib/settlement-calc'
+import { isFeeAccruingRelease, withinPriorWindow, releasedSpacesTaken } from '@/lib/settlement-calc'
 
 const CREDIT_EXPIRY_DAYS = 90
 
@@ -32,6 +32,28 @@ async function priorCardRefundCount(email: string, beforeIso: string, excludeRel
     counted.add(`${r.booking_id}|${r.released_at}`)
   }
   return counted.size
+}
+
+/**
+ * Call after ANY booking is paid (waitlist claim or public). Works out how many of this
+ * session's still-open released spaces are now actually taken, and settles that many
+ * releases (oldest first) against this booking, so a releaser is always paid when their
+ * space is resold, however it was bought.
+ *   taken released spaces = seats in use (net of releases) + open released spaces − capacity
+ * Example: 24 capacity, all sold, 1 released (23 in use + 1 open = 24): nothing taken.
+ * Someone pays for 1: 24 in use + 1 open − 24 = 1, so the release is settled.
+ */
+export async function settleReleasesFilledBy(sessionId: string, bookingId: string, quantity: number, waitlistId?: string): Promise<number> {
+  const [sessionRes, bookingsRes, releasesRes] = await Promise.all([
+    supabaseAdmin.from('sessions').select('capacity').eq('id', sessionId).single(),
+    supabaseAdmin.from('bookings').select('quantity,spaces_released').eq('session_id', sessionId).in('stripe_status', ['succeeded', 'partially_refunded']),
+    supabaseAdmin.from('releases').select('spaces').eq('session_id', sessionId).is('outcome', null).is('resolved_at', null),
+  ])
+  const openReleased = (releasesRes.data ?? []).reduce((a, r) => a + r.spaces, 0)
+  if (!openReleased || !sessionRes.data) return 0
+  const inUse = (bookingsRes.data ?? []).reduce((a, b) => a + (b.quantity - (b.spaces_released ?? 0)), 0)
+  const taken = releasedSpacesTaken(inUse, openReleased, sessionRes.data.capacity, quantity)
+  return taken > 0 ? applyClaimToReleases(sessionId, taken, bookingId, waitlistId) : 0
 }
 
 /**

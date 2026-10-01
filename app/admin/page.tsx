@@ -93,7 +93,8 @@ function AdminPageInner() {
   const [inbox,setInbox]=useState<{messages:any[];missing?:boolean}>({messages:[]}); const [inboxFilter,setInboxFilter]=useState<'new'|'all'|'join'|'suggestion'>('new')
   const [welcomeData,setWelcomeData]=useState<{redemptions:any[];joins:{last30:number;byHeard:Record<string,number>}|null;missing?:boolean}>({redemptions:[],joins:null})
   const [credits,setCredits]=useState<any[]>([]); const [creditForm,setCreditForm]=useState({email:'',amount:''})
-  const [releasesData,setReleasesData]=useState<{unresolved:any[];resolved:any[];offers:any[]}>({unresolved:[],resolved:[],offers:[]})
+  const [releasesData,setReleasesData]=useState<{unresolved:any[];resolved:any[];offers:any[];manage:any[]}>({unresolved:[],resolved:[],offers:[],manage:[]})
+  const [offerMinutes,setOfferMinutes]=useState(20)
   const [transfers,setTransfers]=useState<any[]>([])
   const [blocked,setBlocked]=useState<{id:string;email:string;reason?:string;created_at:string}[]>([])
   const [blockForm,setBlockForm]=useState({email:'',reason:''})
@@ -234,7 +235,7 @@ function AdminPageInner() {
   // ── Releases ──
   async function loadReleases(){
     const res=await fetch('/api/admin/releases',{headers:{...staffHeaders(secret)}})
-    const d=await res.json();setReleasesData({unresolved:d.unresolved??[],resolved:d.resolved??[],offers:d.offers??[]})
+    const d=await res.json();setReleasesData({unresolved:d.unresolved??[],resolved:d.resolved??[],offers:d.offers??[],manage:d.manage??[]})
   }
   async function releaseAll(sessionId:string,title:string){
     if(!confirm(`Offer all open spots for "${title}" to everyone now (skips the new-player window)?`))return
@@ -242,6 +243,21 @@ function AdminPageInner() {
     const d=await res.json()
     if(!res.ok){flash(`❌ ${d.error??'Failed'}`);return}
     flash(`✅ Offered ${d.offered} · ${d.openSpots} open`);loadReleases()
+  }
+  // Choose who gets a released space
+  async function manageAction(body:Record<string,unknown>,ok:string){
+    const res=await fetch('/api/admin/releases',{method:'POST',headers:{'Content-Type':'application/json',...staffHeaders(secret)},body:JSON.stringify(body)})
+    const d=await res.json().catch(()=>({}))
+    if(!res.ok){flash(`❌ ${d.error??'Failed'}`);return}
+    flash(`✅ ${ok}`);loadReleases()
+  }
+  function offerTo(w:any){
+    if(!confirm(`Offer ${w.spaces_needed>1?`up to ${w.spaces_needed} spaces`:'the space'} to ${w.name}? It's held just for them.`))return
+    manageAction({action:'offer_to',waitlist_id:w.id,minutes:offerMinutes},`Offered to ${w.name}`)
+  }
+  function withdraw(w:any){
+    if(!confirm(`Withdraw ${w.name}'s offer? They keep their place on the list. Automatic offers pause for this session so you can choose who gets it.`))return
+    manageAction({action:'withdraw_offer',waitlist_id:w.id},'Offer withdrawn · automatic offers paused')
   }
   async function markReplaced(releaseId:string){
     if(!confirm('Manually mark this release as replaced? Use only if you\'ve sorted the replacement yourself.'))return
@@ -809,6 +825,48 @@ function AdminPageInner() {
         {/* RELEASES */}
         {tab==='releases'&&(
           <>
+            {releasesData.manage.map((m:any)=>(
+              <div key={m.session.id} style={cardStyle}>
+                <div style={{padding:'12px 18px',borderBottom:`1px solid ${T.border}`,display:'flex',justifyContent:'space-between',alignItems:'center',gap:10,flexWrap:'wrap' as const}}>
+                  <div>
+                    <div style={{fontWeight:600,fontSize:12,color:T.muted,textTransform:'uppercase',letterSpacing:1}}>Choose who gets it</div>
+                    <div style={{fontWeight:800,fontSize:15,marginTop:2}}>{m.session.title} <span style={{fontSize:12,color:T.muted,fontWeight:500}}>{fmtDate(m.session.date)} · {m.session.time}</span></div>
+                    <div style={{fontSize:12,color:T.muted,marginTop:2}}>{m.freeSpots} free to offer · {m.openSpots} open in total</div>
+                  </div>
+                  <div style={{display:'flex',gap:10,alignItems:'center',flexWrap:'wrap' as const}}>
+                    <label style={{fontSize:12,color:T.muted}}>Hold offers for{' '}
+                      <select value={offerMinutes} onChange={e=>setOfferMinutes(Number(e.target.value))} style={{...inp({width:'auto',padding:'6px 10px',fontSize:12,display:'inline-block'})}}>
+                        <option value={20}>20 min</option><option value={60}>1 hour</option><option value={180}>3 hours</option><option value={1440}>until it starts</option>
+                      </select>
+                    </label>
+                    <button role="switch" aria-checked={!m.manual} title={m.manual?'Automatic offers are paused: you choose who gets released spaces':'Automatic offers are on'}
+                      onClick={()=>manageAction({action:'set_manual',session_id:m.session.id,manual:!m.manual},m.manual?'Automatic offers back on':'Automatic offers paused')}
+                      style={{display:'flex',alignItems:'center',gap:8,padding:'6px 12px',borderRadius:999,border:`1px solid ${m.manual?T.border:T.accentBorder}`,background:m.manual?'var(--card-2)':T.accentDim,color:m.manual?T.muted:T.accent,fontSize:12,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>
+                      {m.manual?'Automatic offers: paused':'Automatic offers: on'}
+                    </button>
+                  </div>
+                </div>
+                {m.manual&&<div style={{padding:'10px 18px',fontSize:12,color:T.warning,borderBottom:`1px solid var(--card-2)`}}>Paused: released spaces stay off sale until you offer them to someone below.</div>}
+                {m.waitlist.length===0&&<div style={{padding:24,textAlign:'center',color:T.muted,fontSize:13}}>Nobody is on this session&apos;s waitlist.</div>}
+                {m.waitlist.map((w:any,i:number)=>(
+                  <div key={w.id} style={{padding:'11px 18px',borderBottom:i<m.waitlist.length-1?`1px solid var(--card-2)`:'none',display:'flex',justifyContent:'space-between',alignItems:'center',gap:10,flexWrap:'wrap' as const}}>
+                    <div style={{minWidth:0}}>
+                      <div style={{fontWeight:600,fontSize:13}}><span style={{color:T.muted}}>#{w.position}</span> {w.name} <span style={{fontSize:11,color:T.muted}}>· {w.email}</span></div>
+                      <div style={{fontSize:11,color:T.muted}}>
+                        wants {w.spaces_needed}{w.min_spaces_acceptable<w.spaces_needed?` (min ${w.min_spaces_acceptable})`:''}
+                        {w.live?<span style={{color:T.warning}}> · live offer for {w.claim_spaces}, until {new Date(w.claim_expires_at).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}</span>
+                          :w.status==='expired'?' · last offer expired':''}
+                        {w.times_offered?` · offered ×${w.times_offered}`:''}
+                      </div>
+                    </div>
+                    {w.live
+                      ?<button onClick={()=>withdraw(w)} style={{padding:'6px 12px',background:T.dangerDim,color:T.danger,border:`1px solid ${T.danger}`,borderRadius:999,cursor:'pointer',fontSize:12,fontWeight:700,fontFamily:'inherit'}}>Withdraw</button>
+                      :<button onClick={()=>offerTo(w)} disabled={m.freeSpots<=0} title={m.freeSpots<=0?'No free space: withdraw a live offer first':''}
+                          style={{padding:'6px 14px',background:m.freeSpots>0?T.cta:'var(--card-2)',color:m.freeSpots>0?T.onCta:T.muted,boxShadow:m.freeSpots>0?T.ctaGlow:'none',border:'none',borderRadius:999,cursor:m.freeSpots>0?'pointer':'default',fontSize:12,fontWeight:800,fontFamily:'inherit'}}>Offer</button>}
+                  </div>
+                ))}
+              </div>
+            ))}
             <div style={cardStyle}>
               <div style={{padding:'12px 18px',borderBottom:`1px solid ${T.border}`,fontWeight:600,fontSize:12,color:T.muted,textTransform:'uppercase',letterSpacing:1}}>
                 Unresolved releases ({releasesData.unresolved.length})

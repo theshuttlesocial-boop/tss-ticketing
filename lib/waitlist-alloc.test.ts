@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { tierWindowMinutes, isTierWindowActive, selectOffers, hasLiveOfferConflict, MatchCandidate } from './waitlist-alloc'
+import { tierWindowMinutes, isTierWindowActive, selectQueueOffers, selectSameDayOffers, isSessionDayLondon, hasLiveOfferConflict, MatchCandidate } from './waitlist-alloc'
 
 const cand = (over: Partial<MatchCandidate>): MatchCandidate => ({
   id: 'c', email: 'a@b.com', groupId: null, position: 1, preferenceRank: 1,
@@ -30,62 +30,58 @@ test('inside the window only new players are offered', () => {
     cand({ id: 'reg', priorSessionCount: 4, position: 1 }),
     cand({ id: 'new', priorSessionCount: 0, position: 2 }),
   ]
-  const offers = selectOffers(cands, 1, true)
-  assert.deepEqual(offers.map(o => o.id), ['new'])
+  assert.deepEqual(selectQueueOffers(cands, 1, true).map(o => o.id), ['new'])
 })
 
 test('window falls through to everyone when there are no new players', () => {
-  const cands = [cand({ id: 'reg', priorSessionCount: 4 })]
-  const offers = selectOffers(cands, 1, true)
-  assert.deepEqual(offers.map(o => o.id), ['reg'])
+  assert.deepEqual(selectQueueOffers([cand({ id: 'reg', priorSessionCount: 4 })], 1, true).map(o => o.id), ['reg'])
 })
 
-// ── Group of 4 with min 2 against 3 open spots ──────────────────────────────
-test('a group of 4 (min 2) is offered 3 when 3 spots are open', () => {
-  const offers = selectOffers([cand({ id: 'grp', spacesNeeded: 4, minSpaces: 2 })], 3, false)
-  assert.equal(offers.length, 1)
-  assert.equal(offers[0].claimSpaces, 3)   // LEAST(needed 4, open 3)
-  assert.equal(offers[0].isBackup, false)
+// ── Day before or earlier: strictly waitlist order, one offer per free space ──
+test('queue: the first person in line gets the one free space, nobody else is offered', () => {
+  const cands = [3, 1, 2].map(n => cand({ id: `c${n}`, position: n }))
+  assert.deepEqual(selectQueueOffers(cands, 1, false).map(o => o.id), ['c1'])
 })
 
-test('a candidate whose minimum cannot be met is skipped', () => {
-  // 1 spot open, A wants 1 (min1), B wants 2 (min2). B cannot be satisfied.
-  const offers = selectOffers([
-    cand({ id: 'A', spacesNeeded: 1, minSpaces: 1, position: 2 }),
-    cand({ id: 'B', spacesNeeded: 2, minSpaces: 2, position: 1 }),
-  ], 1, false)
-  const winner = offers.find(o => !o.isBackup)
-  assert.equal(winner?.id, 'A')
-})
-
-// ── Ordering: largest allocatable first, then position ──────────────────────
-test('larger allocatable group is offered before a smaller one', () => {
-  const offers = selectOffers([
+test('queue: order wins over group size', () => {
+  const offers = selectQueueOffers([
     cand({ id: 'small', spacesNeeded: 1, minSpaces: 1, position: 1 }),
     cand({ id: 'big', spacesNeeded: 3, minSpaces: 1, position: 2 }),
   ], 3, false)
-  assert.equal(offers[0].id, 'big')
+  assert.deepEqual(offers.map(o => [o.id, o.claimSpaces]), [['small', 1], ['big', 2]])
 })
 
-test('ties on allocatable size break by queue position', () => {
-  const offers = selectOffers([
-    cand({ id: 'later', spacesNeeded: 1, minSpaces: 1, position: 5 }),
-    cand({ id: 'earlier', spacesNeeded: 1, minSpaces: 1, position: 2 }),
+test('queue: a group of 4 (min 2) is offered 3 when 3 spaces are free', () => {
+  const offers = selectQueueOffers([cand({ id: 'grp', spacesNeeded: 4, minSpaces: 2 })], 3, false)
+  assert.deepEqual(offers.map(o => [o.id, o.claimSpaces]), [['grp', 3]])
+})
+
+test('queue: someone whose minimum does not fit is skipped for the next person', () => {
+  const offers = selectQueueOffers([
+    cand({ id: 'pair', spacesNeeded: 2, minSpaces: 2, position: 1 }),
+    cand({ id: 'single', spacesNeeded: 1, minSpaces: 1, position: 2 }),
   ], 1, false)
-  assert.equal(offers.find(o => !o.isBackup)?.id, 'earlier')
+  assert.deepEqual(offers.map(o => o.id), ['single'])
 })
 
-// ── Backups ─────────────────────────────────────────────────────────────────
-test('adds up to 2 competitive backups beyond the filled set', () => {
-  const cands = [1, 2, 3, 4, 5].map(n => cand({ id: `c${n}`, position: n, spacesNeeded: 1, minSpaces: 1 }))
-  const offers = selectOffers(cands, 1, false)
-  assert.equal(offers.filter(o => !o.isBackup).length, 1)
-  assert.equal(offers.filter(o => o.isBackup).length, 2)
-  assert.deepEqual(offers.map(o => o.id), ['c1', 'c2', 'c3'])
+test('queue: no free spaces (all held by live offers) means no new offers', () => {
+  assert.deepEqual(selectQueueOffers([cand({})], 0, false), [])
 })
 
-test('no spots open yields no offers', () => {
-  assert.deepEqual(selectOffers([cand({})], 0, false), [])
+// ── On the day: everyone at once ─────────────────────────────────────────────
+test('same day: everyone whose minimum fits is offered at once, in queue order', () => {
+  const offers = selectSameDayOffers([
+    cand({ id: 'c2', position: 2 }),
+    cand({ id: 'pair', position: 1, spacesNeeded: 2, minSpaces: 2 }),
+    cand({ id: 'c3', position: 3, spacesNeeded: 3, minSpaces: 1 }),
+  ], 1)
+  assert.deepEqual(offers.map(o => [o.id, o.claimSpaces]), [['c2', 1], ['c3', 1]])
+})
+
+test('session day is judged in UK time', () => {
+  // 23:30 UTC on 30 Sep is 00:30 on 1 Oct in London (BST).
+  assert.equal(isSessionDayLondon('2026-10-01', new Date('2026-09-30T23:30:00Z')), true)
+  assert.equal(isSessionDayLondon('2026-09-30', new Date('2026-09-30T23:30:00Z')), false)
 })
 
 // ── Multi-session: claim Thursday, stay active on Friday ────────────────────
@@ -107,6 +103,6 @@ test('claiming Thursday leaves the Friday entry eligible (no live offer = no con
   const fridayRow = { email: 'dan@b.com', groupId: 'grp-dan' }
   assert.equal(hasLiveOfferConflict(fridayRow, liveEmails, liveGroups), false)
   // ...so the Friday row is a valid candidate for Friday's cascade.
-  const offers = selectOffers([cand({ id: 'fri', email: 'dan@b.com', groupId: 'grp-dan' })], 1, false)
+  const offers = selectQueueOffers([cand({ id: 'fri', email: 'dan@b.com', groupId: 'grp-dan' })], 1, false)
   assert.deepEqual(offers.map(o => o.id), ['fri'])
 })

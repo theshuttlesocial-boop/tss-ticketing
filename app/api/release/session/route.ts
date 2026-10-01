@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server'
-import { lookupReleasableBookingsByEmail, emailForMagicToken } from '@/lib/release-server'
+import { lookupReleasableBookingsByEmail, releaseEmailFrom } from '@/lib/release-server'
 import { computeRefundQuote } from '@/lib/release'
 import { supabaseAdmin } from '@/lib/supabase'
 
-// Step 2: the magic link lands here. The token proves inbox ownership; we return
-// the releasable bookings for that email.
+// Step 2: the magic link lands here (the token proves inbox ownership), or a player
+// signed in to My portal opens /release. Returns the releasable bookings for that email.
 export async function GET(req: Request) {
   const token = new URL(req.url).searchParams.get('token') ?? ''
-  const email = await emailForMagicToken(token)
+  const email = await releaseEmailFrom(req, token)
   if (!email) return NextResponse.json({ status: 'invalid' }, { status: 401 })
 
   const bookings = await lookupReleasableBookingsByEmail(email)

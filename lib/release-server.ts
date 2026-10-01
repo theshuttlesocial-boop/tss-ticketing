@@ -1,5 +1,10 @@
 import { supabaseAdmin } from '@/lib/supabase'
 import { nanoid } from 'nanoid'
+import { ukSessionStartUTC } from '@/lib/time'
+import { userFromRequest } from '@/lib/account'
+
+/** Releases and transfers close this long before a session starts. */
+export const RELEASE_CUTOFF_MINUTES = 15
 
 export interface ReleasableBooking {
   id: string
@@ -26,8 +31,12 @@ function isPaid(status?: string) {
   return status === 'succeeded' || status === 'partially_refunded'
 }
 
+// Still time to release: up to RELEASE_CUTOFF_MINUTES before the start (UK time).
+export function releaseStillOpen(session: { date: string; time: string }, now = new Date()): boolean {
+  return now.getTime() < ukSessionStartUTC(session.date, session.time).getTime() - RELEASE_CUTOFF_MINUTES * 60_000
+}
+
 function buildShape(booking: any, session: any, hasConfirmedTransfer: boolean): ReleasableBooking {
-  const today = new Date().toISOString().split('T')[0]
   const spacesReleased = booking.spaces_released ?? 0
   return {
     id: booking.id,
@@ -42,7 +51,7 @@ function buildShape(booking: any, session: any, hasConfirmedTransfer: boolean): 
     stripe_payment_intent_id: booking.stripe_payment_intent_id ?? null,
     pricePencePerSpace: Math.round(booking.total_pence / booking.quantity),
     maxReleasable: booking.quantity - spacesReleased,
-    sessionInFuture: session.date >= today,
+    sessionInFuture: releaseStillOpen(session),
     hasConfirmedTransfer,
     session: {
       id: session.id, title: session.title, date: session.date,
@@ -101,6 +110,17 @@ export async function emailForMagicToken(token: string): Promise<string | null> 
   if (!data) return null
   if (new Date(data.expires_at) < new Date()) return null
   return data.email
+}
+
+/**
+ * Who is managing their booking: the emailed link (any visitor), or a player signed in
+ * to My portal (Bearer token), so signed-in players don't need the email step.
+ */
+export async function releaseEmailFrom(req: Request, token?: string | null): Promise<string | null> {
+  const fromLink = await emailForMagicToken(token ?? '')
+  if (fromLink) return fromLink
+  const u = await userFromRequest(req)
+  return u?.email ? u.email.trim().toLowerCase() : null
 }
 
 // Re-validate a specific booking belongs to the email, for the POST endpoints.

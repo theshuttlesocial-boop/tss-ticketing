@@ -341,33 +341,45 @@ export async function sendReleaseMagicLink({ to, url }: { to: string; url: strin
 }
 
 // ── Waitlist offer: a spot has opened, claim within the window ───────────────
-export async function sendWaitlistOffer({ to, name, sessionTitle, sessionDate, sessionTime, venue, spaces, claimUrl, expiresMinutes }: {
+export async function sendWaitlistOffer({ to, name, sessionTitle, sessionDate, sessionTime, venue, spaces, claimUrl, expiresMinutes, competitive = false, expiresAt }: {
   to: string; name: string; sessionTitle: string; sessionDate: string; sessionTime: string
   venue: string; spaces: number; claimUrl: string; expiresMinutes: number
+  competitive?: boolean; expiresAt?: string
 }) {
   if (!resend) { console.log(`[Email] Waitlist offer for ${to} - set RESEND_API_KEY to enable`); return }
   const fmtDate = (d: string) => new Date(d).toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'})
+  const until = expiresAt ? new Date(expiresAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London' }) : null
+  const declineUrl = `${claimUrl}?decline=1`
+  // Day before or earlier: the space is held for this person. On the day: everyone on
+  // the waitlist is told at once and the first to pay gets it.
+  const lead = competitive
+    ? `It's session day, so everyone on the waitlist has been told at once. The first to pay gets it.`
+    : `We're holding ${spaces > 1 ? 'these spaces' : 'this space'} just for you${until ? ` until ${until}` : ` for ${expiresMinutes} minutes`}.`
+  const small = competitive
+    ? `If someone pays first, you'll stay on the waitlist.`
+    : `After ${until ?? 'that'}, ${spaces > 1 ? 'they go' : 'it goes'} to the next person on the waitlist.`
   await resend.emails.send({
     from: process.env.EMAIL_FROM ?? 'bookings@theshuttlesocial.com',
     to,
-    subject: `A spot opened up! ${sessionTitle}`,
+    subject: competitive ? `A spot opened up today! ${sessionTitle}` : `A spot is waiting for you: ${sessionTitle}`,
     html: emailWrap(`
       <div style="color:${ink};font-size:24px;font-weight:900;letter-spacing:-0.5px;line-height:1.15;margin-bottom:4px;">A spot just opened up!</div>
-      <div style="color:${muted};font-size:14px;margin-bottom:20px;">You're off the waitlist, ${name} - if you're quick.</div>
+      <div style="color:${muted};font-size:14px;margin-bottom:20px;">Hi ${name}, you're off the waitlist. ${lead}</div>
       <div style="${deepCard}margin-bottom:16px;">
         <table style="width:100%;border-collapse:collapse;">
           ${infoRow('Session', sessionTitle)}
           ${infoRow('Date', fmtDate(sessionDate))}
           ${infoRow('Time', sessionTime)}
           ${infoRow('Venue', venue)}
-          ${infoRow('Spaces held for you', String(spaces), true)}
+          ${infoRow(competitive ? 'Spaces' : 'Spaces held for you', String(spaces), true)}
         </table>
       </div>
       <div style="text-align:center;margin-bottom:16px;">
         <a href="${claimUrl}" style="${cta}">Claim your spot &rarr;</a>
       </div>
       <div style="color:${muted};font-size:13px;line-height:1.7;text-align:center;">
-        This offer is first-come, first-served and expires in about ${expiresMinutes} minutes. If someone else claims it first, you'll stay on the list.
+        ${small}<br/>
+        Can't make it? <a href="${declineUrl}" style="color:${brandColor};font-weight:700;">Pass it on to the next person</a>.
       </div>
     `)
   })

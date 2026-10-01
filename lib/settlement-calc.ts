@@ -14,3 +14,13 @@ export function withinPriorWindow(releasedAt: string, beforeIso: string, days: n
   const before = new Date(beforeIso).getTime()
   return t >= before - days * 86_400_000 && t < before
 }
+
+/**
+ * How many of a session's still-open released spaces a just-paid booking took.
+ * seats in use (net of releases) + open released spaces − capacity, capped at the
+ * booking's own size and never below 0. See settleReleasesFilledBy.
+ */
+export function releasedSpacesTaken(inUse: number, openReleased: number, capacity: number, quantity: number): number {
+  if (openReleased <= 0) return 0
+  return Math.min(quantity, openReleased, Math.max(0, inUse + openReleased - capacity))
+}

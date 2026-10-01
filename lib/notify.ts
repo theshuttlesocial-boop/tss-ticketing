@@ -64,6 +64,8 @@ async function sendEmail(email: string, template: string, vars: Record<string, a
       spaces: vars.spaces,
       claimUrl: vars.claimUrl,
       expiresMinutes: vars.expiresMinutes,
+      competitive: !!vars.competitive,
+      expiresAt: vars.expiresAt,
     })
   } else {
     console.warn('[notify] unknown email template:', template)

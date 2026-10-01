@@ -51,18 +51,31 @@ export async function getPublicSessions(now = new Date()) {
 
   // Two bulk queries instead of 2× N per-session queries
   const openIds = openSessions.map(s => s.id)
-  const [bookingsRes, holdsRes] = openIds.length > 0
+  const [bookingsRes, holdsRes, offersRes] = openIds.length > 0
     ? await Promise.all([
         supabaseAdmin.from('bookings').select('session_id,quantity,spaces_released').in('session_id', openIds).in('stripe_status', ['succeeded','partially_refunded']),
         supabaseAdmin.from('seat_holds').select('session_id,quantity').in('session_id', openIds).eq('used', false).gt('expires_at', now.toISOString()),
+        // Spaces promised to live waitlist offers aren't for public sale (migration 028).
+        supabaseAdmin.from('waitlist').select('session_id,claim_spaces').in('session_id', openIds).eq('status', 'offered').gt('claim_expires_at', now.toISOString()),
       ])
-    : [{ data: [] as {session_id:string;quantity:number;spaces_released:number}[] }, { data: [] as {session_id:string;quantity:number}[] }]
+    : [{ data: [] as {session_id:string;quantity:number;spaces_released:number}[] }, { data: [] as {session_id:string;quantity:number}[] }, { data: [] as {session_id:string;claim_spaces:number|null}[] }]
 
   const bookedBy: Record<string,number> = {}
   const heldBy:   Record<string,number> = {}
   // Net of released spaces: a released spot reads as available.
   ;(bookingsRes.data ?? []).forEach(b => { bookedBy[b.session_id] = (bookedBy[b.session_id] ?? 0) + (b.quantity - ((b as any).spaces_released ?? 0)) })
   ;(holdsRes.data   ?? []).forEach(h => { heldBy[h.session_id]   = (heldBy[h.session_id]   ?? 0) + h.quantity })
+  ;(offersRes.data  ?? []).forEach(o => { heldBy[o.session_id]   = (heldBy[o.session_id]   ?? 0) + (o.claim_spaces ?? 0) })
+  // Owner deciding who gets released spaces (waitlist_manual, migration 028): off sale meanwhile.
+  const manualIds = openSessions.filter(s => (s as { waitlist_manual?: boolean }).waitlist_manual).map(s => s.id)
+  if (manualIds.length) {
+    const { data: rel } = await supabaseAdmin.from('releases').select('session_id,spaces').in('session_id', manualIds).is('outcome', null).is('resolved_at', null)
+    const relBy: Record<string, number> = {}
+    ;(rel ?? []).forEach(r => { relBy[r.session_id] = (relBy[r.session_id] ?? 0) + r.spaces })
+    const offeredBy: Record<string, number> = {}
+    ;(offersRes.data ?? []).forEach(o => { offeredBy[o.session_id] = (offeredBy[o.session_id] ?? 0) + (o.claim_spaces ?? 0) })
+    for (const id of manualIds) heldBy[id] = (heldBy[id] ?? 0) + Math.max(0, (relBy[id] ?? 0) - (offeredBy[id] ?? 0))
+  }
 
   const sessions = [
     ...openSessions.map(s => {

@@ -1,6 +1,6 @@
 import { NextResponse, after } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { getReleasableBookingForEmail, emailForMagicToken } from '@/lib/release-server'
+import { getReleasableBookingForEmail, releaseEmailFrom } from '@/lib/release-server'
 import { runCascade } from '@/lib/waitlist-matcher'
 import { sendReleaseConfirmation } from '@/lib/email'
 import { logAudit } from '@/lib/audit'
@@ -20,14 +20,14 @@ export async function POST(req: Request) {
   }
 
   // The magic-link token proves inbox ownership; resolve the verified email from it.
-  const email = await emailForMagicToken(token ?? '')
+  const email = await releaseEmailFrom(req, token)
   if (!email) return NextResponse.json({ error: 'Your link has expired. Please request a new one.' }, { status: 401 })
 
   // Re-validate server-side that this booking belongs to the verified email.
   const booking = await getReleasableBookingForEmail(bookingId ?? '', email)
   if (!booking) return NextResponse.json({ error: "We couldn't find that booking." }, { status: 404 })
   if (!booking.sessionInFuture) {
-    return NextResponse.json({ error: 'This session has already taken place.' }, { status: 400 })
+    return NextResponse.json({ error: 'Releases close 15 minutes before the session starts.' }, { status: 400 })
   }
   if (nSpaces > booking.maxReleasable) {
     return NextResponse.json({ error: `You can release at most ${booking.maxReleasable} spot(s).` }, { status: 400 })

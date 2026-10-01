@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { nanoid } from 'nanoid'
-import { getReleasableBookingForEmail, emailForMagicToken } from '@/lib/release-server'
+import { getReleasableBookingForEmail, releaseEmailFrom } from '@/lib/release-server'
 import { sendTransferConfirmRequest } from '@/lib/email'
 import { logAudit } from '@/lib/audit'
 
@@ -24,13 +24,13 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Invalid number of spaces.' }, { status: 400 })
   }
 
-  const email = await emailForMagicToken(token ?? '')
+  const email = await releaseEmailFrom(req, token)
   if (!email) return NextResponse.json({ error: 'Your link has expired. Please request a new one.' }, { status: 401 })
 
   const booking = await getReleasableBookingForEmail(bookingId ?? '', email)
   if (!booking) return NextResponse.json({ error: "We couldn't find that booking." }, { status: 404 })
   if (!booking.sessionInFuture) {
-    return NextResponse.json({ error: 'This session has already taken place.' }, { status: 400 })
+    return NextResponse.json({ error: 'Releases close 15 minutes before the session starts.' }, { status: 400 })
   }
   // One confirmed transfer per booking.
   if (booking.hasConfirmedTransfer) {
