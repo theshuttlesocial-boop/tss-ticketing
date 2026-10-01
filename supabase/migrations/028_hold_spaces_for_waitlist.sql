@@ -10,7 +10,13 @@
 --     goes to the next person, and only once nobody is waiting does it go on sale.
 --   - Waitlist claims (p_for_waitlist = true) can use those spaces.
 -- Execute is limited to the service role (the app's server).
+--
+-- sessions.waitlist_manual: the owner has taken over who gets this session's released
+-- spaces (Admin → Releases). While on, no automatic waitlist offers are made, and
+-- released spaces stay off public sale until the owner offers them to someone.
 -- ============================================================
+
+ALTER TABLE sessions ADD COLUMN IF NOT EXISTS waitlist_manual BOOLEAN NOT NULL DEFAULT false;
 
 DROP FUNCTION IF EXISTS claim_seat_hold(UUID, INTEGER, TEXT);
 
@@ -28,11 +34,13 @@ DECLARE
   v_booked      INTEGER;
   v_held        INTEGER;
   v_offered     INTEGER := 0;
+  v_manual      BOOLEAN;
+  v_released    INTEGER := 0;
   v_available   INTEGER;
   v_expires_at  TIMESTAMPTZ;
 BEGIN
   -- Open, or a scheduled-release draft whose opens_at has passed.
-  SELECT capacity INTO v_capacity
+  SELECT capacity, waitlist_manual INTO v_capacity, v_manual
   FROM sessions
   WHERE id = p_session_id
     AND (
@@ -58,9 +66,14 @@ BEGIN
     SELECT COALESCE(SUM(claim_spaces), 0) INTO v_offered
     FROM waitlist
     WHERE session_id = p_session_id AND status = 'offered' AND claim_expires_at > now();
+    -- Owner deciding who gets released spaces: they aren't for sale meanwhile.
+    IF v_manual THEN
+      SELECT COALESCE(SUM(spaces), 0) INTO v_released
+      FROM releases WHERE session_id = p_session_id AND outcome IS NULL AND resolved_at IS NULL;
+    END IF;
   END IF;
 
-  v_available := v_capacity - v_booked - v_held - v_offered;
+  v_available := v_capacity - v_booked - v_held - GREATEST(v_offered, v_released);
 
   IF v_available < p_quantity THEN
     RETURN json_build_object('success', false, 'error', 'Not enough spots available', 'available', GREATEST(v_available, 0));

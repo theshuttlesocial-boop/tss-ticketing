@@ -66,6 +66,16 @@ export async function getPublicSessions(now = new Date()) {
   ;(bookingsRes.data ?? []).forEach(b => { bookedBy[b.session_id] = (bookedBy[b.session_id] ?? 0) + (b.quantity - ((b as any).spaces_released ?? 0)) })
   ;(holdsRes.data   ?? []).forEach(h => { heldBy[h.session_id]   = (heldBy[h.session_id]   ?? 0) + h.quantity })
   ;(offersRes.data  ?? []).forEach(o => { heldBy[o.session_id]   = (heldBy[o.session_id]   ?? 0) + (o.claim_spaces ?? 0) })
+  // Owner deciding who gets released spaces (waitlist_manual, migration 028): off sale meanwhile.
+  const manualIds = openSessions.filter(s => (s as { waitlist_manual?: boolean }).waitlist_manual).map(s => s.id)
+  if (manualIds.length) {
+    const { data: rel } = await supabaseAdmin.from('releases').select('session_id,spaces').in('session_id', manualIds).is('outcome', null).is('resolved_at', null)
+    const relBy: Record<string, number> = {}
+    ;(rel ?? []).forEach(r => { relBy[r.session_id] = (relBy[r.session_id] ?? 0) + r.spaces })
+    const offeredBy: Record<string, number> = {}
+    ;(offersRes.data ?? []).forEach(o => { offeredBy[o.session_id] = (offeredBy[o.session_id] ?? 0) + (o.claim_spaces ?? 0) })
+    for (const id of manualIds) heldBy[id] = (heldBy[id] ?? 0) + Math.max(0, (relBy[id] ?? 0) - (offeredBy[id] ?? 0))
+  }
 
   const sessions = [
     ...openSessions.map(s => {

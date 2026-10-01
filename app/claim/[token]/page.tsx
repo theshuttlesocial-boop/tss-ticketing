@@ -10,7 +10,7 @@ const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!
 const fmtDate = (d:string) => new Date(d).toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'})
 const panel:React.CSSProperties={background:T.card,border:`1px solid ${T.border}`,borderRadius:24,padding:24,marginBottom:16}
 
-interface Offer{ status:'valid'|'expired'|'claimed'|'declined'|'invalid'; spaces:number; name:string; email:string; phone:string
+interface Offer{ status:'valid'|'expired'|'claimed'|'declined'|'withdrawn'|'invalid'; spaces:number; name:string; email:string; phone:string
   claimExpiresAt?:string; competitive?:boolean; session?:{id:string;title:string;date:string;time:string;venue:string;label?:string} }
 
 export default function ClaimPage(){
@@ -86,6 +86,7 @@ export default function ClaimPage(){
     </div>
   )
 
+  if(offer.status==='withdrawn') return panelWrap(<div style={{...panel,textAlign:'center'}}><div style={{fontSize:20,fontWeight:800,color:T.text,marginBottom:8}}>This offer was withdrawn</div><p style={{color:T.muted,fontSize:14,lineHeight:1.7}}>Sorry, we&apos;ve had to take this offer back. You&apos;re still on the waitlist in the same place, and we&apos;ll email you if a space comes up.</p></div>)
   if(offer.status==='claimed') return panelWrap(<div style={{...panel,textAlign:'center'}}><div style={{fontSize:20,fontWeight:800,color:T.accent,marginBottom:8}}>Already claimed</div><p style={{color:T.muted,fontSize:14}}>This offer has already been claimed. Check your email for the booking details.</p></div>)
   if(offer.status==='expired') return panelWrap(<div style={{...panel,textAlign:'center'}}><div style={{fontSize:20,fontWeight:800,color:T.danger,marginBottom:8}}>Offer expired</div><p style={{color:T.muted,fontSize:14}}>This claim link has expired. You're still on the waitlist and we'll message you if another spot opens.</p></div>)
   if(offer.status==='invalid'||!offer.session) return panelWrap(<div style={{...panel,textAlign:'center'}}><div style={{fontSize:20,fontWeight:800,color:T.danger,marginBottom:8}}>Link not valid</div><p style={{color:T.muted,fontSize:14}}>We couldn't find this offer. The link may be incorrect.</p></div>)

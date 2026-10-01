@@ -21,9 +21,10 @@ export async function GET(req: Request) {
   if (!loaded?.session) return NextResponse.json({ status: 'invalid' })
 
   const { row, session } = loaded
-  let status: 'valid' | 'expired' | 'claimed' | 'declined' | 'invalid' = 'valid'
+  let status: 'valid' | 'expired' | 'claimed' | 'declined' | 'withdrawn' | 'invalid' = 'valid'
   if (row.status === 'claimed') status = 'claimed'
   else if (row.status === 'declined') status = 'declined'
+  else if (row.status === 'waiting') status = 'withdrawn'   // the owner took the offer back (Admin → Releases)
   else if (row.status !== 'offered') status = 'invalid'
   else if (!row.claim_expires_at || new Date(row.claim_expires_at) < new Date()) status = 'expired'
 

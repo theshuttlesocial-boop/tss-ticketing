@@ -49,9 +49,11 @@ export async function runCascade(sessionId: string, opts?: { ignoreTier?: boolea
   const openSpots = await openSpotsFor(sessionId)
   if (openSpots <= 0) return { openSpots, offered: 0 }
 
-  const { data: session } = await supabaseAdmin
-    .from('sessions').select('id,title,date,time,venue').eq('id', sessionId).single()
+  // select('*') so this keeps working before migration 028 adds waitlist_manual.
+  const { data: session } = await supabaseAdmin.from('sessions').select('*').eq('id', sessionId).single()
   if (!session) return { openSpots, offered: 0 }
+  // The owner has taken over this session's waitlist (Admin → Releases): no automatic offers.
+  if ((session as { waitlist_manual?: boolean }).waitlist_manual) return { openSpots, offered: 0 }
   const sameDay = !!opts?.everyone || isSessionDayLondon(session.date, now)
   const startsAt = ukSessionStartUTC(session.date, session.time)
   if (startsAt <= now) return { openSpots, offered: 0 }
@@ -111,39 +113,92 @@ export async function runCascade(sessionId: string, opts?: { ignoreTier?: boolea
   // Claim window: one-at-a-time offers are held for 20 minutes; on the day the offer
   // stays open until the session starts (first to pay wins).
   const expires = sameDay ? startsAt : new Date(Math.min(now.getTime() + QUEUE_OFFER_MINUTES * 60_000, startsAt.getTime()))
-  const claimExpiresAt = expires.toISOString()
-  const claimMinutes = Math.max(1, Math.round((expires.getTime() - now.getTime()) / 60_000))
 
   const rowById = new Map(waiting.map(w => [w.id, w]))
   for (const offer of offers) {
     const row = rowById.get(offer.id)
     if (!row) continue
-    const token = nanoid(32)
-    await supabaseAdmin.from('waitlist').update({
-      status: 'offered',
-      claim_token: token,
-      claim_spaces: offer.claimSpaces,
-      claim_expires_at: claimExpiresAt,
-      times_offered: (row.times_offered ?? 0) + 1,
-      last_offered_at: nowIso,
-    }).eq('id', offer.id)
-
-    logAudit('offer', { email: row.email, sessionId, spaces: offer.claimSpaces, isBackup: offer.isBackup }, offer.id)
-      .catch(() => {})
-
-    notify({
-      to: { email: row.email, phone: row.phone, firstName: (row.name ?? '').split(' ')[0] || 'there' },
-      template: 'waitlist_offer',
-      vars: {
-        firstName: (row.name ?? '').split(' ')[0] || 'there',
-        sessionTitle: session.title, sessionDate: session.date, sessionTime: session.time, venue: session.venue,
-        spaces: offer.claimSpaces, claimUrl: `${APP_URL}/claim/${token}`, expiresMinutes: claimMinutes,
-        competitive: sameDay, expiresAt: claimExpiresAt,
-      },
-    }).catch(err => console.error('[cascade] notify failed:', err))
+    await sendOffer(row, session, offer.claimSpaces, expires, sameDay, { isBackup: offer.isBackup })
   }
 
   return { openSpots, offered: offers.length }
+}
+
+type OfferRow = { id: string; email: string; phone: string | null; name: string | null; times_offered: number | null }
+type OfferSession = { id: string; title: string; date: string; time: string; venue: string }
+
+// Make one offer: give the row a fresh claim link, hold the spaces until `expires`, email it.
+async function sendOffer(row: OfferRow, session: OfferSession, spaces: number, expires: Date, competitive: boolean, audit: Record<string, unknown> = {}) {
+  const now = new Date()
+  const token = nanoid(32)
+  await supabaseAdmin.from('waitlist').update({
+    status: 'offered',
+    claim_token: token,
+    claim_spaces: spaces,
+    claim_expires_at: expires.toISOString(),
+    times_offered: (row.times_offered ?? 0) + 1,
+    last_offered_at: now.toISOString(),
+  }).eq('id', row.id)
+
+  logAudit('offer', { email: row.email, sessionId: session.id, spaces, ...audit }, row.id).catch(() => {})
+
+  const firstName = (row.name ?? '').split(' ')[0] || 'there'
+  await notify({
+    to: { email: row.email, phone: row.phone, firstName },
+    template: 'waitlist_offer',
+    vars: {
+      firstName, sessionTitle: session.title, sessionDate: session.date, sessionTime: session.time, venue: session.venue,
+      spaces, claimUrl: `${APP_URL}/claim/${token}`,
+      expiresMinutes: Math.max(1, Math.round((expires.getTime() - now.getTime()) / 60_000)),
+      competitive, expiresAt: expires.toISOString(),
+    },
+  }).catch(err => console.error('[cascade] notify failed:', err))
+}
+
+export class OfferError extends Error {}
+
+/**
+ * Admin → Releases: offer a free space to one chosen person on the waitlist, out of
+ * queue order if needed. The space is held for them (never "first to pay") for
+ * `minutes`, or 20 minutes by default, never past the session start.
+ */
+export async function offerToWaitlistEntry(waitlistId: string, opts: { spaces?: number; minutes?: number; by?: string | null }) {
+  const { data: row } = await supabaseAdmin.from('waitlist')
+    .select('id,session_id,email,phone,name,times_offered,status,spaces_needed,min_spaces_acceptable').eq('id', waitlistId).maybeSingle()
+  if (!row) throw new OfferError('That waitlist entry no longer exists.')
+  if (row.status === 'offered') throw new OfferError('They already have a live offer.')
+  if (row.status === 'claimed') throw new OfferError('They have already claimed a space.')
+  const { data: session } = await supabaseAdmin.from('sessions').select('id,title,date,time,venue').eq('id', row.session_id).single()
+  if (!session) throw new OfferError('Session not found.')
+  const now = new Date()
+  const startsAt = ukSessionStartUTC(session.date, session.time)
+  if (startsAt <= now) throw new OfferError('This session has already started.')
+
+  // Expire stale offers first, so their spaces count as free again.
+  await supabaseAdmin.from('waitlist').update({ status: 'expired' })
+    .eq('session_id', session.id).eq('status', 'offered').lt('claim_expires_at', now.toISOString())
+  const free = (await openSpotsFor(session.id)) - (await liveOfferedSpaces(session.id))
+  if (free <= 0) throw new OfferError('No free space right now. Withdraw a live offer first, then offer it to them.')
+  const spaces = Math.max(1, Math.min(opts.spaces ?? row.spaces_needed ?? 1, free))
+  const minutes = Math.max(5, Math.min(opts.minutes ?? QUEUE_OFFER_MINUTES, 24 * 60))
+  const expires = new Date(Math.min(now.getTime() + minutes * 60_000, startsAt.getTime()))
+  await sendOffer(row, session, spaces, expires, false, { manual: true, by: opts.by ?? null })
+  return { spaces, expiresAt: expires.toISOString() }
+}
+
+/**
+ * Admin → Releases: take back a live offer (the person keeps their place on the list and
+ * their link says the offer was withdrawn). Pauses automatic offers for the session, so
+ * the space waits for the owner to choose who gets it.
+ */
+export async function withdrawOffer(waitlistId: string, by?: string | null) {
+  const { data: row } = await supabaseAdmin.from('waitlist')
+    .update({ status: 'waiting', claim_spaces: null, claim_expires_at: null })
+    .eq('id', waitlistId).eq('status', 'offered').select('session_id,email').maybeSingle()
+  if (!row) throw new OfferError('That offer is no longer live.')
+  await supabaseAdmin.from('sessions').update({ waitlist_manual: true }).eq('id', row.session_id)
+  logAudit('offer_withdrawn', { email: row.email, sessionId: row.session_id, by: by ?? null }, waitlistId).catch(() => {})
+  return { sessionId: row.session_id }
 }
 
 // For each candidate that is a lower preference within a group, drop it if a
