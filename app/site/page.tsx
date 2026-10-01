@@ -38,14 +38,13 @@ const STEPS: Step[] = [
   { title: 'Play, then the grand final', body: 'Timed rounds of doubles with a new partner every round. The night ends with a grand final.', kicker: 'End of the night', big: 'Grand final', small: 'The top players of the night meet on court 1.' },
 ]
 
-// Placeholders until the club's own clips arrive (self-hosted, muted, no tracking embeds).
+// The club's own clips: muted loops, self-hosted in public/videos (no tracking embeds).
 const CLIPS: Clip[] = [
-  { label: '[Reel · muted loop]', caption: '[Caption: a long rally on court 2]', bg: 'linear-gradient(160deg, #1E6B3E, #0E3B24)', fg: '#B9D3B4' },
-  { label: '[TikTok · muted loop]', caption: '[Caption: new partners, round 3]', bg: 'linear-gradient(160deg, #8BE3B0, #2E8B57)', fg: INK },
-  { label: '[Reel · muted loop]', caption: '[Caption: the grand final]', bg: 'linear-gradient(160deg, #D9F46B, #8BE3B0)', fg: INK },
-  { label: '[TikTok · muted loop]', caption: '[Caption: checking in at the door]', bg: 'linear-gradient(200deg, #2E8B57, #0E3B24)', fg: '#B9D3B4' },
-  { label: '[Reel · muted loop]', caption: '[Caption: first-timers on court 4]', bg: 'linear-gradient(160deg, #155A34, #0B2416)', fg: '#B9D3B4' },
-  { label: '[TikTok · muted loop]', caption: '[Caption: end-of-night photo]', bg: 'linear-gradient(160deg, #BDEA72, #2E8B57)', fg: INK },
+  { src: '/videos/arrivals.mp4', poster: '/videos/arrivals.jpg', caption: 'Arrival times, from the early birds to the fashionably late', alt: 'Players arriving through the sports hall door, each labelled with the time they turned up' },
+  { src: '/videos/rally.mp4', poster: '/videos/rally.jpg', caption: 'Doubles in full swing', alt: 'A doubles rally in a sports hall, with other games going on behind' },
+  { src: '/videos/prize.mp4', poster: '/videos/prize.jpg', caption: 'Cheers all round for a winner', alt: 'Players cheering as a winner is handed a prize on court' },
+  { src: '/videos/sideline.mp4', poster: '/videos/sideline.jpg', caption: 'Laughs on the sideline', alt: 'Players sitting together on the benches beside the court, laughing' },
+  { src: '/videos/crew.mp4', poster: '/videos/crew.jpg', caption: 'The crew, off court', alt: 'A big group of players posing together outdoors for a selfie' },
 ]
 
 const fmt = (n: number) => n.toLocaleString('en-GB')

@@ -111,6 +111,8 @@
 .tss .clip { flex: 0 0 clamp(15rem, 26vw, 23.75rem); display: flex; flex-direction: column; gap: 0.75rem; }
 .tss .clip-media { height: clamp(22.5rem, 34vw, 31.25rem); border-radius: 1.75rem; display: flex; align-items: center; justify-content: center; font-size: var(--fs-small); overflow: hidden; transition: transform 0.3s ease; }
 .tss .clip:hover .clip-media { transform: scale(1.03); }
+.tss .clip-media { background: #0E3B24; }
+.tss .clip-media video { width: 100%; height: 100%; object-fit: cover; display: block; }
 .tss .clip figcaption { font-size: var(--fs-small); color: var(--muted); }
 
 /* ── Closing call to action ─────────────────────────────── */

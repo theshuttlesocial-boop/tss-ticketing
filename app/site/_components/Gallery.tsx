@@ -1,7 +1,38 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
 
-export type Clip = { label: string; caption: string; bg: string; fg: string }
+/** A clip from the nights: a muted, looping MP4 (self-hosted, no tracking embeds) and its cover image. */
+export type Clip = { src: string; poster: string; caption: string; alt: string }
+
+/**
+ * Plays only while on screen (and doesn't download until it's near), so the page stays
+ * light. With reduced motion it never autoplays: the cover shows, with controls to play.
+ */
+function ClipVideo({ clip }: { clip: Clip }) {
+  const ref = useRef<HTMLVideoElement>(null)
+  const [still, setStill] = useState(false)
+
+  useEffect(() => {
+    const v = ref.current
+    if (!v) return
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) { setStill(true); return }
+    let inView = false
+    const play = () => { if (inView && document.visibilityState === 'visible') v.play().catch(() => {}) }
+    const io = new IntersectionObserver(([en]) => {
+      inView = en.isIntersecting
+      if (inView) { v.preload = 'auto'; play() } else v.pause()
+    }, { rootMargin: '200px 0px', threshold: 0.25 })
+    io.observe(v)
+    // A play blocked while the tab was hidden starts once it's visible again.
+    document.addEventListener('visibilitychange', play)
+    return () => { io.disconnect(); document.removeEventListener('visibilitychange', play) }
+  }, [])
+
+  return (
+    <video ref={ref} src={clip.src} poster={clip.poster} muted loop playsInline preload="none"
+      controls={still} aria-label={clip.alt} />
+  )
+}
 
 /**
  * "Real nights" gallery. On desktop the section pins while scrolling down moves the
@@ -56,7 +87,7 @@ export function Gallery({ clips, children }: { clips: Clip[]; children: React.Re
           <div className="gtrack" ref={track}>
             {clips.map((c) => (
               <figure key={c.caption} className="clip">
-                <div className="clip-media" role="img" aria-label="Video coming soon" style={{ background: c.bg, color: c.fg }}>{c.label}</div>
+                <div className="clip-media"><ClipVideo clip={c} /></div>
                 <figcaption>{c.caption}</figcaption>
               </figure>
             ))}
