@@ -35,21 +35,73 @@ export interface NotifyArgs {
   channels?: Channel[]  // fast-channel preference order; email always also sends
 }
 
+// Texts and WhatsApp go through Twilio (one account for both). Nothing is sent until the
+// Vercel environment has TWILIO_ACCOUNT_SID + TWILIO_AUTH_TOKEN and:
+//   TWILIO_SMS_FROM            a Twilio UK number (+44…) or a sender name such as "TSS"
+//   WHATSAPP_ENABLED=true, TWILIO_WHATSAPP_FROM (whatsapp:+44…) and
+//   TWILIO_WHATSAPP_OFFER_TEMPLATE (the approved template's Content SID, HX…)
+const TWILIO_SID = process.env.TWILIO_ACCOUNT_SID
+const TWILIO_TOKEN = process.env.TWILIO_AUTH_TOKEN
+const SMS_FROM = process.env.TWILIO_SMS_FROM
 const WHATSAPP_ENABLED = process.env.WHATSAPP_ENABLED === 'true'
+const WHATSAPP_FROM = process.env.TWILIO_WHATSAPP_FROM
+const WHATSAPP_OFFER_TEMPLATE = process.env.TWILIO_WHATSAPP_OFFER_TEMPLATE
 
-// Provider hooks. No SMS/WhatsApp provider is configured yet, so these return
-// false (delivery not sent) and the caller falls through — email always covers it.
+async function twilioSend(params: Record<string, string>): Promise<boolean> {
+  if (!TWILIO_SID || !TWILIO_TOKEN) return false
+  const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${TWILIO_SID}/Messages.json`, {
+    method: 'POST',
+    headers: {
+      Authorization: 'Basic ' + Buffer.from(`${TWILIO_SID}:${TWILIO_TOKEN}`).toString('base64'),
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: new URLSearchParams(params),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    console.error('[notify] twilio rejected message', res.status, (err as { code?: number; message?: string }).code, (err as { message?: string }).message)
+    return false
+  }
+  return true
+}
+
+// Short UK date/time for messages: "Thu 2 Oct, 20:15".
+function shortWhen(date: string, time: string) {
+  const d = new Date(date + 'T12:00:00Z').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'Europe/London' })
+  return `${d}, ${time}`
+}
+function untilTime(iso?: string) {
+  return iso ? new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London' }) : null
+}
+
+// The text version of a waitlist offer. One link: the claim page also has "Can't make it?".
+export function offerText(vars: Record<string, any>): string {
+  const when = shortWhen(vars.sessionDate, vars.sessionTime)
+  const until = untilTime(vars.expiresAt)
+  const what = vars.spaces > 1 ? `${vars.spaces} spaces` : 'a space'
+  return vars.competitive
+    ? `The Shuttle Social: ${what} opened up for ${when}! Everyone on the waitlist has been told, first to pay gets it: ${vars.claimUrl}`
+    : `The Shuttle Social: ${what} opened up for ${when}. It's held for you${until ? ` until ${until}` : ''}. Claim or pass it on: ${vars.claimUrl}`
+}
+
 async function sendWhatsApp(phoneE164: string, template: string, vars: Record<string, any>): Promise<boolean> {
-  if (!WHATSAPP_ENABLED) return false
-  // TODO: wire a WhatsApp Business provider here.
-  console.log('[notify] whatsapp not configured; skipping', { phoneE164, template })
-  return false
+  if (!WHATSAPP_ENABLED || !WHATSAPP_FROM || template !== 'waitlist_offer' || !WHATSAPP_OFFER_TEMPLATE) return false
+  // WhatsApp only allows pre-approved templates for messages we start. Variables:
+  // {{1}} first name, {{2}} "Thu 2 Oct, 20:15", {{3}} held-until time or "first to pay", {{4}} claim link.
+  return twilioSend({
+    From: WHATSAPP_FROM, To: `whatsapp:${phoneE164}`, ContentSid: WHATSAPP_OFFER_TEMPLATE,
+    ContentVariables: JSON.stringify({
+      1: vars.firstName ?? 'there',
+      2: shortWhen(vars.sessionDate, vars.sessionTime),
+      3: vars.competitive ? 'first to pay gets it' : `held for you until ${untilTime(vars.expiresAt) ?? 'soon'}`,
+      4: vars.claimUrl,
+    }),
+  })
 }
 
 async function sendSMS(phoneE164: string, template: string, vars: Record<string, any>): Promise<boolean> {
-  // TODO: wire an SMS provider (e.g. Twilio) here when credentials exist.
-  console.log('[notify] sms not configured; skipping', { phoneE164, template })
-  return false
+  if (!SMS_FROM || template !== 'waitlist_offer') return false
+  return twilioSend({ From: SMS_FROM, To: phoneE164, Body: offerText(vars) })
 }
 
 async function sendEmail(email: string, template: string, vars: Record<string, any>): Promise<void> {
