@@ -5,6 +5,7 @@ import { T, inp, btn } from '@/app/_design/theme'
 import { LEVEL_INFO } from '@/lib/live-session/levels'
 import type { Level } from '@/lib/live-session/engine'
 import { authHeader } from '@/lib/accountClient'
+import { looksLikeEmail } from '@/lib/waitlist-validate'
 
 /**
  * Self-registration. One QR for the whole session lands here; the player types
@@ -21,6 +22,8 @@ export default function JoinPage({ params }: { params: Promise<{ id: string }> }
   const [signedIn, setSignedIn] = useState(false)
   const [first, setFirst] = useState('')
   const [last, setLast] = useState('')
+  const [email, setEmail] = useState('')
+  const emailInvalid = !signedIn && email.trim() !== '' && !looksLikeEmail(email)
   const [level, setLevel] = useState<Level | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -90,7 +93,7 @@ export default function JoinPage({ params }: { params: Promise<{ id: string }> }
       const res = await fetch(`/api/live/${id}/join`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
-        body: JSON.stringify({ name, level: lv }),
+        body: JSON.stringify({ name, level: lv, email: signedIn ? undefined : email.trim() }),
       })
       const json = await res.json()
       if (!res.ok) {
@@ -196,14 +199,30 @@ export default function JoinPage({ params }: { params: Promise<{ id: string }> }
         <input style={inp({ fontSize:17, padding:'14px 14px' })} value={first} autoComplete="given-name"
           onChange={e => setFirst(e.target.value)} />
       </label>
-      <label style={{ display:'block', marginBottom:20 }}>
+      <label style={{ display:'block', marginBottom: signedIn ? 20 : 14 }}>
         <span style={{ fontSize:12, color:T.muted, display:'block', marginBottom:5 }}>Last name</span>
         <input style={inp({ fontSize:17, padding:'14px 14px' })} value={last} autoComplete="family-name"
           onChange={e => setLast(e.target.value)} />
       </label>
 
+      {!signedIn && (
+        <label style={{ display:'block', marginBottom:20 }}>
+          <span style={{ fontSize:12, color:T.muted, display:'block', marginBottom:5 }}>Email (optional)</span>
+          <input style={inp({ fontSize:17, padding:'14px 14px' })} value={email} type="email" inputMode="email"
+            autoComplete="email" autoCapitalize="none" onChange={e => setEmail(e.target.value)} />
+          <span style={{ fontSize:12, color:T.muted, display:'block', marginTop:5, lineHeight:1.4 }}>
+            Links tonight to your booking and lets you see it in My portal. Never shown to other players.
+          </span>
+          {emailInvalid && (
+            <span style={{ fontSize:12, color:T.danger, display:'block', marginTop:5 }}>
+              That email doesn&apos;t look right. Check it, or leave it blank.
+            </span>
+          )}
+        </label>
+      )}
+
       <button style={{ ...btn('primary'), width:'100%', padding:'15px', fontSize:16 }}
-        disabled={!first.trim() || !last.trim()}
+        disabled={!first.trim() || !last.trim() || emailInvalid}
         onClick={() => setStep('level')}>
         Continue
       </button>

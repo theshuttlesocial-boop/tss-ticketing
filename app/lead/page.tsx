@@ -1,14 +1,16 @@
 'use client'
 import { RequireTwoStep } from '@/app/_components/TwoStep'
 import { useCallback, useEffect, useState } from 'react'
-import { T, btn, cardStyle } from '@/app/_design/theme'
+import { T, btn, cardStyle, inp } from '@/app/_design/theme'
+import { LEVEL_INFO } from '@/lib/live-session/levels'
 import { staffHeaders, whoAmI, signOutStaff } from '@/lib/staffClient'
 
 type Console = {
   role: string
   canCreateLive: boolean
-  sessions: { id: string; title: string; venue: string; date: string; time: string; capacity: number; booked: number; arrived: number
-    attendees: { id: string; name: string; spaces: number; checkedIn: boolean }[] }[]
+  sessions: { id: string; title: string; venue: string; date: string; time: string; capacity: number; booked: number
+    attendanceReady: boolean; hasLiveSession: boolean
+    attendees: { id: string; name: string; email: string | null; booked: boolean | null }[] }[]
   live: { id: string; name: string; status: string }[]
 }
 
@@ -17,8 +19,8 @@ const wrap: React.CSSProperties = { minHeight:'100vh', background:T.bg, color:T.
 
 /**
  * Session lead console (Roadmap Phase 5b). Only what running the night needs:
- * who's coming and who's arrived, and a way into tonight's live session and
- * timer. Nothing about payments, emails or other sessions. The server decides
+ * who attended (everyone registered in tonight's live session, plus anyone a
+ * lead adds), and a way into tonight's live session and timer. Nothing about payments, emails or other sessions. The server decides
  * what's shown (lib/lead.ts); hiding things here is not the protection.
  */
 function LeadPageInner() {
@@ -26,7 +28,9 @@ function LeadPageInner() {
   const [data, setData] = useState<Console | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
-  const [filter, setFilter] = useState<'all' | 'waiting'>('waiting')
+  // "Add a player" form, open for one session at a time.
+  const [adding, setAdding] = useState<string | null>(null)
+  const [form, setForm] = useState({ first: '', last: '', level: 'standard', email: '' })
 
   const load = useCallback(async () => {
     const res = await fetch('/api/lead', { cache:'no-store', headers: staffHeaders() })
@@ -36,11 +40,12 @@ function LeadPageInner() {
   useEffect(() => { whoAmI().then((w) => { setWho(w); if (w) load() }) }, [load])
   useEffect(() => { if (!who) return; const t = setInterval(load, 20000); return () => clearInterval(t) }, [who, load])
 
-  const checkIn = async (bookingId: string, on: boolean) => {
-    setBusy(bookingId); setErr(null)
-    const res = await fetch('/api/lead/checkin', { method:'POST', headers: { 'Content-Type':'application/json', ...staffHeaders() },
-      body: JSON.stringify({ booking_id: bookingId, checked_in: on }) })
-    if (!res.ok) setErr((await res.json().catch(() => ({}))).error ?? 'Check-in failed')
+  const addAttendee = async (ticketSessionId: string) => {
+    setBusy(ticketSessionId); setErr(null)
+    const res = await fetch('/api/lead/attendee', { method:'POST', headers: { 'Content-Type':'application/json', ...staffHeaders() },
+      body: JSON.stringify({ ticket_session_id: ticketSessionId, ...form }) })
+    if (res.ok) { setAdding(null); setForm({ first: '', last: '', level: 'standard', email: '' }) }
+    else setErr((await res.json().catch(() => ({}))).error ?? 'Could not add them')
     await load(); setBusy(null)
   }
 
@@ -93,42 +98,62 @@ function LeadPageInner() {
         </section>
       )}
 
-      {/* Check-in */}
-      {data?.sessions.map((s) => {
-        const list = s.attendees.filter((a) => filter === 'all' || !a.checkedIn)
-        return (
-          <section key={s.id} style={{ ...cardStyle, padding:14 }}>
-            <h2 style={{ fontSize:18, fontWeight:900, margin:'0 0 2px' }}>{s.title}</h2>
-            <div style={{ color:T.muted, fontSize:13, marginBottom:10 }}>{s.venue} · {s.time}</div>
-            <div style={{ fontSize:28, fontWeight:900, marginBottom:10 }}>
-              {s.arrived}<span style={{ color:T.muted, fontSize:16, fontWeight:600 }}> / {s.booked} arrived</span>
+      {/* Attendance: everyone registered in tonight's live session */}
+      {data?.sessions.map((s) => (
+        <section key={s.id} style={{ ...cardStyle, padding:14 }}>
+          <h2 style={{ fontSize:18, fontWeight:900, margin:'0 0 2px' }}>{s.title}</h2>
+          <div style={{ color:T.muted, fontSize:13, marginBottom:10 }}>{s.venue} · {s.time}</div>
+          <div style={{ fontSize:28, fontWeight:900, marginBottom:4 }}>
+            {s.attendees.length}<span style={{ color:T.muted, fontSize:16, fontWeight:600 }}> attended · {s.booked} booked</span>
+          </div>
+          <div style={{ color:T.muted, fontSize:13, marginBottom:12, lineHeight:1.5 }}>
+            {!s.attendanceReady ? 'Run migration 029 in Supabase to turn on attendance.'
+              : !s.hasLiveSession ? "Start tonight's live session: attendance fills in as players scan the QR and register."
+              : 'Everyone who registers by scanning the QR, plus anyone you add.'}
+          </div>
+
+          <div style={{ display:'grid', gap:6, marginBottom:12 }}>
+            {s.attendees.map((a) => (
+              <div key={a.id} style={{ display:'flex', alignItems:'center', gap:10, minHeight:48, padding:'8px 12px',
+                background:T.card2, border:`1px solid ${T.border}`, borderRadius:10 }}>
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ fontWeight:700, fontSize:16 }}>{a.name}</div>
+                  {a.email && <div style={{ color:T.muted, fontSize:12, overflow:'hidden', textOverflow:'ellipsis' }}>{a.email}</div>}
+                </div>
+                {a.booked === true && <span style={{ fontSize:11, fontWeight:700, color:T.accent }}>Booked</span>}
+                {a.booked === false && <span style={{ fontSize:11, fontWeight:700, color:T.muted }}>Plus-one / guest</span>}
+              </div>
+            ))}
+            {s.attendanceReady && s.hasLiveSession && s.attendees.length === 0 &&
+              <div style={{ color:T.muted }}>No one has registered yet.</div>}
+          </div>
+
+          {s.attendanceReady && (adding !== s.id ? (
+            <button onClick={() => { setAdding(s.id); setErr(null) }} style={{ ...btn('ghost'), width:'100%', minHeight:44 }}>
+              + Add a player who isn&apos;t on the list
+            </button>
+          ) : (
+            <div style={{ display:'grid', gap:8, padding:12, border:`1px solid ${T.border}`, borderRadius:10 }}>
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
+                <input aria-label="First name" placeholder="First name" value={form.first} style={inp()}
+                  onChange={(e) => setForm({ ...form, first: e.target.value })} />
+                <input aria-label="Last name" placeholder="Last name" value={form.last} style={inp()}
+                  onChange={(e) => setForm({ ...form, last: e.target.value })} />
+              </div>
+              <select aria-label="Level" value={form.level} style={inp()} onChange={(e) => setForm({ ...form, level: e.target.value })}>
+                {LEVEL_INFO.map((l) => <option key={l.level} value={l.level}>{l.label}</option>)}
+              </select>
+              <input aria-label="Email (optional)" placeholder="Email (optional)" type="email" value={form.email} style={inp()}
+                onChange={(e) => setForm({ ...form, email: e.target.value })} />
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
+                <button onClick={() => setAdding(null)} style={{ ...btn('ghost'), minHeight:44 }}>Cancel</button>
+                <button disabled={busy === s.id || !form.first.trim()} onClick={() => addAttendee(s.id)}
+                  style={{ ...btn('primary'), minHeight:44 }}>{busy === s.id ? 'Adding…' : 'Add to tonight'}</button>
+              </div>
             </div>
-            <div role="tablist" style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:6, marginBottom:10 }}>
-              {(['waiting', 'all'] as const).map((f) => (
-                <button key={f} role="tab" aria-selected={filter === f} onClick={() => setFilter(f)}
-                  style={{ ...btn(filter === f ? 'primary' : 'ghost'), minHeight:44 }}>{f === 'waiting' ? 'Not arrived' : 'Everyone'}</button>
-              ))}
-            </div>
-            <div style={{ display:'grid', gap:6 }}>
-              {list.map((a) => (
-                <button key={a.id} disabled={busy === a.id} onClick={() => checkIn(a.id, !a.checkedIn)}
-                  aria-pressed={a.checkedIn}
-                  style={{ display:'flex', alignItems:'center', gap:12, width:'100%', minHeight:56, padding:'10px 12px',
-                    background: a.checkedIn ? T.accentDim : T.card2, border:`1px solid ${a.checkedIn ? T.accentBorder : T.border}`,
-                    borderRadius:10, color:T.text, fontFamily:'inherit', fontSize:17, cursor:'pointer', textAlign:'left' }}>
-                  <span aria-hidden style={{ width:28, height:28, borderRadius:8, display:'grid', placeItems:'center', flexShrink:0,
-                    background: a.checkedIn ? T.accent : 'transparent', border:`2px solid ${a.checkedIn ? T.accent : T.muted}`, color:T.bg, fontWeight:900 }}>
-                    {a.checkedIn ? '✓' : ''}
-                  </span>
-                  <span style={{ flex:1, fontWeight:700 }}>{a.name}</span>
-                  {a.spaces > 1 && <span style={{ color:T.muted, fontSize:14 }}>×{a.spaces}</span>}
-                </button>
-              ))}
-              {list.length === 0 && <div style={{ color:T.muted }}>{filter === 'waiting' ? 'Everyone has arrived 🎉' : 'No bookings yet.'}</div>}
-            </div>
-          </section>
-        )
-      })}
+          ))}
+        </section>
+      ))}
     </div>
   )
 }

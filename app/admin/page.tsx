@@ -79,6 +79,8 @@ function AdminPageInner() {
   const [staff,setStaff]=useState<{email:string|null;role:string;via:string}|null>(null)
   const [sessions,setSessions]=useState<Session[]>([]); const [bookings,setBookings]=useState<Booking[]>([])
   const [waitlist,setWaitlist]=useState<any[]>([]); const [analytics,setAnalytics]=useState<any>(null)
+  // Who attended (registered in the session's live session) — lib/attendance.ts
+  const [attended,setAttended]=useState<{ready:boolean;hasLiveSession:boolean;attendees:{id:string;name:string;email:string|null;booked:boolean|null}[]}|null>(null)
   const [tab,setTab]=useState<'overview'|'sessions'|'create'|'bookings'|'attendees'|'waitlist'|'analytics'|'settings'|'blocked'|'credits'|'releases'|'transfers'|'inbox'>('overview')
   const [loading,setLoading]=useState(false); const [error,setError]=useState(''); const [msg,setMsg]=useState('')
   const [editing,setEditing]=useState<Session|null>(null)
@@ -167,6 +169,12 @@ function AdminPageInner() {
     const url=filterSession?`/api/admin?type=waitlist&session_id=${filterSession}`:'/api/admin?type=waitlist'
     const res=await fetch(url,{headers:{...staffHeaders(secret)}})
     const d=await res.json();setWaitlist(d.waitlist??[])
+  }
+
+  async function loadAttended(){
+    if(!filterSession){setAttended(null);return}
+    const res=await fetch(`/api/admin/attendance?session_id=${filterSession}`,{headers:{...staffHeaders(secret)}})
+    setAttended(res.ok?await res.json():null)
   }
 
   async function loadAnalytics(){
@@ -321,7 +329,7 @@ function AdminPageInner() {
   useEffect(()=>{
     if(!authed)return
     if(tab==='bookings')loadBookings()
-    if(tab==='attendees'){loadBookings();loadWaitlist()}
+    if(tab==='attendees'){loadBookings();loadWaitlist();loadAttended()}
     if(tab==='waitlist')loadWaitlist()
     if(tab==='analytics')loadAnalytics()
     if(tab==='blocked')loadBlocked()
@@ -672,10 +680,34 @@ function AdminPageInner() {
                   </button>
                 </div>
 
-                {/* Confirmed attendees */}
+                {/* Attended: everyone registered in the session's live session (counts plus-ones individually) */}
+                {filterSession&&attended&&(
+                  <div style={cardStyle}>
+                    <div style={{padding:'12px 18px',borderBottom:`1px solid ${T.border}`,display:'flex',justifyContent:'space-between',alignItems:'center',gap:8}}>
+                      <div style={{fontWeight:600,fontSize:12,color:T.muted,textTransform:'uppercase',letterSpacing:1}}>Attended ({attended.attendees.length})</div>
+                      {attended.attendees.length>0&&<button onClick={()=>exportCSV(attended.attendees.map(a=>({name:a.name,email:a.email??'',booked:a.booked===null?'':a.booked?'yes':'no (plus-one / guest)'})),'tss-attended.csv')}
+                        style={{padding:'6px 12px',background:T.accentDim,color:T.accent,border:`1px solid ${T.accentBorder}`,borderRadius:8,cursor:'pointer',fontSize:12,fontWeight:600,fontFamily:'inherit'}}>📥 Export</button>}
+                    </div>
+                    {!attended.ready&&<div style={{padding:20,color:T.muted,fontSize:13}}>Run migration 029 in Supabase to turn on attendance.</div>}
+                    {attended.ready&&!attended.hasLiveSession&&<div style={{padding:20,color:T.muted,fontSize:13}}>No live session was run for this session, so there's no registration list.</div>}
+                    {attended.attendees.map((a,i)=>(
+                      <div key={a.id} style={{padding:'10px 18px',borderBottom:i<attended.attendees.length-1?`1px solid ${T.border}`:'none',display:'flex',justifyContent:'space-between',alignItems:'center',gap:8}}>
+                        <div style={{minWidth:0}}>
+                          <div style={{fontWeight:600,fontSize:14}}>{a.name}</div>
+                          {a.email&&<div style={{fontSize:11,color:T.muted}}>{a.email}</div>}
+                        </div>
+                        <div style={{fontSize:11,fontWeight:700,color:a.booked?T.accent:T.muted,whiteSpace:'nowrap' as const}}>
+                          {a.booked===true?'Booked':a.booked===false?'Plus-one / guest':'No email'}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Paid bookings */}
                 <div style={cardStyle}>
                   <div style={{padding:'12px 18px',borderBottom:`1px solid ${T.border}`,fontWeight:600,fontSize:12,color:T.muted,textTransform:'uppercase',letterSpacing:1}}>
-                    Confirmed Attendees ({bookings.filter(b=>b.stripe_status==='succeeded').reduce((a,b)=>a+b.quantity,0)})
+                    Booked, paid tickets ({bookings.filter(b=>b.stripe_status==='succeeded').reduce((a,b)=>a+b.quantity,0)})
                   </div>
                   {bookings.filter(b=>b.stripe_status==='succeeded').length===0&&<div style={{padding:40,textAlign:'center',color:T.muted}}>No confirmed attendees</div>}
                   {bookings.filter(b=>b.stripe_status==='succeeded').map((b,i,arr)=>{

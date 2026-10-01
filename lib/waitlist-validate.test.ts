@@ -57,3 +57,10 @@ test('a valid sign-up returns trimmed values', () => {
   const r = v({ name: '  Priya   Shah ', email: ' priya.shah@gmail.com ', phone: ' 07700 900123 ' })
   assert.deepEqual(r, { ok: true, name: 'Priya Shah', email: 'priya.shah@gmail.com', phone: '07700 900123' })
 })
+
+// ── looksLikeEmail: the same rule reused by live-session registration ───────
+import { looksLikeEmail } from './waitlist-validate'
+test('looksLikeEmail accepts real addresses and rejects junk', () => {
+  for (const e of ['thuriga1004@icloud.com', 'a.b+tss@gmail.com', ' x@club.london ']) assert.equal(looksLikeEmail(e), true, e)
+  for (const e of ['', 'Test', 'rwqqq@fs.d', '$(uuidgen)', 'no at.com']) assert.equal(looksLikeEmail(e), false, e)
+})

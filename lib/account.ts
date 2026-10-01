@@ -6,6 +6,7 @@
  * Supabase, then finds or creates the matching `players` row by email.
  */
 import { supabaseAdmin } from '@/lib/supabase';
+import { claimRegistrationsForAccount } from '@/lib/attendance';
 
 export interface AccountUser { id: string; email: string }
 
@@ -25,8 +26,18 @@ export async function userFromRequest(req: Request): Promise<AccountUser | null>
   return { id: data.user.id, email: data.user.email.toLowerCase() };
 }
 
-/** Find or create the player for a signed-in user. Matching by email links bookings made before the account existed. */
+/**
+ * Find or create the player for a signed-in user. Matching by email links bookings
+ * made before the account existed, and live-session registrations made with this
+ * email (lib/attendance.ts) — safe because signing in proved they own the email.
+ */
 export async function ensurePlayer(u: AccountUser): Promise<PlayerRow> {
+  const p = await findOrCreatePlayer(u);
+  await claimRegistrationsForAccount(p.id, u.email).catch(() => {});
+  return p;
+}
+
+async function findOrCreatePlayer(u: AccountUser): Promise<PlayerRow> {
   const { data: mine } = await supabaseAdmin.from('players').select('*').eq('auth_user_id', u.id).maybeSingle();
   if (mine) {
     await supabaseAdmin.from('players').update({ last_seen_at: new Date().toISOString() }).eq('id', mine.id);

@@ -36,6 +36,19 @@ export async function POST(req: Request) {
     // regulars (same people sat out first, same pairings). Random per session.
     const sessionSeed = Number.isInteger(seed) ? seed : Math.floor(Math.random() * 1_000_000_000)
     const id = await createLiveSession(name, roster ?? [], sessionSeed, courts)
+
+    // Link it to tonight's booking session, so who registers counts as that
+    // session's attendance (lib/attendance.ts). A lead: the session they're
+    // assigned to. Owners/admins: tonight's session if there is exactly one.
+    let ticketSessionId = ticketAssignment?.ticket_session_id ?? null
+    if (!ticketSessionId) {
+      const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
+      const { data: tonight } = await supabaseAdmin.from('sessions').select('id')
+        .eq('date', today).neq('status', 'cancelled').eq('cancelled_occurrence', false)
+      if (tonight?.length === 1) ticketSessionId = tonight[0].id
+    }
+    if (ticketSessionId)
+      await supabaseAdmin.from('live_sessions').update({ ticket_session_id: ticketSessionId }).eq('id', id)  // no-op before migration 029
     if (ticketAssignment && staff.email) {
       const { data: me } = await supabaseAdmin.from('staff').select('id').ilike('email', staff.email).single()
       await supabaseAdmin.from('session_leads').insert({ staff_id: me!.id, live_session_id: id,
