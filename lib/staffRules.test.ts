@@ -30,7 +30,7 @@ test('emergency password: on unless switched off', () => {
   assert.ok(!passwordFallbackEnabled('off'));
 });
 
-import { fullySignedIn, tokenAal } from './staffRules';
+import { fullySignedIn, needsTwoStep, tokenAal } from './staffRules';
 
 const jwt = (payload: object) => `x.${Buffer.from(JSON.stringify(payload)).toString('base64url')}.y`;
 
@@ -43,4 +43,12 @@ test('two-step: owners and admins need the app code; leads and the emergency pas
   assert.ok(!fullySignedIn({ email: 'o@x', role: 'owner', via: 'account', mfa: 'needed' }));
   assert.ok(fullySignedIn({ email: 'l@x', role: 'session_lead', via: 'account', mfa: 'ok' }));
   assert.ok(fullySignedIn({ email: null, role: 'owner', via: 'password' }));
+});
+
+test('the authenticator step is off unless STAFF_TWO_STEP=on', () => {
+  assert.equal(needsTwoStep('owner', false), false);
+  assert.equal(needsTwoStep('admin', false), false);
+  assert.equal(needsTwoStep('owner', true), true);
+  assert.equal(needsTwoStep('admin', true), true);
+  assert.equal(needsTwoStep('session_lead', true), false);
 });

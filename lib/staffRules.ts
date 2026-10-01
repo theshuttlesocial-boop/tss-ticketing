@@ -25,8 +25,12 @@ export interface Assignment {
 
 export const isAdminRole = (r: Role) => r === 'owner' || r === 'admin';
 
-/** Owners and admins need two-step login; session leads don't. */
-export const needsTwoStep = (r: Role) => isAdminRole(r);
+/**
+ * The authenticator-app step (Phase 5d) is OFF: the emailed sign-in code is enough for
+ * everyone (owner's decision, 1 Oct 2026). Set STAFF_TWO_STEP=on in Vercel to require it
+ * again for owners and admins; session leads never need it.
+ */
+export const needsTwoStep = (r: Role, required = process.env.STAFF_TWO_STEP === 'on') => required && isAdminRole(r);
 
 /**
  * The sign-in's assurance level, read from the access token Supabase has
@@ -40,7 +44,7 @@ export function tokenAal(token: string): string | null {
 }
 
 /** Has this staff member done everything their role requires to act? */
-export const fullySignedIn = (s: StaffUser) => s.via === 'password' || !needsTwoStep(s.role) || s.mfa === 'ok';
+export const fullySignedIn = (s: StaffUser) => s.via === 'password' || s.mfa !== 'needed';
 
 /** An assignment with no window is valid while it exists; otherwise only between the times given. */
 export function assignmentActive(a: Assignment, now: number): boolean {
