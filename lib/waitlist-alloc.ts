@@ -60,6 +60,15 @@ export function isSessionDayLondon(sessionDate: string, now: Date): boolean {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(now) === sessionDate
 }
 
+/**
+ * Session day: tapping "Claim & pay" holds the seat for only this long. Everyone
+ * waiting has the same offer and "the first to pay gets it", so a long hold let
+ * one person who didn't pay block everyone else (1 Oct 2026: a released spot sat
+ * unsold for hours behind repeated 10-minute holds). Public bookings and
+ * day-before offers keep the normal 10-minute hold (Apple Pay / 3DS need it).
+ */
+export const SESSION_DAY_CLAIM_HOLD_SECONDS = 60
+
 /** How long a one-at-a-time offer is held for that person (day before or earlier). */
 export const QUEUE_OFFER_MINUTES = 20
 
