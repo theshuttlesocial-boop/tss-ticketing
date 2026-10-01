@@ -128,6 +128,11 @@ function Account() {
               right={b.cancelled ? <span style={{ color:T.danger, fontSize:12 }}>Cancelled</span> : <span style={{ color:T.muted, fontSize:12 }}>{b.ref}</span>}
               link={b.mapsUrl ?? undefined} linkLabel="Map" />
           ))}
+        {s.upcoming.some((b) => !b.cancelled) && (
+          <a href="/release" style={{ ...btn(), display:'block', textAlign:'center', textDecoration:'none', padding:12, fontSize:14, marginTop:10 }}>
+            Can&apos;t make it? Release or transfer your spot →
+          </a>
+        )}
       </Section>
 
       <Section title="Live sessions you played">

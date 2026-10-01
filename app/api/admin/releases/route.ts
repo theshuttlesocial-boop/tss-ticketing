@@ -39,7 +39,7 @@ export async function POST(req: Request) {
 
   if (action === 'release_all') {
     if (!session_id) return NextResponse.json({ error: 'session_id required' }, { status: 400 })
-    const result = await runCascade(session_id, { ignoreTier: true })
+    const result = await runCascade(session_id, { ignoreTier: true, everyone: true })
     await logAudit('admin_release_all', { session_id, ...result }, session_id)
     return NextResponse.json({ success: true, ...result })
   }

@@ -1,5 +1,7 @@
-import { NextResponse } from 'next/server'
+import { NextResponse, after } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { runCascade } from '@/lib/waitlist-matcher'
+import { isSessionDayLondon } from '@/lib/waitlist-alloc'
 
 async function loadOffer(token: string) {
   const { data: row } = await supabaseAdmin
@@ -19,8 +21,9 @@ export async function GET(req: Request) {
   if (!loaded?.session) return NextResponse.json({ status: 'invalid' })
 
   const { row, session } = loaded
-  let status: 'valid' | 'expired' | 'claimed' | 'invalid' = 'valid'
+  let status: 'valid' | 'expired' | 'claimed' | 'declined' | 'invalid' = 'valid'
   if (row.status === 'claimed') status = 'claimed'
+  else if (row.status === 'declined') status = 'declined'
   else if (row.status !== 'offered') status = 'invalid'
   else if (!row.claim_expires_at || new Date(row.claim_expires_at) < new Date()) status = 'expired'
 
@@ -29,17 +32,31 @@ export async function GET(req: Request) {
     spaces: row.claim_spaces ?? 1,
     name: row.name, email: row.email, phone: row.phone,
     claimExpiresAt: row.claim_expires_at,
+    // On the session day everyone on the waitlist is offered at once (first to pay wins);
+    // before that, the space is held for this person until claimExpiresAt.
+    competitive: isSessionDayLondon(session.date, new Date()),
     session: { id: session.id, title: session.title, date: session.date, time: session.time, venue: session.venue, label: session.label },
   })
 }
 
-// POST — forfeit: revert a live offer to 'waiting' (lost the race, or declined).
-// Their place on the list is kept; only reverts if still 'offered'.
+// POST { token, action }:
+//  - 'decline': "I can't make it". The offer ends, they leave this session's waitlist,
+//    and the space goes straight to the next person (no waiting for it to expire).
+//  - otherwise (lost the race on session day): back to 'waiting', keeping their place.
+// Only acts on a live offer.
 export async function POST(req: Request) {
-  const { token } = await req.json().catch(() => ({}))
+  const { token, action } = await req.json().catch(() => ({}))
   if (!token) return NextResponse.json({ error: 'token required' }, { status: 400 })
-  await supabaseAdmin.from('waitlist')
-    .update({ status: 'waiting', claim_token: null, claim_spaces: null, claim_expires_at: null })
+  const declining = action === 'decline'
+  const { data: row } = await supabaseAdmin.from('waitlist')
+    .update(declining
+      ? { status: 'declined', claim_token: null, claim_spaces: null, claim_expires_at: null }
+      : { status: 'waiting', claim_token: null, claim_spaces: null, claim_expires_at: null })
     .eq('claim_token', token).eq('status', 'offered')
+    .select('session_id').maybeSingle()
+  if (row?.session_id && declining) {
+    const sid = row.session_id
+    after(() => runCascade(sid).then(() => {}, (err) => console.error('[claim] cascade after decline failed:', err)))
+  }
   return NextResponse.json({ success: true })
 }

@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { stripe } from '@/lib/stripe'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendBookingConfirmation, sendAdminBookingNotification, sendApologyRefundEmail } from '@/lib/email'
-import { applyClaimToReleases } from '@/lib/settlement'
+import { settleReleasesFilledBy } from '@/lib/settlement'
 import { consumeCredits } from '@/lib/credits'
 
 export async function POST(req: Request) {
@@ -149,21 +149,19 @@ export async function POST(req: Request) {
         .eq('booking_ref', booking_ref).then(() => {}, (err: unknown) => console.error('[webhook] welcome redeem failed:', err))
     }
 
-    // ── 4b. Waitlist claim resolution (this booking came from a claim link) ──
-    //    Marks only the claimed waitlist row; the person's other entries stay
-    //    'waiting'. Resolves the oldest unfilled release for this session and
-    //    hands settlement of the releaser's payout to Phase 4.
-    if (pi.metadata?.waitlist_id) {
-      try {
+    // ── 4b. Released spaces resold → pay the releasers ────────────────────
+    //    A waitlist claim marks only the claimed waitlist row (the person's other
+    //    entries stay 'waiting'). Then, for ANY paid booking, any released spaces it
+    //    actually filled are settled oldest first, so a releaser is paid whether their
+    //    space went to the waitlist or to a public booking.
+    try {
+      if (pi.metadata?.waitlist_id) {
         await supabaseAdmin.from('waitlist').update({ status: 'claimed' }).eq('id', pi.metadata.waitlist_id)
-
-        // Fill releases oldest first for exactly the spaces claimed; each releaser is
-        // settled only for spaces actually filled (splits a release if needed).
-        const matched = await applyClaimToReleases(session_id, booking.quantity, booking.id, pi.metadata.waitlist_id)
-        if (!matched) console.warn('[webhook] claim had no unresolved release for session', session_id)
-      } catch (claimErr) {
-        console.error('[webhook] claim resolution failed:', claimErr)
       }
+      const filled = await settleReleasesFilledBy(session_id, booking.id, booking.quantity, pi.metadata?.waitlist_id)
+      if (!filled && pi.metadata?.waitlist_id) console.warn('[webhook] claim filled no unresolved release for session', session_id)
+    } catch (claimErr) {
+      console.error('[webhook] release settlement failed:', claimErr)
     }
 
     // ── 5. Send confirmation emails ──────────────────────────────────────────

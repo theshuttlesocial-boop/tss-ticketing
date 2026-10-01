@@ -1,5 +1,6 @@
 import { requireAdmin } from '@/lib/staff'
-import { NextResponse } from 'next/server'
+import { NextResponse, after } from 'next/server'
+import { runCascade } from '@/lib/waitlist-matcher'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendWaitlistConfirmation, sendAdminWaitlistNotification } from '@/lib/email'
 import { validateWaitlistInput } from '@/lib/waitlist-validate'
@@ -69,6 +70,10 @@ export async function POST(req: Request) {
     sendWaitlistConfirmation({ to: email, name, position: primaryPos, sessionTitle: session.title, sessionDate: session.date }).catch(console.error)
     sendAdminWaitlistNotification({ name, email, phone, position: primaryPos, sessionTitle: session.title, sessionDate: session.date, sessionTime: session.time, venue: session.venue }).catch(console.error)
   }
+
+  // If a space is already free (e.g. on session day), offer it now rather than at the
+  // next 2-minute run. runCascade does nothing when the session is full.
+  after(() => Promise.allSettled(results.map(r => runCascade(r.session_id))).then(() => {}))
 
   return NextResponse.json({ position: primaryPos, added: results })
 }

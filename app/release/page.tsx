@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { computeRefundQuote } from '@/lib/release'
 import { T, inp, doneMark } from '@/app/_design/theme'
+import { authHeader } from '@/lib/accountClient'
 
 const fmt = (p:number) => `£${(p/100).toFixed(2)}`
 const fmtDate = (d:string) => new Date(d).toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'})
@@ -27,10 +28,21 @@ export default function ReleasePage(){
   const [route,setRoute]=useState<'A'|'B'|'C'|null>(null)
   const [done,setDone]=useState<{kind:'transfer'|'credit'|'card';toEmail?:string}|null>(null)
 
-  // Magic link lands here with ?token=...
+  // Magic link lands here with ?token=... Players signed in to My portal skip the
+  // email step: their sign-in proves the email, so their bookings load straight away.
   useEffect(()=>{
     const t=new URLSearchParams(window.location.search).get('token')
-    if(!t)return
+    if(!t){
+      (async()=>{
+        const h=await authHeader()
+        if(!('Authorization' in h))return
+        const d=await fetch('/api/release/session',{headers:h}).then(r=>r.json()).catch(()=>null)
+        if(d?.status!=='ok'||!d.bookings?.length)return   // nothing to manage: show the email step
+        setPriorCardRefunds(d.priorCardRefunds??0);setBookings(d.bookings)
+        if(d.bookings.length===1)pick(d.bookings[0]);else setStep('choose')
+      })()
+      return
+    }
     setToken(t);setStep('loading')
     fetch(`/api/release/session?token=${encodeURIComponent(t)}`).then(r=>r.json()).then(d=>{
       if(d.status!=='ok'){setStep('link-invalid');return}
@@ -68,7 +80,7 @@ export default function ReleasePage(){
           <>
             <h1 style={{fontSize:34,fontWeight:900,letterSpacing:'-0.03em',marginBottom:8}}>Can't make it?</h1>
             <p style={{color:T.muted,fontSize:14,lineHeight:1.6,marginBottom:20}}>
-              Enter the email you booked with and we'll send you a secure link to manage your spot. No booking reference needed.
+              Enter the email you booked with and we'll send you a secure link to manage your spot. No booking reference needed. You can release up to 15 minutes before your session starts. Signed in to <a href="/account?next=/release" style={{color:T.accent}}>My portal</a>? Your bookings show straight away.
             </p>
             <div style={panel}>
               <label style={{fontSize:12,color:T.muted,display:'block',marginBottom:5}}>Email</label>
@@ -100,7 +112,7 @@ export default function ReleasePage(){
         {step==='link-invalid'&&(
           <div style={{...panel,textAlign:'center',padding:'32px 24px'}}>
             <div style={{fontSize:20,fontWeight:800,color:T.danger,marginBottom:8}}>Link expired or not valid</div>
-            <p style={{color:T.muted,fontSize:14,lineHeight:1.7,marginBottom:20}}>This link may have expired (they last 30 minutes) or there's no upcoming booking to manage.</p>
+            <p style={{color:T.muted,fontSize:14,lineHeight:1.7,marginBottom:20}}>This link may have expired (they last 30 minutes), or there's no upcoming booking to manage. Releases close 15 minutes before a session starts.</p>
             <button onClick={()=>{setStep('email');setToken('')}} style={{padding:'12px 24px',background:T.cta,color:T.onCta,boxShadow:T.ctaGlow,border:'none',borderRadius:999,fontWeight:700,fontSize:14,cursor:'pointer',fontFamily:'inherit'}}>Request a new link</button>
           </div>
         )}
@@ -214,7 +226,7 @@ export default function ReleasePage(){
     if(!booking)return
     setLoading(true);setError('')
     try{
-      const res=await fetch('/api/release',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({bookingId:booking.id,token,spaces,refundPreference})})
+      const res=await fetch('/api/release',{method:'POST',headers:{'Content-Type':'application/json',...(await authHeader())},body:JSON.stringify({bookingId:booking.id,token,spaces,refundPreference})})
       const d=await res.json()
       if(!res.ok){setError(d.error??'Something went wrong');return}
       setDone({kind:refundPreference});setStep('done')
@@ -280,7 +292,7 @@ function TransferForm({booking,spaces,token,onDone}:{booking:Booking;spaces:numb
   async function submit(){
     setLoading(true);setError('')
     try{
-      const res=await fetch('/api/release/transfer',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({bookingId:booking.id,token,spaces,toName,toEmail,toPhone,consent})})
+      const res=await fetch('/api/release/transfer',{method:'POST',headers:{'Content-Type':'application/json',...(await authHeader())},body:JSON.stringify({bookingId:booking.id,token,spaces,toName,toEmail,toPhone,consent})})
       const d=await res.json()
       if(!res.ok){setError(d.error??'Something went wrong');return}
       onDone(d.toEmail??toEmail)

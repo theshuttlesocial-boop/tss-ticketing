@@ -55,49 +55,44 @@ export function isTierWindowActive(sessionDate: string, releasedAt: Date, now: D
   return now.getTime() < releasedAt.getTime() + minutes * 60_000
 }
 
-// Choose who to offer the open spots to.
-//  - tier filter (inside window: new players only; if none, fall through to all)
-//  - fit filter  (min_spaces_acceptable must fit in openSpots)
-//  - sort by largest allocatable group first, then queue position
-//  - greedy allocate down the list until spots run out (never below a person's
-//    minimum), then add the next 2 as competitive backups
-export function selectOffers(candidates: MatchCandidate[], openSpots: number, windowActive: boolean): Offer[] {
-  if (openSpots <= 0) return []
+/** The session's date is today in the UK: the waitlist switches to "everyone at once". */
+export function isSessionDayLondon(sessionDate: string, now: Date): boolean {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(now) === sessionDate
+}
 
-  // Tier filter — never leave a spot empty just to protect the tier.
+/** How long a one-at-a-time offer is held for that person (day before or earlier). */
+export const QUEUE_OFFER_MINUTES = 20
+
+// Day before or earlier: offer strictly in waitlist order, one person per free space,
+// and hold those spaces for them (no backups racing them).
+//  - tier filter (inside the new-players window: new players only; if none, everyone)
+//  - in queue order, give each person min(needed, free left); skip anyone whose
+//    minimum no longer fits, so a single space can go to the next person who needs one
+export function selectQueueOffers(candidates: MatchCandidate[], freeSpots: number, windowActive: boolean): Offer[] {
+  if (freeSpots <= 0) return []
   let pool = candidates
   if (windowActive) {
     const newOnly = candidates.filter(c => c.priorSessionCount === 0)
     pool = newOnly.length > 0 ? newOnly : candidates
   }
-
-  // Fit filter.
-  pool = pool.filter(c => c.minSpaces <= openSpots)
-
-  // Filling the session is the priority: largest allocatable group first.
-  const allocatable = (c: MatchCandidate) => Math.min(c.spacesNeeded, openSpots)
-  const sorted = [...pool].sort((a, b) => allocatable(b) - allocatable(a) || a.position - b.position)
-
-  // Greedy allocation.
-  let remaining = openSpots
-  const winners: Offer[] = []
-  const chosen = new Set<string>()
-  for (const c of sorted) {
+  let remaining = freeSpots
+  const offers: Offer[] = []
+  for (const c of [...pool].sort((a, b) => a.position - b.position)) {
     if (remaining <= 0) break
     const give = Math.min(c.spacesNeeded, remaining)
-    if (give < c.minSpaces) continue          // can't satisfy their minimum with what's left
-    winners.push({ id: c.id, claimSpaces: give, isBackup: false })
-    chosen.add(c.id)
+    if (give < c.minSpaces) continue
+    offers.push({ id: c.id, claimSpaces: give, isBackup: false })
     remaining -= give
   }
+  return offers
+}
 
-  // Up to 2 competitive backups (first to pay wins; the seat hold prevents oversell).
-  const backups: Offer[] = []
-  for (const c of sorted) {
-    if (backups.length >= 2) break
-    if (chosen.has(c.id)) continue
-    backups.push({ id: c.id, claimSpaces: allocatable(c), isBackup: true })
-  }
-
-  return [...winners, ...backups]
+// On the day: filling the session comes first, so everyone on the waitlist whose
+// minimum fits is offered at once, and the first to pay gets the space(s).
+export function selectSameDayOffers(candidates: MatchCandidate[], openSpots: number): Offer[] {
+  if (openSpots <= 0) return []
+  return [...candidates]
+    .sort((a, b) => a.position - b.position)
+    .filter(c => c.minSpaces <= openSpots)
+    .map(c => ({ id: c.id, claimSpaces: Math.min(c.spacesNeeded, openSpots), isBackup: true }))
 }

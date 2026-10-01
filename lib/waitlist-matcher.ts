@@ -1,6 +1,7 @@
 import { supabaseAdmin } from '@/lib/supabase'
 import { nanoid } from 'nanoid'
-import { selectOffers, isTierWindowActive, hasLiveOfferConflict, MatchCandidate } from '@/lib/waitlist-alloc'
+import { selectQueueOffers, selectSameDayOffers, isSessionDayLondon, QUEUE_OFFER_MINUTES, isTierWindowActive, hasLiveOfferConflict, MatchCandidate } from '@/lib/waitlist-alloc'
+import { ukSessionStartUTC } from '@/lib/time'
 import { notify } from '@/lib/notify'
 import { logAudit } from '@/lib/audit'
 
@@ -21,9 +22,21 @@ export async function openSpotsFor(sessionId: string): Promise<number> {
   return capacity - booked - held
 }
 
-// Offer freed spaces to the waitlist. Idempotent-ish and safe to re-run (the cron
-// calls it every 2 min); the seat hold at claim time is the real oversell gate.
-export async function runCascade(sessionId: string, opts?: { ignoreTier?: boolean }): Promise<{ openSpots: number; offered: number }> {
+// Spaces promised to people holding a live waitlist offer for this session. While an
+// offer is live those spaces are kept off public sale (claim_seat_hold, migration 028).
+export async function liveOfferedSpaces(sessionId: string): Promise<number> {
+  const { data } = await supabaseAdmin.from('waitlist').select('claim_spaces')
+    .eq('session_id', sessionId).eq('status', 'offered').gt('claim_expires_at', new Date().toISOString())
+  return (data ?? []).reduce((a, r) => a + (r.claim_spaces ?? 0), 0)
+}
+
+// Offer freed spaces to the waitlist. Safe to re-run (the cron calls it every 2 min).
+//  - Day before or earlier: one person per free space, in waitlist order, held for them
+//    for QUEUE_OFFER_MINUTES; spaces already held by live offers aren't offered again.
+//  - On the day: everyone waiting is offered at once until the session starts, and the
+//    first to pay gets it (filling the session comes first).
+// opts.everyone: admin "release to everyone" — the session-day rules, whatever the date.
+export async function runCascade(sessionId: string, opts?: { ignoreTier?: boolean; everyone?: boolean }): Promise<{ openSpots: number; offered: number }> {
   const now = new Date()
   const nowIso = now.toISOString()
 
@@ -39,6 +52,12 @@ export async function runCascade(sessionId: string, opts?: { ignoreTier?: boolea
   const { data: session } = await supabaseAdmin
     .from('sessions').select('id,title,date,time,venue').eq('id', sessionId).single()
   if (!session) return { openSpots, offered: 0 }
+  const sameDay = !!opts?.everyone || isSessionDayLondon(session.date, now)
+  const startsAt = ukSessionStartUTC(session.date, session.time)
+  if (startsAt <= now) return { openSpots, offered: 0 }
+  // One at a time: only spaces not already held for someone can be offered.
+  const freeSpots = sameDay ? openSpots : openSpots - await liveOfferedSpaces(sessionId)
+  if (freeSpots <= 0) return { openSpots, offered: 0 }
 
   // 3. Tier window, anchored on the most recent unresolved release.
   const { data: releases } = await supabaseAdmin
@@ -86,13 +105,14 @@ export async function runCascade(sessionId: string, opts?: { ignoreTier?: boolea
     priorSessionCount: priorByEmail.get(w.email) ?? 0,
   }))
 
-  const offers = selectOffers(candidates, openSpots, windowActive)
+  const offers = sameDay ? selectSameDayOffers(candidates, openSpots) : selectQueueOffers(candidates, freeSpots, windowActive)
   if (!offers.length) return { openSpots, offered: 0 }
 
-  // Claim window: 30 min normally, 15 if the session is today.
-  const isToday = session.date === now.toISOString().split('T')[0]
-  const claimMinutes = isToday ? 15 : 30
-  const claimExpiresAt = new Date(now.getTime() + claimMinutes * 60_000).toISOString()
+  // Claim window: one-at-a-time offers are held for 20 minutes; on the day the offer
+  // stays open until the session starts (first to pay wins).
+  const expires = sameDay ? startsAt : new Date(Math.min(now.getTime() + QUEUE_OFFER_MINUTES * 60_000, startsAt.getTime()))
+  const claimExpiresAt = expires.toISOString()
+  const claimMinutes = Math.max(1, Math.round((expires.getTime() - now.getTime()) / 60_000))
 
   const rowById = new Map(waiting.map(w => [w.id, w]))
   for (const offer of offers) {
@@ -118,6 +138,7 @@ export async function runCascade(sessionId: string, opts?: { ignoreTier?: boolea
         firstName: (row.name ?? '').split(' ')[0] || 'there',
         sessionTitle: session.title, sessionDate: session.date, sessionTime: session.time, venue: session.venue,
         spaces: offer.claimSpaces, claimUrl: `${APP_URL}/claim/${token}`, expiresMinutes: claimMinutes,
+        competitive: sameDay, expiresAt: claimExpiresAt,
       },
     }).catch(err => console.error('[cascade] notify failed:', err))
   }
@@ -144,7 +165,7 @@ async function filterHigherPreferenceAvailable<T extends { waitlist_group_id: st
   // Cache availability per session we need to check.
   const availCache = new Map<string, number>()
   const availOf = async (sid: string) => {
-    if (!availCache.has(sid)) availCache.set(sid, await openSpotsFor(sid))
+    if (!availCache.has(sid)) availCache.set(sid, (await openSpotsFor(sid)) - (await liveOfferedSpaces(sid)))
     return availCache.get(sid)!
   }
 
