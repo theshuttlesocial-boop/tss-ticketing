@@ -22,7 +22,7 @@ export default function PrivacyPage() {
       <div style={{ maxWidth:680, margin:'0 auto' }}>
         <a href="/tickets" style={{ color:C.muted, fontSize:14, textDecoration:'none' }}>← Sessions</a>
         <h1 style={{ fontSize:38, fontWeight:900, letterSpacing:'-0.03em', margin:'14px 0 4px' }}>Privacy</h1>
-        <p style={{ color:C.muted, margin:'0 0 8px' }}>Last updated 30 September 2026</p>
+        <p style={{ color:C.muted, margin:'0 0 8px' }}>Last updated 1 October 2026</p>
         <P>
           The Shuttle Social (&ldquo;we&rdquo;) runs social badminton sessions in London and this website. We are responsible
           for your personal data. Questions or requests: <a href={`mailto:${CONTACT}`} style={{ color:C.accent }}>{CONTACT}</a>.
@@ -33,8 +33,8 @@ export default function PrivacyPage() {
           <li><strong>Booking a session:</strong> your name, email, optional phone number, the session and number of spaces,
             and payment status. We need these to take your booking, email your confirmation, check you in and contact you if a
             session changes (to perform our contract with you). Card payments are handled by Stripe; we never see or store your card details.</li>
-          <li><strong>Waitlist, releasing or transferring a space, and credits:</strong> your name, email and the session, so we can
-            offer spaces and give credit (contract).</li>
+          <li><strong>Waitlist, releasing or transferring a space, and credits:</strong> your name, email, phone number and the session, so we can
+            offer spaces and give credit (contract). When a space opens, we email you and may also text or WhatsApp you the offer.</li>
           <li><strong>Live sessions on the night:</strong> the name you enter, the level you pick, your court, partners, opponents
             and scores, and a rating worked out from your results — to run fair, well-matched games (our legitimate interest in
             running the session, and yours in good games). A 4-digit PIN lets you back into your page; we store only a scrambled
@@ -69,6 +69,7 @@ export default function PrivacyPage() {
           <li><strong>Supabase</strong> — our database and sign-in.</li>
           <li><strong>Vercel</strong> — hosts the website.</li>
           <li><strong>Resend</strong> — sends our emails.</li>
+          <li><strong>Twilio</strong> — sends waitlist offers by text message or WhatsApp.</li>
           <li><strong>Google (Gmail)</strong> — our email inbox, where messages from the website forms arrive.</li>
           <li><strong>Google Maps</strong> — the venue map on the booking page is loaded from Google, which may set its own cookies when it loads.</li>
         </ul>
