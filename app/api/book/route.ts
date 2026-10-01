@@ -8,7 +8,7 @@ import { logAudit } from '@/lib/audit'
 import { userFromRequest } from '@/lib/account'
 import { getWelcomeSettings, normaliseCode } from '@/lib/welcome'
 import { settleReleasesFilledBy } from '@/lib/settlement'
-import { isSessionDayLondon, SESSION_DAY_CLAIM_HOLD_SECONDS } from '@/lib/waitlist-alloc'
+import { holdSecondsFor } from '@/lib/holds'
 
 export async function POST(req: Request) {
   const body = await req.json()
@@ -17,7 +17,6 @@ export async function POST(req: Request) {
 
   // ── Waitlist claim: validate the live offer and size the order from it ──────
   let waitlistId: string | null = null
-  let shortHold = false   // session-day claim: hold the seat for 1 minute, not 10
   if (claim_token) {
     const { data: offer } = await supabaseAdmin.from('waitlist')
       .select('id,session_id,claim_spaces,claim_expires_at,status')
@@ -29,8 +28,6 @@ export async function POST(req: Request) {
     waitlistId = offer.id
     quantity = offer.claim_spaces ?? 1   // authoritative: size the order from the offer
     logAudit('claim_attempt', { waitlistId, sessionId: session_id, spaces: quantity }, offer.id).catch(() => {})
-    const { data: s } = await supabaseAdmin.from('sessions').select('date').eq('id', session_id).single()
-    shortHold = !!s?.date && isSessionDayLondon(s.date, new Date())
   }
 
   if (!session_id || !quantity || !name || !email || !phone)
@@ -51,6 +48,12 @@ export async function POST(req: Request) {
   if (blockedEntry) {
     return NextResponse.json({ error: "We're unable to complete your booking. Please contact an admin for assistance." }, { status: 400 })
   }
+
+  // ── How long to hold the seat while they pay (lib/holds.ts) ─────────────────
+  // null keeps the 10-minute database default.
+  const { data: sInfo } = await supabaseAdmin.from('sessions').select('date, opens_at').eq('id', session_id).single()
+  const holdSeconds = holdSecondsFor({ isClaim: !!claim_token, sessionDate: sInfo?.date, opensAt: sInfo?.opens_at })
+  const shortHold = holdSeconds !== null
 
   // ── Dedup: return existing PaymentIntent if same email+session booked in last 10 min ──
   // Prevents double-charging if user taps "Continue" twice or retries after Apple Pay glitch
@@ -113,9 +116,9 @@ export async function POST(req: Request) {
   if (holdError) return NextResponse.json({ error: 'Could not process request' }, { status: 500 })
   if (!holdResult.success) return NextResponse.json({ error: holdResult.error, available: holdResult.available ?? 0 }, { status: 409 })
 
-  // Session-day claim: shorten the seat hold to 1 minute (see SESSION_DAY_CLAIM_HOLD_SECONDS).
-  if (shortHold) {
-    const shortExpiry = new Date(Date.now() + SESSION_DAY_CLAIM_HOLD_SECONDS * 1000).toISOString()
+  // Shorten the hold where the rules say so (lib/holds.ts).
+  if (holdSeconds !== null) {
+    const shortExpiry = new Date(Date.now() + holdSeconds * 1000).toISOString()
     await supabaseAdmin.from('seat_holds').update({ expires_at: shortExpiry }).eq('hold_token', holdToken)
     holdResult.expires_at = shortExpiry
   }
