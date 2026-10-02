@@ -63,6 +63,35 @@ field is derived from (start level, level history, results).
 `live_games.unrated` lists players an unknown substitute played for; the game
 counts for the other three only.
 
+## v3 matching (October 2026, after Session 90)
+New sessions (CONFIG_VERSION 3); sessions created earlier keep v2 (settings they
+predate are off in `normaliseConfig`), so they replay exactly as played.
+- **Level first**: courts fill by level (strong → beginner), rating orders players
+  within a level. A level change (admin, or level review) moves someone between tiers.
+- **Even boundary**: no court of 3 of one level + 1 of the level below; the weakest
+  of the three drops a court, so the mixed court plays St+I v St+I.
+- **Same-level swaps**: the repeat-avoiding swap (and the movement cap) only trade
+  players of the same level.
+- **Pairing costs**: `levelGap` (teams' combined levels differ, e.g. St+St v I+I) and
+  `widePair` (partners 2+ levels apart: I+B, St+Sd, St+B). A beginner partners a standard.
+- **Ratings**: court-strength weighting (`rating.courtWeight`: wins against stronger
+  opposition than the session average count for more, against weaker for less; losses
+  mirror it), K 220/220/160/160/120 (was 300/300/220/220/160), divisor 700 (was 1000).
+
+- **Game quality first** (costs): 100 points of team gap = 8, teams of different level
+  = 8 per level, partners 2+ levels apart = 12, repeated partner = 6, repeated opponent
+  = 0.5. The repeat-avoiding swap weighs repeats by these costs, so it moves people for a
+  repeated partner, not a repeated opponent.
+- **Strongs in fours**: among players tied for sitting out, v3 re-breaks the tie so the
+  strongs playing are a multiple of four where possible (fairness unchanged).
+
+`npx tsx scripts/matching-v3-eval.ts` compares v2 and v3 on Sessions 88-90 (the
+Session 90 fixture is anonymised). At the time, across 104 games: rating prediction
+error 9.4 → 8.9 points of share; draws judged with hindsight ratings: imbalance
+7.9% → 4.9%, games 60/40 or worse 33 → 14, 3+1 courts 28 → 10, partners 2+ levels
+apart 36 → 3 (all in Session 88, which had no intermediates), repeated partners 2 → 7,
+repeated opponents 26 → 82 (accepted: game quality first).
+
 ## Still to tune
 K schedule, clip range, movement cap, swap limits, level-review thresholds
 (see the simulation output before changing defaults).

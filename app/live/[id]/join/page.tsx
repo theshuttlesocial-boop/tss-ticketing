@@ -23,12 +23,25 @@ export default function JoinPage({ params }: { params: Promise<{ id: string }> }
   const [first, setFirst] = useState('')
   const [last, setLast] = useState('')
   const [email, setEmail] = useState('')
+  const emailMissing = !signedIn && !looksLikeEmail(email)
   const emailInvalid = !signedIn && email.trim() !== '' && !looksLikeEmail(email)
   const [level, setLevel] = useState<Level | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [checked, setChecked] = useState(false)
   const [closed, setClosed] = useState<string | null>(null)
+
+  // Pre-fill from what this phone used to book tickets (the booking form saves it on the device).
+  useEffect(() => {
+    try {
+      const u = JSON.parse(localStorage.getItem('tss_user') ?? 'null')
+      if (u?.email) setEmail((e) => e || u.email)
+      if (u?.name) {
+        const [f, ...rest] = String(u.name).trim().split(/\s+/)
+        setFirst((x) => x || f || ''); setLast((x) => x || rest.join(' '))
+      }
+    } catch { /* no saved details */ }
+  }, [])
 
   // Already registered on this phone? Straight through. The server cookie
   // first (survives this browser's storage being cleared), then this
@@ -95,6 +108,12 @@ export default function JoinPage({ params }: { params: Promise<{ id: string }> }
         headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
         body: JSON.stringify({ name, level: lv, email: signedIn ? undefined : email.trim() }),
       })
+      if (res.ok && !signedIn) {
+        try { // Remember for next time (same place the booking form keeps it)
+          const u = JSON.parse(localStorage.getItem('tss_user') ?? '{}')
+          localStorage.setItem('tss_user', JSON.stringify({ ...u, name: u.name || name, email: email.trim() }))
+        } catch { /* private browsing */ }
+      }
       const json = await res.json()
       if (!res.ok) {
         setError(json.error ?? 'Could not join')
@@ -207,22 +226,24 @@ export default function JoinPage({ params }: { params: Promise<{ id: string }> }
 
       {!signedIn && (
         <label style={{ display:'block', marginBottom:20 }}>
-          <span style={{ fontSize:12, color:T.muted, display:'block', marginBottom:5 }}>Email (optional)</span>
-          <input style={inp({ fontSize:17, padding:'14px 14px' })} value={email} type="email" inputMode="email"
-            autoComplete="email" autoCapitalize="none" onChange={e => setEmail(e.target.value)} />
+          <span style={{ fontSize:12, color:T.muted, display:'block', marginBottom:5 }}>Email</span>
+          {/* name/id + autocomplete="email" let the phone offer the email it usually fills in */}
+          <input id="email" name="email" style={inp({ fontSize:17, padding:'14px 14px' })} value={email} type="email" inputMode="email"
+            autoComplete="email" autoCapitalize="none" autoCorrect="off" spellCheck={false} required
+            onChange={e => setEmail(e.target.value)} />
           <span style={{ fontSize:12, color:T.muted, display:'block', marginTop:5, lineHeight:1.4 }}>
             Links tonight to your booking and lets you see it in My portal. Never shown to other players.
           </span>
           {emailInvalid && (
             <span style={{ fontSize:12, color:T.danger, display:'block', marginTop:5 }}>
-              That email doesn&apos;t look right. Check it, or leave it blank.
+              That email doesn&apos;t look right. Please check it.
             </span>
           )}
         </label>
       )}
 
       <button style={{ ...btn('primary'), width:'100%', padding:'15px', fontSize:16 }}
-        disabled={!first.trim() || !last.trim() || emailInvalid}
+        disabled={!first.trim() || !last.trim() || emailMissing}
         onClick={() => setStep('level')}>
         Continue
       </button>

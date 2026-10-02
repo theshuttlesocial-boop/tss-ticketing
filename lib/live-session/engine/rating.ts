@@ -58,16 +58,35 @@ export function rateGame(
   const eB = 1 - eA; // symmetric by construction of the clip
   const aA = actualShare(g.scoreA, g.scoreB);
   const aB = 1 - aA;
+  // Court-strength weighting (v3): how strong was the opposition, relative to the field?
+  const wA = strengthWeight(rB, aA - eA, players, cfg);
+  const wB = strengthWeight(rA, aB - eB, players, cfg);
   return {
     deltas: {
-      [pa1.id]: ratingDelta(pa1.games, aA, eA, cfg),
-      [pa2.id]: ratingDelta(pa2.games, aA, eA, cfg),
-      [pb1.id]: ratingDelta(pb1.games, aB, eB, cfg),
-      [pb2.id]: ratingDelta(pb2.games, aB, eB, cfg),
+      [pa1.id]: ratingDelta(pa1.games, aA, eA, cfg) * wA,
+      [pa2.id]: ratingDelta(pa2.games, aA, eA, cfg) * wA,
+      [pb1.id]: ratingDelta(pb1.games, aB, eB, cfg) * wB,
+      [pb2.id]: ratingDelta(pb2.games, aB, eB, cfg) * wB,
     },
     expectedA: eA,
     actualA: aA,
   };
+}
+
+/**
+ * Court-strength weight for one team's rating change (RatingConfig.courtWeight).
+ * Beating a pair weaker than the session average (a lower court) counts for less;
+ * beating a stronger pair, more. A loss to a strong pair costs less; to a weak
+ * pair, more. 1 when the setting is off.
+ */
+export function strengthWeight(oppTeam: number, surprise: number, players: Record<string, Player>, cfg: RatingConfig): number {
+  const w = cfg.courtWeight;
+  if (!w) return 1;
+  const all = Object.values(players);
+  if (!all.length) return 1;
+  const field = all.reduce((a, p) => a + p.rating, 0) / all.length;
+  const rel = (oppTeam - field) / w.scale;
+  return clamp(surprise >= 0 ? 1 + rel : 1 - rel, w.min, w.max);
 }
 
 /** Apply a game result: returns a new players map with ratings, games and history updated. */

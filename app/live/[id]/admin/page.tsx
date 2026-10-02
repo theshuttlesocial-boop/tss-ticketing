@@ -656,6 +656,8 @@ function TuningPanel({ config, onApply, busy }: {
   const [cost, setCost] = useState([config.rotation.cost.repeatPartner, config.rotation.cost.repeatOpponent, config.rotation.cost.per100Gap].join(','))
   const [swb, setSwb] = useState(String(config.rotation.cost.strongWithBeginner ?? 6))
   const [svb, setSvb] = useState(String(config.rotation.cost.strongVsBeginner ?? 2))
+  const [lgap, setLgap] = useState(String(config.rotation.cost.levelGap ?? 0))
+  const [wide, setWide] = useState(String(config.rotation.cost.widePair ?? 0))
   const [spread, setSpread] = useState(String(config.rotation.maxCourtSpread))
   const nums = (s: string) => s.split(',').map(x => Number(x.trim())).filter(n => !Number.isNaN(n))
 
@@ -676,7 +678,7 @@ function TuningPanel({ config, onApply, busy }: {
         movementCap: cap.trim() === '' ? null : Number(cap),
         beginnerCourts: nums(begCourts),
         cost: { repeatPartner: rp, repeatOpponent: ro, per100Gap: pg,
-          strongWithBeginner: Number(swb), strongVsBeginner: Number(svb) },
+          strongWithBeginner: Number(swb), strongVsBeginner: Number(svb), levelGap: Number(lgap), widePair: Number(wide) },
         maxCourtSpread: Number(spread),
         maxSwapDistance: swapDist.trim() === '' ? null : Number(swapDist),
         maxSwapGapIncrease: swapGap.trim() === '' ? null : Number(swapGap),
@@ -712,6 +714,8 @@ function TuningPanel({ config, onApply, busy }: {
           <Field label="Cost: repeat partner / repeat opponent / per 100 pts" value={cost} set={setCost} />
           <Field label="Cost: strong paired with beginner" value={swb} set={setSwb} />
           <Field label="Cost: strong facing beginner" value={svb} set={setSvb} />
+          <Field label="Cost: teams of different level (per level, e.g. St+St v I+I = 2)" value={lgap} set={setLgap} />
+          <Field label="Cost: partners 2+ levels apart (I+B, St+Sd)" value={wide} set={setWide} />
           <Field label="Max court spread for swaps" value={spread} set={setSpread} />
           <Field label="Swaps: furthest from rating block, in courts (blank = no limit)" value={swapDist} set={setSwapDist} />
           <Field label="Swaps: max team-gap increase, rating points (blank = no limit)" value={swapGap} set={setSwapGap} />

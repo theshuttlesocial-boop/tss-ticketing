@@ -105,6 +105,14 @@ export interface RatingConfig {
   kSchedule: number[];
   /** Legacy: median promotion, replaced by `levels` review. Ignored. */
   promotionRounds?: number;
+  /**
+   * Weight a game by how strong the opposition was, relative to everyone in the
+   * session (v3). Points won against a weaker pair (a lower court) move a rating
+   * less; against a stronger pair, more. Losses mirror it. Absent = off, so
+   * sessions played before it replay exactly as they were.
+   *   weight = clamp(1 ± (opposition − session average) / scale, min, max)
+   */
+  courtWeight?: { scale: number; min: number; max: number } | null;
 }
 
 export interface RotationConfig {
@@ -133,6 +141,10 @@ export interface RotationConfig {
      * beginner than being beaten.
      */
     strongVsBeginner: number;
+    /** v3: cost per level of difference between the two teams' combined levels (e.g. St+St v I+I = 2). */
+    levelGap?: number;
+    /** v3: cost of partners two or more levels apart (intermediate+beginner, strong+standard, strong+beginner). */
+    widePair?: number;
   };
   /** Neighbour-swap: don't widen a court's rating spread past this. */
   maxCourtSpread: number;
@@ -145,9 +157,23 @@ export interface RotationConfig {
   maxSwapGapIncrease: number | null;
   /**
    * With only one or two flagged beginners in a round, pair each with the
-   * highest-rated non-strong player on their court, as a partner.
+   * highest-rated non-strong player on their court, as a partner (with
+   * `levelFirst`, the highest-rated standard where there is one).
    */
   loneBeginnerPairing: boolean;
+  /**
+   * v3 matching rules. Absent = off, so earlier sessions replay as played.
+   *  - levelFirst: fill courts by level (strong → beginner), rating only orders
+   *    players within a level. A level change is what moves someone between tiers.
+   *  - evenBoundary: no court of three of one level and one of the level below —
+   *    the weakest of the three drops a court, so the mixed court plays
+   *    higher+lower v higher+lower.
+   *  - sameLevelSwaps: the repeat-avoiding neighbour swap only trades players of
+   *    the same level, so it can never pull a lower-level player onto a higher court.
+   */
+  levelFirst?: boolean;
+  evenBoundary?: boolean;
+  sameLevelSwaps?: boolean;
 }
 
 /** Automatic level review, run after every scored round. */
@@ -184,9 +210,10 @@ export interface Config {
 /**
  * Bump when DEFAULT_CONFIG changes in a way sessions should know about.
  * 1 = sessions created before versioning. 2 = swap limits, lone-beginner
- * pairing, level review.
+ * pairing, level review. 3 = level-first courts, even boundary courts,
+ * same-level swaps, level-aware pairing costs, court-strength weighting.
  */
-export const CONFIG_VERSION = 2;
+export const CONFIG_VERSION = 3;
 
 export const DEFAULT_CONFIG: Config = {
   rating: {
@@ -194,9 +221,13 @@ export const DEFAULT_CONFIG: Config = {
     // (900/1000/1050) so the extra rung actually separates people in round 1,
     // before any result exists to sort them.
     start: { beginner: 900, standard: 980, intermediate: 1060, strong: 1140 },
-    divisor: 1000,
+    // v3 (tested on Sessions 88-90: prediction error 9.6 → 9.2 points of share):
+    // a steeper expectation (100 points = 64/36, was 60/40), gentler early swings
+    // (were 300/300/220/220/160) and court-strength weighting.
+    divisor: 700,
     clip: [0.15, 0.85],
-    kSchedule: [300, 300, 220, 220, 160],
+    kSchedule: [220, 220, 160, 160, 120],
+    courtWeight: { scale: 150, min: 0.4, max: 1.6 },
   },
   rotation: {
     courts: 4,
@@ -205,11 +236,18 @@ export const DEFAULT_CONFIG: Config = {
     // Game quality first: a 100-point team gap now costs the same as repeating
     // a partner, so the solver buys balance with variety rather than the
     // reverse. per100Gap was 0.5.
-    cost: { repeatPartner: 3, repeatOpponent: 1, per100Gap: 3, strongWithBeginner: 6, strongVsBeginner: 2 },
+    // v3, game quality first (owner, Oct 2026): a 100-point team gap (8) outweighs a
+    // repeated partner (6); opponents may repeat when there's no better option (0.5).
+    cost: { repeatPartner: 6, repeatOpponent: 0.5, per100Gap: 8, strongWithBeginner: 6, strongVsBeginner: 2, levelGap: 8, widePair: 12 },
     maxCourtSpread: 150,
     maxSwapDistance: 1,
     maxSwapGapIncrease: 25,
     loneBeginnerPairing: true,
+    // v3: strongs with strongs (or the best intermediates), beginners with
+    // beginners and standards. Tested on Sessions 88-90 (scripts/matching-v3-eval.ts).
+    levelFirst: true,
+    evenBoundary: true,
+    sameLevelSwaps: true,
   },
   finals: { finalists: 4, minGames: 4, shrink: 2, base: 1000 },
   // Suggest-only by default: one night is too few games to move levels
@@ -226,10 +264,15 @@ export const DEFAULT_CONFIG: Config = {
 export function normaliseConfig(stored: any): Config {
   const c = stored ?? {};
   const d = DEFAULT_CONFIG;
+  // v3 settings a stored config predates stay OFF (not today's defaults), so a
+  // session keeps replaying, and drawing, exactly as it was played.
+  const v3Rating = c.rating && !('courtWeight' in c.rating) ? { courtWeight: null } : {};
+  const v3Rotation = c.rotation && !('levelFirst' in c.rotation) ? { levelFirst: false, evenBoundary: false, sameLevelSwaps: false } : {};
+  const v3Cost = c.rotation?.cost && !('levelGap' in c.rotation.cost) ? { levelGap: 0, widePair: 0 } : {};
   return {
     ...c,
-    rating: { ...d.rating, ...c.rating, start: { ...d.rating.start, ...c.rating?.start } },
-    rotation: { ...d.rotation, ...c.rotation, cost: { ...d.rotation.cost, ...c.rotation?.cost } },
+    rating: { ...d.rating, ...v3Rating, ...c.rating, start: { ...d.rating.start, ...c.rating?.start } },
+    rotation: { ...d.rotation, ...v3Rotation, ...c.rotation, cost: { ...d.rotation.cost, ...v3Cost, ...c.rotation?.cost } },
     finals: { ...d.finals, ...c.finals },
     levels: { ...d.levels, ...c.levels },
   };

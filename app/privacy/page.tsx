@@ -35,7 +35,8 @@ export default function PrivacyPage() {
             session changes (to perform our contract with you). Card payments are handled by Stripe; we never see or store your card details.</li>
           <li><strong>Waitlist, releasing or transferring a space, and credits:</strong> your name, email and the session, so we can
             offer spaces and give credit (contract).</li>
-          <li><strong>Live sessions on the night:</strong> the name you enter, the level you pick, your court, partners, opponents
+          <li><strong>Live sessions on the night:</strong> the name and email you enter (the email links the night to your booking
+            and My portal, and is never shown to other players), the level you pick, your court, partners, opponents
             and scores, and a rating worked out from your results — to run fair, well-matched games (our legitimate interest in
             running the session, and yours in good games). A 4-digit PIN lets you back into your page; we store only a scrambled
             version of it, never the PIN itself.</li>

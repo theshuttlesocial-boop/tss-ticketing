@@ -29,7 +29,10 @@ function session(level: Level, rounds: number, score: [number, number], extra: P
     { id: 'b', name: 'B', level: 'standard' as Level },
     { id: 'c', name: 'C', level: 'standard' as Level },
   ];
-  const s = createSession(roster, { ...DEFAULT_CONFIG, ...extra } as any, 1);
+  // v2 rating speed (300/300/220… K, 1000 divisor, no court weighting): these tests are
+  // about the review rules, written against how fast v2 ratings move.
+  const rating = { ...DEFAULT_CONFIG.rating, divisor: 1000, kSchedule: [300, 300, 220, 220, 160], courtWeight: null };
+  const s = createSession(roster, { ...DEFAULT_CONFIG, rating, ...extra } as any, 1);
   const results: GameResult[] = [];
   for (let r = 1; r <= rounds; r++) {
     results.push({ round: r, court: 1, teamA: { a: 'x', b: 'a' }, teamB: { a: 'b', b: 'c' }, scoreA: score[0], scoreB: score[1] });
