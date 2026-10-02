@@ -236,7 +236,9 @@ export const DEFAULT_CONFIG: Config = {
     // Game quality first: a 100-point team gap now costs the same as repeating
     // a partner, so the solver buys balance with variety rather than the
     // reverse. per100Gap was 0.5.
-    cost: { repeatPartner: 3, repeatOpponent: 1, per100Gap: 3, strongWithBeginner: 6, strongVsBeginner: 2, levelGap: 4, widePair: 6 },
+    // v3, game quality first (owner, Oct 2026): a 100-point team gap (8) outweighs a
+    // repeated partner (6); opponents may repeat when there's no better option (0.5).
+    cost: { repeatPartner: 6, repeatOpponent: 0.5, per100Gap: 8, strongWithBeginner: 6, strongVsBeginner: 2, levelGap: 8, widePair: 12 },
     maxCourtSpread: 150,
     maxSwapDistance: 1,
     maxSwapGapIncrease: 25,

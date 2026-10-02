@@ -177,7 +177,7 @@ export function applyEvenBoundary(courts: Player[][]): Player[][] {
 /* Step 4 — pair split by cost                                         */
 /* ------------------------------------------------------------------ */
 
-export interface SplitChoice { teamA: Pair; teamB: Pair; cost: number; repeats: number }
+export interface SplitChoice { teamA: Pair; teamB: Pair; cost: number; repeats: number; partnerRepeats?: number; opponentRepeats?: number }
 
 /** The three splits of 4 players (sorted by rating desc), skill-balanced first. */
 export function splitsOf(c: Player[]): [Pair, Pair][] {
@@ -196,7 +196,7 @@ export function isStrongWithBeginner(court: Player[], pair: Pair): boolean {
   return (a === 'strong' && b === 'beginner') || (a === 'beginner' && b === 'strong');
 }
 
-export function splitCost(court: Player[], teamA: Pair, teamB: Pair, hist: History, cfg: RotationConfig): { cost: number; repeats: number } {
+export function splitCost(court: Player[], teamA: Pair, teamB: Pair, hist: History, cfg: RotationConfig): { cost: number; repeats: number; partnerRepeats: number; opponentRepeats: number } {
   const r = (id: PlayerId) => court.find((p) => p.id === id)!.rating;
   const partnerRep = hist.partnerRepeats(teamA.a, teamA.b) + hist.partnerRepeats(teamB.a, teamB.b);
   let oppRep = 0;
@@ -226,7 +226,7 @@ export function splitCost(court: Player[], teamA: Pair, teamB: Pair, hist: Histo
     cfg.cost.per100Gap * (gap / 100) +
     (cfg.cost.strongWithBeginner ?? 0) * mismatch +
     (cfg.cost.strongVsBeginner ?? 0) * facing;
-  return { cost, repeats: partnerRep + oppRep };
+  return { cost, repeats: partnerRep + oppRep, partnerRepeats: partnerRep, opponentRepeats: oppRep };
 }
 
 /**
@@ -258,8 +258,9 @@ export function chooseSplit(court: Player[], hist: History, cfg: RotationConfig,
   const candidates = (loneBeginner && loneBeginnerSplits(sorted, all, !!cfg.levelFirst)) || all;
   let best: SplitChoice | null = null;
   for (const [teamA, teamB] of candidates) {
-    const { cost, repeats } = splitCost(sorted, teamA, teamB, hist, cfg);
-    if (!best || cost < best.cost - 1e-9) best = { teamA, teamB, cost, repeats }; // strict < keeps balanced on ties
+    const c = splitCost(sorted, teamA, teamB, hist, cfg);
+    const { cost, repeats } = c;
+    if (!best || cost < best.cost - 1e-9) best = { teamA, teamB, cost, repeats, partnerRepeats: c.partnerRepeats, opponentRepeats: c.opponentRepeats }; // strict < keeps balanced on ties
   }
   return best!;
 }
@@ -315,9 +316,9 @@ export function separable(active: Player[]): boolean {
  * in fairness, and removes the court that would otherwise have to mix strongs
  * with standards.
  */
-export function alignUpperGroup(players: Player[], sitOuts: PlayerId[], courts: number): PlayerId[] {
+export function alignUpperGroup(players: Player[], sitOuts: PlayerId[], courts: number,
+  upper: (p: Player) => boolean = (p) => (p.level === 'strong' || p.level === 'intermediate') && !p.beginner): PlayerId[] {
   const sit = new Set(sitOuts);
-  const upper = (p: Player) => (p.level === 'strong' || p.level === 'intermediate') && !p.beginner;
   const eligible = players.filter((p) => !p.satLastRound);
   if (!sit.size) return sitOuts;
   // The cut-off is the highest sit-out count among those chosen to sit fairly.
@@ -501,7 +502,12 @@ const spread = (c: Player[]) => Math.max(...c.map((p) => p.rating)) - Math.min(.
 export function neighbourSwap(courts: Player[][], hist: History, cfg: RotationConfig, loneBeginner = false): Player[][] {
   const out = courts.map((c) => [...c]);
   const split = (c: Player[]) => chooseSplit(c, hist, cfg, loneBeginner);
-  const repeatsOf = (c: Player[]) => split(c).repeats;
+  // v3 (sameLevelSwaps): weigh repeats by their costs, so a swap is made for a repeated
+  // partner, and an opponent repeat alone (cheap when unavoidable) rarely moves anyone.
+  const repeatsOf = (c: Player[]) => {
+    const s = split(c);
+    return cfg.sameLevelSwaps ? cfg.cost.repeatPartner * (s.partnerRepeats ?? 0) + cfg.cost.repeatOpponent * (s.opponentRepeats ?? 0) : s.repeats;
+  };
   const gapOf = (c: Player[]) => splitGap(c, split(c));
 
   const ranked = courts.flat().sort((a, b) => (cfg.levelFirst ? tier(b) - tier(a) : 0) || b.rating - a.rating);
@@ -585,8 +591,11 @@ export function solveRound(
   const courtsUsed = Math.min(cfg.courts, Math.floor(players.length / 4));
   if (courtsUsed < 1) throw new Error('need at least 4 players to draw a round');
 
+  // v3: among players tied for sitting out, also make the strongs a multiple of four,
+  // so no court has to pair a strong with someone two levels below.
+  const alignStrongs = (sit: PlayerId[]) => cfg.levelFirst ? alignUpperGroup(players, sit, courtsUsed, (p) => p.level === 'strong') : sit;
   const sitOuts = fixedSitOuts ?? repairSitOutsForSeparation(
-    players, alignUpperGroup(players, chooseSitOuts(players, courtsUsed, rand), courtsUsed));
+    players, alignStrongs(alignUpperGroup(players, chooseSitOuts(players, courtsUsed, rand), courtsUsed)));
   const sitSet = new Set(sitOuts);
   const active = players.filter((p) => !sitSet.has(p.id));
 

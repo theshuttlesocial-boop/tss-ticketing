@@ -14,14 +14,18 @@ import {
   loadFixture, stateBefore, fixtureConfig, fixtureRounds, drawPool,
 } from '../lib/live-session/fixtures';
 import { DEFAULT_CONFIG, replay, solveRound, expectedShare, teamRating, tier } from '../lib/live-session/engine';
+import { History } from '../lib/live-session/engine';
 import type { Match, Player } from '../lib/live-session/engine';
+
+// Optional: try other weights, e.g. COSTS='{"per100Gap":10,"repeatPartner":4}'
+const COSTS = process.env.COSTS ? JSON.parse(process.env.COSTS) : {};
 
 const FIXTURES = ['session-88.json', 'session-89.json', 'session-90.json'];
 const v3 = (c: any) => ({
   ...c,
   rating: { ...c.rating, ...DEFAULT_CONFIG.rating, start: c.rating.start },
   rotation: { ...c.rotation, levelFirst: true, evenBoundary: true, sameLevelSwaps: true,
-    cost: { ...c.rotation.cost, levelGap: DEFAULT_CONFIG.rotation.cost.levelGap, widePair: DEFAULT_CONFIG.rotation.cost.widePair } },
+    cost: { ...c.rotation.cost, ...DEFAULT_CONFIG.rotation.cost, ...COSTS } },
 });
 
 // 1. Rating prediction error
@@ -35,10 +39,12 @@ for (const name of FIXTURES) {
 console.log(`Rating prediction error over ${n} games: v2 ${(e2 / n * 100).toFixed(2)}  v3 ${(e3 / n * 100).toFixed(2)} (points of share)\n`);
 
 // 2. Draw quality
-type Tot = { dev: number; lopsided: number; threeOne: number; uneven: number; wide: number; intBeg: number; n: number };
-const zero = (): Tot => ({ dev: 0, lopsided: 0, threeOne: 0, uneven: 0, wide: 0, intBeg: 0, n: 0 });
-function judge(ms: Match[], P: Record<string, Player>, H: Record<string, number>, cfg: any, t: Tot) {
+type Tot = { dev: number; lopsided: number; threeOne: number; uneven: number; wide: number; intBeg: number; partnerRep: number; oppRep: number; n: number };
+const zero = (): Tot => ({ dev: 0, lopsided: 0, threeOne: 0, uneven: 0, wide: 0, intBeg: 0, partnerRep: 0, oppRep: 0, n: 0 });
+function judge(ms: Match[], P: Record<string, Player>, H: Record<string, number>, cfg: any, t: Tot, hist: History) {
   for (const m of ms) {
+    t.partnerRep += +(hist.partnerRepeats(m.teamA.a, m.teamA.b) > 0) + +(hist.partnerRepeats(m.teamB.a, m.teamB.b) > 0);
+    for (const x of [m.teamA.a, m.teamA.b]) for (const y of [m.teamB.a, m.teamB.b]) t.oppRep += +(hist.opponentRepeats(x, y) > 0);
     const ids = [m.teamA.a, m.teamA.b, m.teamB.a, m.teamB.b];
     const e = expectedShare(teamRating(H[ids[0]], H[ids[1]]), teamRating(H[ids[2]], H[ids[3]]), cfg);
     t.dev += Math.abs(e - 0.5); if (Math.abs(e - 0.5) >= 0.1) t.lopsided++;
@@ -50,7 +56,7 @@ function judge(ms: Match[], P: Record<string, Player>, H: Record<string, number>
     t.n++;
   }
 }
-const row = (k: string, t: Tot) => `  ${k}  imbalance ${(t.dev / t.n * 100).toFixed(1)}%  60/40+ ${t.lopsided}/${t.n}  3+1 courts ${t.threeOne}  uneven-level teams ${t.uneven}  wide pairs ${t.wide}  int+beginner courts ${t.intBeg}`;
+const row = (k: string, t: Tot) => `  ${k}  imbalance ${(t.dev / t.n * 100).toFixed(1)}%  60/40+ ${t.lopsided}/${t.n}  3+1 courts ${t.threeOne}  uneven-level teams ${t.uneven}  wide pairs ${t.wide}  int+beginner courts ${t.intBeg}  repeat partners ${t.partnerRep}  repeat opponents ${t.oppRep}`;
 const all = { v2: zero(), v3: zero() };
 for (const name of FIXTURES) {
   const f = loadFixture(name);
@@ -61,9 +67,12 @@ for (const name of FIXTURES) {
   for (const r of fixtureRounds(f).filter((x) => x.index <= last && x.matches.length > 1)) {
     const st = stateBefore(f, r.index, fixtureConfig(f));
     const pool = drawPool(f, st, r.index);
-    const draw = solveRound(pool, st.rounds, v3(st.config).rotation, st.seed, r.sitOuts).round.matches;
-    judge(r.matches, pool, H, v3(st.config).rating, t.v2);
-    judge(draw, pool, H, v3(st.config).rating, t.v3);
+    // v3 chooses its own sit-outs (same fairness rule; it re-breaks ties to keep strongs
+    // in fours). SAME_SITOUTS=1 forces the sit-outs that were actually played.
+    const draw = solveRound(pool, st.rounds, v3(st.config).rotation, st.seed, process.env.SAME_SITOUTS ? r.sitOuts : undefined).round.matches;
+    const hist = new History(st.rounds);
+    judge(r.matches, pool, H, v3(st.config).rating, t.v2, hist);
+    judge(draw, pool, H, v3(st.config).rating, t.v3, hist);
   }
   for (const k of ['v2', 'v3'] as const) for (const x of Object.keys(t[k]) as (keyof Tot)[]) all[k][x] += t[k][x];
   console.log(`${name}\n${row('v2', t.v2)}\n${row('v3', t.v3)}`);
