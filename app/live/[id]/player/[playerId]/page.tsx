@@ -4,8 +4,6 @@ import { supabase } from '@/lib/supabase-client'
 import { T } from '@/app/_design/theme'
 import { FormBadges, RatingTrend, LastDelta } from '../../../_components/Form'
 import { displayNames } from '@/lib/live-session/displayNames'
-import { clockOffset } from '@/lib/live-session/timer'
-import { RoundTimer } from '../../../_components/RoundTimer'
 import { KeepMyPage } from '../../../_components/KeepMyPage'
 
 /**
@@ -18,16 +16,13 @@ export default function PlayerPage({ params }: { params: Promise<{ id: string; p
   const [view, setView] = useState<any>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
-  const [offset, setOffset] = useState(0)
 
   const refetch = useCallback(async () => {
-    const sentAt = Date.now()
     try {
       const res = await fetch(`/api/live/${id}/player/${playerId}`, { cache: 'no-store' })
       const json = await res.json()
       if (!res.ok) { setError(json.error ?? 'Could not load'); return }
       setView(json.player); setError(null)
-      if (typeof json.serverNow === 'number') setOffset(clockOffset(json.serverNow, sentAt, Date.now()))
     } catch (e) { setError((e as Error).message) } finally { setLoading(false) }
   }, [id, playerId])
 
@@ -95,11 +90,7 @@ export default function PlayerPage({ params }: { params: Promise<{ id: string; p
         {view.name}
       </h1>
 
-      {round?.timer?.startedAt && (
-        <div style={{ marginBottom:14 }}>
-          <RoundTimer mode="player" timer={round.timer} round={round.index} offset={offset} />
-        </div>
-      )}
+      {/* The round timer is for session leads and admins only (their admin page and the TV board). */}
 
       <div className={sittingNow ? undefined : 'deep'} style={{
         ...(sittingNow ? { background:T.infoDim, border:`1px solid ${T.info}` } : {}),

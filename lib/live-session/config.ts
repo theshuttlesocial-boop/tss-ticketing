@@ -63,7 +63,7 @@ export function buildConfig(input: any = {}): Config {
     if (!Array.isArray(rot.beginnerCourts)) bad('beginner courts');
     c.rotation.beginnerCourts = rot.beginnerCourts.map((x: unknown) => int(x, 1, 12) ?? bad('beginner courts'));
   }
-  for (const k of ['repeatPartner', 'repeatOpponent', 'per100Gap', 'strongWithBeginner', 'strongVsBeginner'] as const) {
+  for (const k of ['repeatPartner', 'repeatOpponent', 'per100Gap', 'strongWithBeginner', 'strongVsBeginner', 'levelGap', 'widePair'] as const) {
     if (cost[k] !== undefined) c.rotation.cost[k] = num(cost[k], 0, 100) ?? bad(`cost ${k}`);
   }
   if (rot.maxCourtSpread !== undefined) c.rotation.maxCourtSpread = num(rot.maxCourtSpread, 0, 2000) ?? bad('max court spread');

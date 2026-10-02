@@ -62,8 +62,16 @@ export function chooseSitOuts(players: Player[], courts: number, rand: () => num
 /* Steps 2–3 — sort, cut into courts, beginner ceiling, movement cap   */
 /* ------------------------------------------------------------------ */
 
-export function cutIntoCourts(active: Player[]): Player[][] {
-  const sorted = [...active].sort((a, b) => b.rating - a.rating);
+/** Level as a number: beginner 0, standard 1, intermediate 2, strong 3. */
+export const tier = (p: Player) => ({ beginner: 0, standard: 1, intermediate: 2, strong: 3 } as const)[p.level];
+
+/**
+ * Sort and cut into fours. levelFirst (v3): by level first, then rating, so strongs
+ * fill the top courts with strongs and a lower-level player only joins them when
+ * there aren't enough. Otherwise by rating alone (pre-v3).
+ */
+export function cutIntoCourts(active: Player[], levelFirst = false): Player[][] {
+  const sorted = [...active].sort((a, b) => (levelFirst ? tier(b) - tier(a) : 0) || b.rating - a.rating);
   const courts: Player[][] = [];
   for (let i = 0; i < sorted.length; i += 4) courts.push(sorted.slice(i, i + 4));
   return courts;
@@ -123,6 +131,7 @@ export function applyMovementCap(courts: Player[][], hist: History, cfg: Rotatio
         let best = -1, bestGap = Infinity;
         for (let ti = 0; ti < out[target].length; ti++) {
           const q = out[target][ti];
+          if (cfg.levelFirst && q.level !== p.level) continue;   // never trade across levels
           const qPrev = hist.lastCourt.get(q.id);
           if (qPrev != null && Math.abs(ci - (qPrev - 1)) > cap) continue;
           if (q.beginner && !cfg.beginnerCourts.includes(ci + 1)) continue;
@@ -136,6 +145,30 @@ export function applyMovementCap(courts: Player[][], hist: History, cfg: Rotatio
         changed = true;
       }
     }
+  }
+  return out.map((c) => c.sort((a, b) => b.rating - a.rating));
+}
+
+/**
+ * Even boundary (v3): no court of three players of one level and one of the level
+ * below. The weakest of the three drops to the next court, swapping with that
+ * court's best player of the lower level, so the mixed court plays
+ * higher+lower v higher+lower (e.g. St+I v St+I) rather than one intermediate
+ * against three strongs.
+ */
+export function applyEvenBoundary(courts: Player[][]): Player[][] {
+  const out = courts.map((c) => [...c]);
+  for (let ci = 0; ci + 1 < out.length; ci++) {
+    const top = Math.max(...out[ci].map(tier));
+    const highs = out[ci].filter((p) => tier(p) === top);
+    const lows = out[ci].filter((p) => tier(p) < top);
+    if (highs.length !== 3 || lows.length !== 1) continue;
+    const down = [...highs].sort((a, b) => a.rating - b.rating)[0];
+    const lowTier = tier(lows[0]);
+    const up = [...out[ci + 1]].filter((p) => tier(p) === lowTier && !p.beginner).sort((a, b) => b.rating - a.rating)[0];
+    if (!up) continue;
+    out[ci][out[ci].indexOf(down)] = up;
+    out[ci + 1][out[ci + 1].indexOf(up)] = down;
   }
   return out.map((c) => c.sort((a, b) => b.rating - a.rating));
 }
@@ -180,7 +213,14 @@ export function splitCost(court: Player[], teamA: Pair, teamB: Pair, hist: Histo
       if ((lx === 'strong' && ly === 'beginner') || (lx === 'beginner' && ly === 'strong')) facing++;
     }
   }
+  // v3: level make-up. Teams of different combined level (St+St v I+I), and
+  // partners two or more levels apart (I+B, St+Sd, St+B).
+  const tierOf = (id: PlayerId) => { const p = court.find((x) => x.id === id)!; return tier(p); };
+  const levelGap = Math.abs(tierOf(teamA.a) + tierOf(teamA.b) - tierOf(teamB.a) - tierOf(teamB.b));
+  const wide = [teamA, teamB].filter((t) => Math.abs(tierOf(t.a) - tierOf(t.b)) >= 2).length;
   const cost =
+    (cfg.cost.levelGap ?? 0) * levelGap +
+    (cfg.cost.widePair ?? 0) * wide +
     cfg.cost.repeatPartner * partnerRep +
     cfg.cost.repeatOpponent * oppRep +
     cfg.cost.per100Gap * (gap / 100) +
@@ -197,10 +237,10 @@ export function splitCost(court: Player[], teamA: Pair, teamB: Pair, hist: Histo
  * instead of being the obvious target. Returns null when the court has no
  * beginner, or no split satisfies it.
  */
-export function loneBeginnerSplits(sorted: Player[], splits: [Pair, Pair][]): [Pair, Pair][] | null {
+export function loneBeginnerSplits(sorted: Player[], splits: [Pair, Pair][], preferStandard = false): [Pair, Pair][] | null {
   const begs = sorted.filter((p) => p.beginner);
   if (begs.length === 0 || begs.length > 2) return null;
-  const top = sorted.find((p) => !p.beginner && p.level !== 'strong');
+  const top = (preferStandard && sorted.find((p) => p.level === 'standard')) || sorted.find((p) => !p.beginner && p.level !== 'strong');
   const partnerOf = (split: [Pair, Pair], id: PlayerId) => {
     for (const t of split) { if (t.a === id) return t.b; if (t.b === id) return t.a; }
     return null;
@@ -215,7 +255,7 @@ export function loneBeginnerSplits(sorted: Player[], splits: [Pair, Pair][]): [P
 export function chooseSplit(court: Player[], hist: History, cfg: RotationConfig, loneBeginner = false): SplitChoice {
   const sorted = [...court].sort((a, b) => b.rating - a.rating);
   const all = splitsOf(sorted);
-  const candidates = (loneBeginner && loneBeginnerSplits(sorted, all)) || all;
+  const candidates = (loneBeginner && loneBeginnerSplits(sorted, all, !!cfg.levelFirst)) || all;
   let best: SplitChoice | null = null;
   for (const [teamA, teamB] of candidates) {
     const { cost, repeats } = splitCost(sorted, teamA, teamB, hist, cfg);
@@ -464,7 +504,7 @@ export function neighbourSwap(courts: Player[][], hist: History, cfg: RotationCo
   const repeatsOf = (c: Player[]) => split(c).repeats;
   const gapOf = (c: Player[]) => splitGap(c, split(c));
 
-  const ranked = courts.flat().sort((a, b) => b.rating - a.rating);
+  const ranked = courts.flat().sort((a, b) => (cfg.levelFirst ? tier(b) - tier(a) : 0) || b.rating - a.rating);
   const natural = new Map(ranked.map((p, i) => [p.id, Math.floor(i / 4)]));
   const startGap = courts.map(gapOf);
   const maxGapUp = cfg.maxSwapGapIncrease ?? Infinity;
@@ -489,6 +529,7 @@ export function neighbourSwap(courts: Player[][], hist: History, cfg: RotationCo
       for (let i = 0; i < out[ci].length; i++) {
         for (let j = 0; j < out[ci + 1].length; j++) {
           const p = out[ci][i], q = out[ci + 1][j];
+          if (cfg.sameLevelSwaps && p.level !== q.level) continue;   // v3: never trade across levels
           // beginner ceiling must survive the swap
           if (q.beginner && !cfg.beginnerCourts.includes(ci + 1)) continue;
           const upper = out[ci].map((x, k) => (k === i ? q : x));
@@ -549,10 +590,11 @@ export function solveRound(
   const sitSet = new Set(sitOuts);
   const active = players.filter((p) => !sitSet.has(p.id));
 
-  let courts = cutIntoCourts(active);
+  let courts = cutIntoCourts(active, !!cfg.levelFirst);
   courts = applyBeginnerCeiling(courts, cfg);
   courts = applyMovementCap(courts, hist, cfg);
   courts = applyBeginnerCeiling(courts, cfg); // cap pass must not undo the ceiling
+  if (cfg.evenBoundary) courts = applyEvenBoundary(courts);
   const lone = loneBeginnerRound(active, cfg);
   courts = neighbourSwap(courts, hist, cfg, lone);
   // Hard rule last, so no later pass can undo it.

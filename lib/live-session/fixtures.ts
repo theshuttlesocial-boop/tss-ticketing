@@ -33,10 +33,13 @@ export const pid = (i: number) => `p${String(i).padStart(2, '0')}`;
 /** Fixture config merged over the defaults, so keys it predates still exist. */
 export function fixtureConfig(f: Fixture): Config {
   const d = DEFAULT_CONFIG as any, c = f.config as any;
+  // Settings a fixture predates stay off (v3), so it replays as it was played.
+  const offR = 'courtWeight' in c.rating ? {} : { courtWeight: null };
+  const offRot = 'levelFirst' in c.rotation ? {} : { levelFirst: false, evenBoundary: false, sameLevelSwaps: false };
   return {
     ...d, ...c,
-    rating: { ...d.rating, ...c.rating, start: { ...d.rating.start, ...c.rating.start } },
-    rotation: { ...d.rotation, ...c.rotation, cost: { ...c.rotation.cost } },
+    rating: { ...d.rating, ...offR, ...c.rating, start: { ...d.rating.start, ...c.rating.start } },
+    rotation: { ...d.rotation, ...offRot, ...c.rotation, cost: { ...c.rotation.cost } },
   };
 }
 

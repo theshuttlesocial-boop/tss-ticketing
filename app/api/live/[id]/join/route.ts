@@ -29,10 +29,14 @@ export async function POST(req: Request, { params }: Ctx) {
   if (clean.length < 2) return NextResponse.json({ error: 'Please enter your name' }, { status: 400 })
   if (clean.length > 40) return NextResponse.json({ error: 'That name is too long' }, { status: 400 })
   if (!LEVELS.includes(level)) return NextResponse.json({ error: 'Pick a level' }, { status: 400 })
-  // Optional: links them to their booking and lets their attendance show in My portal.
+  // Required unless signed in (then the account email is used): links them to their
+  // booking and lets their attendance show in My portal.
   let typedEmail: string | null
   try { typedEmail = cleanOptionalEmail(email) }
   catch (e) { return NextResponse.json({ error: (e as Error).message }, { status: 400 }) }
+  if (!typedEmail && !(await userFromRequest(req))) {
+    return NextResponse.json({ error: 'Please add your email address' }, { status: 400 })
+  }
 
   try {
     const meta = await autoFinishIfStale(id, await loadMeta(id))
